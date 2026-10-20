@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use gd_git::{Diff, DiffLineKind};
-use gd_ui::{Theme, theme::DIFF_ROW_HEIGHT, ink};
+use gd_ui::{Theme, theme::{DIFF_ROW_HEIGHT, ink}};
 use gpui::{
     AnyElement, App, Div, IntoElement, ParentElement, StyledText, Styled, div, prelude::*, px,
     uniform_list,
@@ -168,8 +168,8 @@ pub fn split_list(
             .map(|ix| {
                 let row = split.rows[ix];
                 let base = div().flex().h(px(DIFF_ROW_HEIGHT)).w_full().whitespace_nowrap();
-                let line = &diff.lines[row.left as usize];
-                if row.left == row.right && line.kind == DiffLineKind::Hunk {
+                if row.left == row.right && diff.lines[row.left as usize].kind == DiffLineKind::Hunk {
+                    let line = &diff.lines[row.left as usize];
                     return base
                         .bg(theme.diff_hunk_bg)
                         .pl(px(gutter_w + 16.0))

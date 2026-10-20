@@ -71,7 +71,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 5. ⬜ Stash (Desktop's "stashed changes"), switch-branch-with-changes dialog.
 6. ⬜ Merge / rebase / squash into current branch; conflict resolution UI.
 7. ⬜ Partial (line/hunk) staging in the diff gutter.
-8. ⬜ Split diff view; image diffs; whitespace toggle.
+8. 🟨 Split diff view and whitespace toggle done (gear button in both diff headers: Unified/Split + Hide whitespace changes, persisted in `display` settings file, `-w` via `gd_git::DiffOptions`). Image diffs still open. Split view clips long lines (no horizontal scroll). Snapshot views: `split`, `split-ws`, `split-history`, `hide-ws`, `diff-options-menu`. Split row build: 0.36 ms for an 18k-line diff (cached per loaded diff), so toggling is instant.
 9. ⬜ Pull requests list (GitHub API); create PR; CI status.
 10. ⬜ Cherry-pick, revert, amend, reorder, and squash commits from History.
 11. ⬜ Tags, branch rename/delete UI, compare branches.
