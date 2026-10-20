@@ -48,8 +48,8 @@ guessing APIs. To recreate them:
   `commit_gen`). Clicking quickly through files never shows the wrong diff.
 - `RepoModel::run(op, on_ok)` is the generic write-op helper. It runs off-thread,
   sets `error`, then refreshes status and branches.
-- Refresh triggers: window activation (like Desktop), after every op, F5.
-  There is no file watcher yet (see PROGRESS).
+- Refresh triggers: file watcher, window activation (skipped if the watcher
+  refreshed <1s ago), after every op, F5. See §File watcher.
 - Views live in `views/*.rs` as `impl Workspace` blocks. Rows in lists hold
   `Entity<RepoModel>` clones and call `update` in click handlers.
 
@@ -67,6 +67,31 @@ guessing APIs. To recreate them:
 Known perf TODOs: split `Workspace` into child entities so typing in the commit
 box doesn't re-render the diff (it's virtualized, so it's cheap but not free);
 add syntax highlighting with a cache; add a file watcher so focus refresh isn't the only trigger.
+
+## File watcher and refresh coalescing
+
+- `RepoModel::new` starts `RepoWatcher` (`watcher.rs`): one OS thread owning the
+  `notify` watcher; blocks on an mpsc channel when idle (no polling). It does a
+  trailing debounce (300ms quiet, 2s max) and sends one tick (`bool` = git
+  metadata changed) over a `smol` channel to a foreground task in the model.
+  Dropping the model drops `RepoWatcher`, which sends `Stop`; the thread exits and the watches go away.
+- Watches: root non-recursive, each top-level dir recursively (except `.git`,
+  `target`, `node_modules`), git dir non-recursive + `refs/` recursive. New
+  top-level dirs get a watch on their Create event. Not one recursive root watch:
+  that would cover `.git/objects` and build dirs.
+- **Gotcha:** inotify reports `Access(Open)` for reads, and our own `git status`
+  opens every file and `.git/index`. Only Create/Modify/Remove/Any events count,
+  otherwise refresh retriggers itself forever. `GIT_OPTIONAL_LOCKS=0` keeps status from writing the index.
+- `RepoModel::request_refresh(full, cx)` is the only refresh path: if one is in
+  flight it records `pending_refresh` and exactly one follow-up runs afterwards
+  (`full` is OR-ed). Status-only refreshes (worktree edits) skip branches/history.
+  `refresh_count` + a debug log line per refresh make loops visible.
+- Last fetch = mtime of `<common git dir>/FETCH_HEAD` (read in each refresh).
+  Background fetch task: first check at 10s, then wakes every 60s (also re-renders
+  the relative-time caption); fetches when both last fetch and last attempt are >=30 min old.
+  Failures are only logged.
+- Headless test (`--snapshot ... watch`): the watcher debounces in wall-clock
+  time, so use real sleeps and poll `run_until_parked`.
 
 ## UI kit (`crates/ui`)
 

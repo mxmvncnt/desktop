@@ -89,7 +89,15 @@ impl Workspace {
         // Desktop refreshes status when the window regains focus.
         subs.push(cx.observe_window_activation(window, |this, window, cx| {
             if window.is_window_active() {
-                this.refresh(cx);
+                // The watcher already keeps us fresh; skip if it just refreshed.
+                let recent = this.repo.as_ref().is_some_and(|r| {
+                    r.read(cx)
+                        .last_watch_refresh
+                        .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(1))
+                });
+                if !recent {
+                    this.refresh(cx);
+                }
             }
         }));
 
@@ -456,7 +464,7 @@ impl Workspace {
                     ),
                     _ => (
                         Icon::Refresh,
-                        "Up to date".into(),
+                        last_fetched_caption(r.last_fetch).into(),
                         format!("Fetch {remote}").into(),
                         Some(RemoteOp::Fetch),
                         false,
@@ -723,3 +731,19 @@ pub fn text_field(
         .overflow_hidden()
 }
 
+
+/// Desktop's idle Fetch caption: "Last fetched 5 minutes ago" / "Never fetched".
+pub fn last_fetched_caption(last: Option<std::time::SystemTime>) -> String {
+    let Some(last) = last else {
+        return "Never fetched".into();
+    };
+    let secs = last.elapsed().map(|d| d.as_secs()).unwrap_or(0);
+    let n = |v: u64, unit: &str| format!("{v} {unit}{} ago", if v == 1 { "" } else { "s" });
+    let ago = match secs {
+        0..=59 => "just now".to_string(),
+        60..=3599 => n(secs / 60, "minute"),
+        3600..=86399 => n(secs / 3600, "hour"),
+        _ => n(secs / 86400, "day"),
+    };
+    format!("Last fetched {ago}")
+}

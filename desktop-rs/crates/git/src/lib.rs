@@ -251,3 +251,46 @@ impl Repository {
             .map(|(n, _)| n.clone()))
     }
 }
+
+// ---- filesystem-level helpers (no process spawn) ----------------------------
+
+impl Repository {
+    /// The repository's git directory (`<root>/.git`, or the target of a
+    /// `.git` *file* as used by linked worktrees and submodules). Reads the
+    /// filesystem only, so it is cheap and never spawns git.
+    pub fn git_dir(&self) -> PathBuf {
+        let dot_git = self.root.join(".git");
+        if dot_git.is_file() {
+            if let Ok(s) = std::fs::read_to_string(&dot_git) {
+                if let Some(p) = s.trim().strip_prefix("gitdir:") {
+                    let p = PathBuf::from(p.trim());
+                    return if p.is_absolute() { p } else { self.root.join(p) };
+                }
+            }
+        }
+        dot_git
+    }
+
+    /// The directory shared between linked worktrees (holds `refs`,
+    /// `FETCH_HEAD`, `config`). Equal to [`git_dir`](Self::git_dir) for a
+    /// normal repository.
+    pub fn common_git_dir(&self) -> PathBuf {
+        let dir = self.git_dir();
+        match std::fs::read_to_string(dir.join("commondir")) {
+            Ok(s) => {
+                let p = PathBuf::from(s.trim());
+                if p.is_absolute() { p } else { dir.join(p) }
+            }
+            Err(_) => dir,
+        }
+    }
+
+    /// When the repository last fetched, from the mtime of `FETCH_HEAD`
+    /// (what Desktop does too). `None` if it never fetched. Rewritten by every
+    /// `git fetch`, even when nothing new arrived.
+    pub fn last_fetch_time(&self) -> Option<std::time::SystemTime> {
+        std::fs::metadata(self.common_git_dir().join("FETCH_HEAD"))
+            .and_then(|m| m.modified())
+            .ok()
+    }
+}

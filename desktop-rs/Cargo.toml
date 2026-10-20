@@ -23,6 +23,7 @@ thiserror = "2"
 log = "0.4"
 env_logger = "0.11"
 smol = "2"
+notify = "8"
 
 [profile.dev]
 # Keep debug builds snappy to iterate on while still optimizing deps,
