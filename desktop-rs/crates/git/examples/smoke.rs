@@ -22,6 +22,15 @@ fn main() {
     println!("modified diff: +{} -{} lines={}", d.added, d.deleted, d.lines.len());
     repo.discard(&st.files).unwrap();
     println!("after discard: {} changes", repo.status().unwrap().files.len());
+    // ignore: literal + extension patterns, idempotent, ends with newline.
+    std::fs::write(dir.join("junk.log"), "x").unwrap();
+    std::fs::write(dir.join("we[ird].tmp"), "x").unwrap();
+    repo.ignore(&[escape_ignore("we[ird].tmp"), "*.log".into()]).unwrap();
+    repo.ignore(&["*.log".into()]).unwrap();
+    println!(".gitignore: {:?}", std::fs::read_to_string(dir.join(".gitignore")).unwrap());
+    let left: Vec<_> = repo.status().unwrap().files.into_iter().map(|f| f.path).collect();
+    println!("after ignore: {left:?}");
+    assert!(!left.iter().any(|p| p.ends_with(".log") || p.ends_with(".tmp")));
     repo.create_branch("feature/x").unwrap();
     println!("branches: {:?}", repo.branches().unwrap().iter().map(|b| (&b.name, b.is_head)).collect::<Vec<_>>());
     let log = repo.log(0, 10).unwrap();
