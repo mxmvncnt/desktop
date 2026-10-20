@@ -24,8 +24,8 @@
   ```sh
   cd /home/maxime/Git/github-desktop
   git worktree add desktop-rs/.worktrees/<name> -b rust/<name> rust-rewrite
-  # Optional: seed the build cache to skip a ~4 min cold build
-  cp -r --reflink=auto desktop-rs/target desktop-rs/.worktrees/<name>/desktop-rs/target
+  # Don't copy target/ from another checkout: cargo fingerprints include the
+  # absolute path, so it rebuilds everything anyway (~4 min cold, ~7.5 GB).
   cd desktop-rs/.worktrees/<name>/desktop-rs && source env.sh
   ```
 - Commit in small, logical commits with clear messages on `rust/<name>`.
