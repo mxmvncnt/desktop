@@ -26,3 +26,4 @@ notify.workspace = true
 smol.workspace = true
 log.workspace = true
 env_logger.workspace = true
+gd-syntax.workspace = true

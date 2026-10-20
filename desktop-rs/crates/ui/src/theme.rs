@@ -5,6 +5,7 @@
 //! for hover/active washes and hairlines. Keep new colors on this ladder —
 //! don't invent opaque greys, use `ink()`/`hairline()` instead.
 
+use gd_syntax::HighlightKind;
 use gpui::{App, ColorExt as _, Global, Hsla, SharedString, hsla};
 
 #[derive(Debug, Clone)]
@@ -58,6 +59,9 @@ pub struct Theme {
     pub diff_del_bg: Hsla,
     pub diff_hunk_bg: Hsla,
     pub diff_gutter: Hsla,
+
+    // ---- syntax ----
+    pub syntax: SyntaxPalette,
 
     // ---- fonts ----
     pub font_sans: SharedString,
@@ -114,6 +118,7 @@ impl Theme {
             diff_del_bg: oklch(0.704, 0.191, 22.216).opacity(0.10),
             diff_hunk_bg: hsla(0.6, 0.35, 0.6, 0.06),
             diff_gutter: neutral(0.45),
+            syntax: SyntaxPalette::dark(neutral(0.922), neutral(0.60), oklch(0.704, 0.191, 22.216)),
             font_sans: "Geist".into(),
             font_mono: "Geist Mono".into(),
         }
@@ -122,6 +127,127 @@ impl Theme {
     pub fn of(cx: &App) -> &Theme {
         cx.global::<Theme>()
     }
+}
+
+/// Paint-only syntax colors, ported from zeron's `SyntaxPalette` (dark).
+/// The hues follow zeron's Git-graph lane palette (indigo, pink, emerald, amber).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SyntaxPalette {
+    pub comment: Hsla,
+    pub keyword: Hsla,
+    pub string: Hsla,
+    pub string_special: Hsla,
+    pub escape: Hsla,
+    pub number: Hsla,
+    pub boolean: Hsla,
+    pub type_name: Hsla,
+    pub type_builtin: Hsla,
+    pub constructor: Hsla,
+    pub function: Hsla,
+    pub function_builtin: Hsla,
+    pub macro_name: Hsla,
+    pub property: Hsla,
+    pub constant: Hsla,
+    pub variable: Hsla,
+    pub variable_special: Hsla,
+    pub parameter: Hsla,
+    pub operator: Hsla,
+    pub punctuation: Hsla,
+    pub tag: Hsla,
+    pub attribute: Hsla,
+    pub label: Hsla,
+    pub markup_heading: Hsla,
+    pub markup_raw: Hsla,
+    pub markup_link: Hsla,
+    pub markup_reference: Hsla,
+    pub markup_emphasis: Hsla,
+    pub markup_strong: Hsla,
+    pub invalid: Hsla,
+}
+
+impl SyntaxPalette {
+    /// Color for a highlight kind. Called once per span while building runs (never per frame).
+    pub fn color(&self, kind: HighlightKind) -> Hsla {
+        match kind {
+            HighlightKind::Comment => self.comment,
+            HighlightKind::Keyword => self.keyword,
+            HighlightKind::String => self.string,
+            HighlightKind::StringSpecial => self.string_special,
+            HighlightKind::Escape => self.escape,
+            HighlightKind::Number => self.number,
+            HighlightKind::Boolean => self.boolean,
+            HighlightKind::Type => self.type_name,
+            HighlightKind::TypeBuiltin => self.type_builtin,
+            HighlightKind::Constructor => self.constructor,
+            HighlightKind::Function => self.function,
+            HighlightKind::FunctionBuiltin => self.function_builtin,
+            HighlightKind::Macro => self.macro_name,
+            HighlightKind::Property => self.property,
+            HighlightKind::Constant => self.constant,
+            HighlightKind::Variable => self.variable,
+            HighlightKind::VariableSpecial => self.variable_special,
+            HighlightKind::Parameter => self.parameter,
+            HighlightKind::Operator => self.operator,
+            HighlightKind::Punctuation | HighlightKind::Embedded => self.punctuation,
+            HighlightKind::Tag => self.tag,
+            HighlightKind::Attribute => self.attribute,
+            HighlightKind::Label => self.label,
+            HighlightKind::MarkupHeading => self.markup_heading,
+            HighlightKind::MarkupRaw => self.markup_raw,
+            HighlightKind::MarkupLink => self.markup_link,
+            HighlightKind::MarkupReference => self.markup_reference,
+            HighlightKind::MarkupEmphasis => self.markup_emphasis,
+            HighlightKind::MarkupStrong => self.markup_strong,
+            HighlightKind::Invalid => self.invalid,
+        }
+    }
+
+    pub fn dark(text: Hsla, comment: Hsla, danger: Hsla) -> Self {
+        // Same sources and 72% saturation treatment as history::graph_color.
+        let indigo = git_graph_tone(oklch(0.673, 0.182, 276.935));
+        let pink = git_graph_tone(oklch(0.718, 0.202, 349.761));
+        let emerald = git_graph_tone(oklch(0.765, 0.177, 163.223));
+        let amber = git_graph_tone(oklch(0.828, 0.189, 84.429));
+        let red = git_graph_tone(danger);
+        Self {
+            comment,
+            keyword: indigo,
+            string: emerald,
+            string_special: pink,
+            escape: pink,
+            number: amber,
+            boolean: amber,
+            type_name: amber,
+            type_builtin: emerald,
+            constructor: amber,
+            function: indigo,
+            function_builtin: pink,
+            macro_name: pink,
+            property: amber,
+            constant: emerald,
+            variable: text,
+            variable_special: pink,
+            parameter: text,
+            operator: text,
+            punctuation: text,
+            tag: pink,
+            attribute: amber,
+            label: amber,
+            markup_heading: indigo,
+            markup_raw: emerald,
+            markup_link: pink,
+            markup_reference: amber,
+            markup_emphasis: pink,
+            markup_strong: indigo,
+            invalid: red,
+        }
+    }
+
+}
+
+fn git_graph_tone(mut color: Hsla) -> Hsla {
+    color.color.saturation *= 0.72;
+    color
 }
 
 /// Translucent white fill (hover/active plates). Alpha in dark-mode terms.

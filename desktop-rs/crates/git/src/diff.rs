@@ -40,6 +40,9 @@ pub struct Diff {
     pub hunks: Vec<DiffHunk>,
     pub is_binary: bool,
     pub truncated: bool,
+    /// Index of the row with the most characters; the UI measures this row so
+    /// the horizontal scroll extent covers the widest line, not just row 0.
+    pub longest_line: usize,
     pub added: u32,
     pub deleted: u32,
 }
@@ -106,6 +109,7 @@ fn parse_hunk_header(line: &str) -> Option<(u32, u32)> {
 
 pub fn parse_diff(raw: &str) -> Diff {
     let mut diff = Diff::default();
+    let mut longest = 0usize;
     let mut in_hunk = false;
     let (mut old_no, mut new_no) = (0u32, 0u32);
     for line in raw.lines() {
@@ -167,13 +171,18 @@ pub fn parse_diff(raw: &str) -> Diff {
             }
             _ => (None, None),
         };
+        // Tabs render at inconsistent widths in proportional fallbacks;
+        // expand once here instead of at every paint.
+        let text = text.replace('\t', "    ");
+        if text.len() > longest {
+            longest = text.len();
+            diff.longest_line = diff.lines.len();
+        }
         diff.lines.push(DiffLine {
             kind,
             old_line: o,
             new_line: n,
-            // Tabs render at inconsistent widths in proportional fallbacks;
-            // expand once here instead of at every paint.
-            text: text.replace('\t', "    "),
+            text,
         });
     }
     diff

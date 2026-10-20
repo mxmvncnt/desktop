@@ -267,6 +267,7 @@ impl Workspace {
             return self.render_no_changes(repo, cx).into_any_element();
         };
         let diff = r.change_diff.clone();
+        let hl = r.change_hl.clone();
         div()
             .flex()
             .flex_col()
@@ -307,7 +308,7 @@ impl Workspace {
                         )
                     }),
             )
-            .child(self.render_diff(diff, SharedString::from(format!("change-diff-{}", change.path)), cx))
+            .child(self.render_diff(diff, hl, SharedString::from(format!("change-diff-{}", change.path)), cx))
             .into_any_element()
     }
 

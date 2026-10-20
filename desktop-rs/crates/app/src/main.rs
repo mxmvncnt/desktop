@@ -1,6 +1,7 @@
 //! GitHub Desktop — Rust + GPUI-CE rewrite (POC). See desktop-rs/docs/.
 
 mod actions;
+mod diff_highlight;
 mod repo;
 mod settings;
 #[cfg(feature = "snapshot")]

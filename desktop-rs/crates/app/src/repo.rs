@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
+use crate::diff_highlight::{DiffHighlight, HighlightCache, highlight_diff};
 use gd_git::{Branch, Commit, Diff, FileChange, Repository, WorkingStatus};
 use gpui::{AppContext, Context, Task};
 
@@ -89,6 +90,9 @@ pub struct RepoModel {
     _watcher: Option<RepoWatcher>,
     _watch_task: Option<Task<()>>,
     _background_fetch_task: Option<Task<()>>,
+    /// Syntax colors for `change_diff`; `None` until the background pass lands.
+    pub change_hl: Option<Arc<DiffHighlight>>,
+    _change_hl_task: Option<Task<()>>,
 
     // ---- history ----
     pub commits: Vec<Commit>,
@@ -98,8 +102,11 @@ pub struct RepoModel {
     pub commit_files: Vec<FileChange>,
     pub selected_commit_file: Option<usize>,
     pub commit_diff: Option<Arc<Diff>>,
+    pub commit_hl: Option<Arc<DiffHighlight>>,
     commit_gen: u64,
     _commit_task: Option<Task<()>>,
+    _commit_hl_task: Option<Task<()>>,
+    hl_cache: HighlightCache,
 
     // ---- branches / remote ----
     pub branches: Vec<Branch>,
@@ -132,6 +139,8 @@ impl RepoModel {
             _watcher: None,
             _watch_task: None,
             _background_fetch_task: None,
+            change_hl: None,
+            _change_hl_task: None,
             commits: Vec::new(),
             history_exhausted: false,
             history_loading: false,
@@ -139,8 +148,11 @@ impl RepoModel {
             commit_files: Vec::new(),
             selected_commit_file: None,
             commit_diff: None,
+            commit_hl: None,
             commit_gen: 0,
             _commit_task: None,
+            _commit_hl_task: None,
+            hl_cache: HighlightCache::default(),
             branches: Vec::new(),
             remote_op: None,
             committing: false,
@@ -363,9 +375,12 @@ impl RepoModel {
             .cloned()
         else {
             self.change_diff = None;
+            self.change_hl = None;
+            self._change_hl_task = None;
             return;
         };
         let repo = self.repo.clone();
+        let path = change.path.clone();
         self._change_diff_task = Some(cx.spawn(async move |this, cx| {
             let diff = cx
                 .background_spawn(async move { repo.working_diff(&change) })
@@ -375,7 +390,12 @@ impl RepoModel {
                     return;
                 }
                 match diff {
-                    Ok(d) => this.change_diff = Some(Arc::new(d)),
+                    Ok(d) => {
+                        let d = Arc::new(d);
+                        this.change_diff = Some(d.clone());
+                        this.change_hl = None;
+                        this._change_hl_task = Some(this.spawn_highlight(d, path, false, cx));
+                    }
                     Err(e) => this.error = Some(e.to_string()),
                 }
                 cx.notify();
@@ -438,6 +458,7 @@ impl RepoModel {
                             } else {
                                 this.commit_files.clear();
                                 this.commit_diff = None;
+                                this.commit_hl = None;
                             }
                         }
                     }
@@ -494,7 +515,7 @@ impl RepoModel {
                 .background_spawn(async move {
                     let files = repo.commit_files(&sha)?;
                     let diff = match files.first() {
-                        Some(f) => Some(repo.commit_diff(&sha, f)?),
+                        Some(f) => Some((repo.commit_diff(&sha, f)?, f.path.clone())),
                         None => None,
                     };
                     Ok::<_, gd_git::GitError>((files, diff))
@@ -508,7 +529,7 @@ impl RepoModel {
                     Ok((files, diff)) => {
                         this.selected_commit_file = (!files.is_empty()).then_some(0);
                         this.commit_files = files;
-                        this.commit_diff = diff.map(Arc::new);
+                        this.set_commit_diff(diff, cx);
                     }
                     Err(e) => this.error = Some(e.to_string()),
                 }
@@ -517,6 +538,50 @@ impl RepoModel {
             .ok();
         }));
         cx.notify();
+    }
+
+    fn set_commit_diff(&mut self, diff: Option<(Diff, String)>, cx: &mut Context<Self>) {
+        self.commit_hl = None;
+        self._commit_hl_task = None;
+        match diff {
+            Some((d, path)) => {
+                let d = Arc::new(d);
+                self.commit_diff = Some(d.clone());
+                self._commit_hl_task = Some(self.spawn_highlight(d, path, true, cx));
+            }
+            None => self.commit_diff = None,
+        }
+    }
+
+    /// Highlight `diff` on the background executor. The result is applied only
+    /// if `diff` is still the displayed one (`Arc::ptr_eq`); a newer diff
+    /// replaces the stored task, which cancels this one if it hasn't started.
+    fn spawn_highlight(
+        &self,
+        diff: Arc<Diff>,
+        path: String,
+        commit: bool,
+        cx: &mut Context<Self>,
+    ) -> Task<()> {
+        let cache = self.hl_cache.clone();
+        let for_task = diff.clone();
+        cx.spawn(async move |this, cx| {
+            let hl = cx
+                .background_spawn(async move { highlight_diff(&for_task, &path, &cache) })
+                .await;
+            this.update(cx, |this, cx| {
+                let (slot, current) = if commit {
+                    (&mut this.commit_hl, &this.commit_diff)
+                } else {
+                    (&mut this.change_hl, &this.change_diff)
+                };
+                if hl.is_some() && current.as_ref().is_some_and(|c| Arc::ptr_eq(c, &diff)) {
+                    *slot = hl;
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
     }
 
     pub fn select_commit_file(&mut self, ix: usize, cx: &mut Context<Self>) {
@@ -532,14 +597,17 @@ impl RepoModel {
         let (sha, file, repo) = (commit.sha.clone(), file.clone(), self.repo.clone());
         self._commit_task = Some(cx.spawn(async move |this, cx| {
             let res = cx
-                .background_spawn(async move { repo.commit_diff(&sha, &file) })
+                .background_spawn(async move {
+                    let path = file.path.clone();
+                    repo.commit_diff(&sha, &file).map(|d| (d, path))
+                })
                 .await;
             this.update(cx, |this, cx| {
                 if this.commit_gen != generation {
                     return;
                 }
                 match res {
-                    Ok(d) => this.commit_diff = Some(Arc::new(d)),
+                    Ok(d) => this.set_commit_diff(Some(d), cx),
                     Err(e) => this.error = Some(e.to_string()),
                 }
                 cx.notify();

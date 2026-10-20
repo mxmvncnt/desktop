@@ -103,6 +103,7 @@ impl Workspace {
         };
         let n_files = r.commit_files.len();
         let diff = r.commit_diff.clone();
+        let hl = r.commit_hl.clone();
         let file_key = r
             .selected_commit_file
             .and_then(|ix| r.commit_files.get(ix))
@@ -226,6 +227,7 @@ impl Workspace {
                     .child(vdivider(cx))
                     .child(self.render_diff(
                         diff,
+                        hl,
                         SharedString::from(format!("commit-diff-{}-{file_key}", commit.sha)),
                         cx,
                     )),
