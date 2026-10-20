@@ -113,12 +113,11 @@ fn main() {
     sh(&work, &["reset", "-q", "--hard", &c6]);
     let conf = commit(&work, "f5.txt", "5 changed\n", "touch f5");
     commit(&work, "f5.txt", "5 changed again\n", "touch f5 again");
-    let err = repo.revert_commit(&conf).unwrap_err();
-    println!("revert conflict error: {}", err.to_string().lines().next().unwrap());
-    assert_eq!(repo.history_op_in_progress(), Some("revert"));
+    assert_eq!(repo.revert_commit(&conf).unwrap(), OpOutcome::Conflicts);
+    assert!(matches!(repo.in_progress(), Some(InProgress::Revert { .. })));
     assert!(repo.revert_commit(&c6).is_err(), "ops blocked while in progress");
-    repo.revert_abort().unwrap();
-    assert_eq!(repo.history_op_in_progress(), None);
+    repo.abort_operation(&repo.in_progress().unwrap()).unwrap();
+    assert!(repo.in_progress().is_none());
     sh(&work, &["reset", "-q", "--hard", &c6]);
     println!("revert OK (conflict left in progress, abort works)");
 
@@ -134,11 +133,10 @@ fn main() {
     sh(&work, &["checkout", "-q", "main"]);
     let c7 = commit(&work, "f5.txt", "main five\n", "main f5");
     sh(&work, &["checkout", "-q", "other"]);
-    let err = repo.cherry_pick(&[c7.clone()], "other").unwrap_err();
-    println!("cherry-pick conflict error: {}", err.to_string().lines().next().unwrap());
-    assert_eq!(repo.history_op_in_progress(), Some("cherry-pick"));
-    repo.cherry_pick_abort().unwrap();
-    assert_eq!(repo.history_op_in_progress(), None);
+    assert_eq!(repo.cherry_pick(&[c7.clone()], "other").unwrap(), OpOutcome::Conflicts);
+    assert!(matches!(repo.in_progress(), Some(InProgress::CherryPick { .. })));
+    repo.abort_operation(&repo.in_progress().unwrap()).unwrap();
+    assert!(repo.in_progress().is_none());
     sh(&work, &["checkout", "-q", "main"]);
     sh(&work, &["reset", "-q", "--hard", &c6]);
     println!("cherry-pick OK");
@@ -164,7 +162,7 @@ fn main() {
     assert_eq!(&summaries(&repo)[..3], ["d3+d4", "d1+d2", "c6"]);
     assert_eq!(sh(&work, &["rev-parse", "HEAD^{tree}"]), tree_before);
     assert_eq!(std::fs::read_to_string(work.join("f1.txt")).unwrap(), "modified\n", "autostash restored");
-    assert_eq!(repo.history_op_in_progress(), None);
+    assert!(repo.in_progress().is_none());
     println!("squash (tip + middle, dirty tree preserved) OK");
     sh(&work, &["checkout", "--", "f1.txt"]);
 
@@ -185,12 +183,11 @@ fn main() {
     sh(&work, &["checkout", "-q", "-B", "ro", &c6]);
     commit(&work, "r.txt", "one\n", "r1");
     let r2 = commit(&work, "r.txt", "two\n", "r2");
-    let err = repo.move_commit(&r2, false).unwrap_err();
-    println!("reorder conflict error: {}", err.to_string().lines().next().unwrap());
-    assert_eq!(repo.history_op_in_progress(), Some("rebase"));
-    repo.rebase_abort().unwrap();
-    assert_eq!(repo.history_op_in_progress(), None);
-    println!("reorder conflict + rebase_abort OK");
+    assert_eq!(repo.move_commit(&r2, false).unwrap(), OpOutcome::Conflicts);
+    assert!(matches!(repo.in_progress(), Some(InProgress::Rebase { .. })));
+    repo.abort_operation(&repo.in_progress().unwrap()).unwrap();
+    assert!(repo.in_progress().is_none());
+    println!("reorder conflict + abort_operation OK");
 
     // ---- amend ----
     sh(&work, &["checkout", "-q", "main"]);

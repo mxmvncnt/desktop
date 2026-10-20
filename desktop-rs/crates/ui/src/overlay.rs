@@ -198,12 +198,12 @@ pub struct Dialog {
     title: SharedString,
     body: Option<SharedString>,
     detail: Option<SharedString>,
+    content: Option<gpui::AnyElement>,
     confirm_label: SharedString,
     cancel_label: SharedString,
     danger: bool,
     confirm_disabled: bool,
     width: f32,
-    content: Vec<gpui::AnyElement>,
     on_confirm: Option<Callback>,
     on_cancel: Option<Callback>,
 }
@@ -215,27 +215,28 @@ impl Dialog {
             title: title.into(),
             body: None,
             detail: None,
+            content: None,
             confirm_label: "OK".into(),
             cancel_label: "Cancel".into(),
             danger: false,
             confirm_disabled: false,
             width: 440.0,
-            content: Vec::new(),
             on_confirm: None,
             on_cancel: None,
         }
     }
-    /// Extra content (inputs, lists) between the text and the buttons.
-    pub fn child(mut self, c: impl IntoElement) -> Self {
-        self.content.push(c.into_any_element());
+    /// Card width in px (default 440).
+    pub fn width(mut self, w: f32) -> Self {
+        self.width = w;
+        self
+    }
+    /// Custom content (inputs, lists) between the text and the buttons.
+    pub fn content(mut self, c: impl IntoElement) -> Self {
+        self.content = Some(c.into_any_element());
         self
     }
     pub fn confirm_disabled(mut self, d: bool) -> Self {
         self.confirm_disabled = d;
-        self
-    }
-    pub fn width(mut self, w: f32) -> Self {
-        self.width = w;
         self
     }
     pub fn body(mut self, b: impl Into<SharedString>) -> Self {
@@ -282,9 +283,9 @@ impl RenderOnce for Dialog {
         }
         let mut confirm_btn = Button::new("dialog-confirm")
             .label(self.confirm_label)
-            .style(if self.danger { ButtonStyle::Danger } else { ButtonStyle::Primary })
-            .disabled(self.confirm_disabled);
-        if let Some(f) = confirm.filter(|_| !self.confirm_disabled) {
+            .style(if self.danger { ButtonStyle::Danger } else { ButtonStyle::Primary });
+        confirm_btn = confirm_btn.disabled(self.confirm_disabled);
+        if let Some(f) = confirm {
             confirm_btn = confirm_btn.on_click(move |_, w, cx| f(w, cx));
         }
 

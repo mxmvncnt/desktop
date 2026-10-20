@@ -4,8 +4,10 @@ mod actions;
 mod chrome;
 mod diff_highlight;
 mod history_ops;
+mod merge_ops;
 mod repo;
 mod settings;
+mod stashes;
 #[cfg(feature = "snapshot")]
 mod snapshot;
 mod views;

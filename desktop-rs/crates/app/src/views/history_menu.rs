@@ -708,7 +708,7 @@ impl Workspace {
             d = d.danger();
         }
         if let Some(c) = content {
-            d = d.child(c);
+            d = d.content(c);
         }
         Some(d)
     }

@@ -3,10 +3,15 @@
 
 mod changes;
 mod diff;
+pub mod diff_options;
+mod diff_split;
 mod history;
 pub mod history_menu;
+mod in_progress_banner;
 pub mod menus;
+pub mod merge;
 mod pickers;
+pub mod stashes;
 mod welcome;
 
 use gd_git::FileStatus;
@@ -19,7 +24,7 @@ pub fn status_color(status: FileStatus, cx: &App) -> Hsla {
     match status {
         FileStatus::New | FileStatus::Untracked => t.success,
         FileStatus::Deleted => t.danger,
-        FileStatus::Conflicted => t.warning,
+        FileStatus::Conflicted => t.danger,
         FileStatus::Renamed | FileStatus::Copied => t.accent,
         FileStatus::Modified | FileStatus::TypeChanged => t.warning,
     }

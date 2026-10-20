@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::diff_highlight::{DiffHighlight, HighlightCache, highlight_diff};
-use gd_git::{Branch, Commit, Diff, FileChange, Repository, WorkingStatus};
+use gd_git::{Branch, Commit, Diff, DiffOptions, FileChange, Repository, WorkingStatus};
 use gpui::{AppContext, Context, Task};
 
 use crate::watcher::RepoWatcher;
@@ -56,6 +56,11 @@ pub struct LastCommit {
 pub enum RepoEvent {
     /// The last commit was undone: put the message back in the commit box.
     CommitUndone { summary: String, description: String },
+    /// Checkout requested while the working tree has changes: the workspace
+    /// asks the user whether to stash them or bring them along.
+    SwitchBranchWithChanges(Branch),
+    /// A merge-like operation paused; git prepared this commit message.
+    PreparedMessage { summary: String, description: String },
 }
 
 impl gpui::EventEmitter<RepoEvent> for RepoModel {}
@@ -63,6 +68,8 @@ impl gpui::EventEmitter<RepoEvent> for RepoModel {}
 pub struct RepoModel {
     pub repo: Repository,
     pub tab: Tab,
+    /// App-wide diff options (set by the Workspace); changing them reloads the visible diffs.
+    pub diff_options: DiffOptions,
 
     // ---- working directory ----
     pub status: Option<WorkingStatus>,
@@ -119,6 +126,11 @@ pub struct RepoModel {
     pub error: Option<String>,
     /// Transient success message ("Committed 3 files").
     pub notice: Option<String>,
+
+    /// Stash list, selection, and panel state (see stashes.rs).
+    pub stashes: crate::stashes::StashState,
+    /// Merge / rebase / conflict state (see `merge_ops.rs`).
+    pub merge: crate::merge_ops::MergeState,
 }
 
 impl RepoModel {
@@ -126,6 +138,7 @@ impl RepoModel {
         let mut this = Self {
             repo,
             tab: Tab::Changes,
+            diff_options: DiffOptions::default(),
             status: None,
             excluded: HashSet::new(),
             selected_change: None,
@@ -162,6 +175,8 @@ impl RepoModel {
             last_commit: None,
             error: None,
             notice: None,
+            stashes: Default::default(),
+            merge: Default::default(),
         };
         this.refresh(cx);
         this.start_watcher(cx);
@@ -312,11 +327,15 @@ impl RepoModel {
         );
         let repo = self.repo.clone();
         cx.spawn(async move |this, cx| {
-            let (status, branches, last_fetch) = cx
+            let (status, branches, last_fetch, progress) = cx
                 .background_spawn(async move {
                     let status = repo.status();
                     let branches = full.then(|| repo.branches());
-                    (status, branches, repo.last_fetch_time())
+                    let progress = repo.in_progress().map(|p| {
+                        let msg = p.commit_finishes().then(|| repo.prepared_message()).flatten();
+                        (p, msg)
+                    });
+                    (status, branches, repo.last_fetch_time(), progress)
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -331,7 +350,9 @@ impl RepoModel {
                 this.last_fetch = last_fetch;
                 if full {
                     this.reload_push_state(cx);
+                    this.reload_stashes(cx);
                 }
+                this.apply_progress(progress, cx);
                 if full && (!this.commits.is_empty() || this.tab == Tab::History) {
                     this.reload_history(cx);
                 }
@@ -343,6 +364,25 @@ impl RepoModel {
             .ok();
         })
         .detach();
+    }
+
+    /// Store the paused operation; announce git's prepared message when a
+    /// different operation newly paused (the workspace fills the commit box).
+    fn apply_progress(
+        &mut self,
+        progress: Option<(gd_git::InProgress, Option<(String, String)>)>,
+        cx: &mut Context<Self>,
+    ) {
+        let (new, msg) = match progress {
+            Some((p, m)) => (Some(p), m),
+            None => (None, None),
+        };
+        let newly = new.is_some()
+            && self.merge.in_progress.as_ref().map(std::mem::discriminant) != new.as_ref().map(std::mem::discriminant);
+        self.merge.in_progress = new;
+        if let (true, Some((summary, description))) = (newly, msg) {
+            cx.emit(crate::merge_ops::message_event(summary, description));
+        }
     }
 
     fn apply_status(&mut self, status: WorkingStatus, cx: &mut Context<Self>) {
@@ -364,6 +404,11 @@ impl RepoModel {
     }
 
     pub fn select_change(&mut self, ix: usize, cx: &mut Context<Self>) {
+        if self.stashes.viewing {
+            // Back from the stash view to the working diff.
+            self.stashes.viewing = false;
+            cx.notify();
+        }
         if self.selected_change == Some(ix) {
             return;
         }
@@ -387,9 +432,10 @@ impl RepoModel {
         };
         let repo = self.repo.clone();
         let path = change.path.clone();
+        let opts = self.diff_options;
         self._change_diff_task = Some(cx.spawn(async move |this, cx| {
             let diff = cx
-                .background_spawn(async move { repo.working_diff(&change) })
+                .background_spawn(async move { repo.working_diff(&change, opts) })
                 .await;
             this.update(cx, |this, cx| {
                 if this.change_diff_gen != generation {
@@ -517,12 +563,13 @@ impl RepoModel {
         let generation = self.commit_gen;
         let sha = commit.sha.clone();
         let repo = self.repo.clone();
+        let opts = self.diff_options;
         self._commit_task = Some(cx.spawn(async move |this, cx| {
             let res = cx
                 .background_spawn(async move {
                     let files = repo.commit_files(&sha)?;
                     let diff = match files.first() {
-                        Some(f) => Some((repo.commit_diff(&sha, f)?, f.path.clone())),
+                        Some(f) => Some((repo.commit_diff(&sha, f, opts)?, f.path.clone())),
                         None => None,
                     };
                     Ok::<_, gd_git::GitError>((files, diff))
@@ -591,6 +638,20 @@ impl RepoModel {
         })
     }
 
+    /// Change how diffs are produced and reload the visible ones. Uses the
+    /// same generation counters as selection changes, so stale results drop.
+    pub fn set_diff_options(&mut self, opts: DiffOptions, cx: &mut Context<Self>) {
+        if self.diff_options == opts {
+            return;
+        }
+        self.diff_options = opts;
+        self.load_change_diff(cx);
+        if let Some(ix) = self.selected_commit_file {
+            self.select_commit_file(ix, cx);
+        }
+        cx.notify();
+    }
+
     pub fn select_commit_file(&mut self, ix: usize, cx: &mut Context<Self>) {
         let (Some(commit), Some(file)) = (
             self.selected_commit.and_then(|c| self.commits.get(c)),
@@ -602,11 +663,12 @@ impl RepoModel {
         self.commit_gen += 1;
         let generation = self.commit_gen;
         let (sha, file, repo) = (commit.sha.clone(), file.clone(), self.repo.clone());
+        let opts = self.diff_options;
         self._commit_task = Some(cx.spawn(async move |this, cx| {
             let res = cx
                 .background_spawn(async move {
                     let path = file.path.clone();
-                    repo.commit_diff(&sha, &file).map(|d| (d, path))
+                    repo.commit_diff(&sha, &file, opts).map(|d| (d, path))
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -659,6 +721,9 @@ impl RepoModel {
         let branch = self.branch_name();
         self.committing = true;
         cx.notify();
+        if self.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes()) {
+            return self.commit_merge(summary, description, cx);
+        }
         let message = (summary.clone(), description.clone());
         self.run(
             move |r| r.commit(&summary, &description, &paths),
@@ -712,7 +777,17 @@ impl RepoModel {
         );
     }
 
+    /// Switch branch. With uncommitted changes the workspace first asks
+    /// whether to stash them (Desktop's dialog).
     pub fn checkout(&mut self, branch: Branch, cx: &mut Context<Self>) {
+        if !self.changes().is_empty() {
+            cx.emit(RepoEvent::SwitchBranchWithChanges(branch));
+            return;
+        }
+        self.checkout_now(branch, cx);
+    }
+
+    pub fn checkout_now(&mut self, branch: Branch, cx: &mut Context<Self>) {
         self.run(
             move |r| r.checkout(&branch),
             |this, _, _| {

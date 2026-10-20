@@ -5,16 +5,15 @@
 //! Conventions:
 //! - Everything blocks; call from a background executor.
 //! - Operations that can stop on conflicts (`revert_commit`, `cherry_pick`,
-//!   `reorder`/`move_commit`, `squash_commits` when it has to replay later
-//!   commits) leave the operation **in progress** and return
-//!   [`GitError::Invalid`] saying so; the UI offers abort/continue
-//!   ([`Repository::history_op_in_progress`], `*_abort`).
+//!   `move_commit`, `squash_commits` when it has to replay later commits)
+//!   leave the operation **in progress** and return `Ok(OpOutcome::Conflicts)`;
+//!   the generic banner (`Repository::in_progress`, continue/abort) takes over.
 //! - Nothing here ever opens an editor: rebases run with
 //!   `core.editor=true` / `sequence.editor=<non-interactive>`.
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{GitError, Repository, Result};
+use crate::{GitError, OpOutcome, Repository, Result};
 
 /// How `git reset` treats the index and working tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,57 +106,13 @@ impl Repository {
 
     // ---- operation state --------------------------------------------------
 
-    /// The multi-step operation currently stopped in this repository, if any
-    /// (`"merge"`, `"rebase"`, `"cherry-pick"`, `"revert"`). Filesystem-only.
-    pub fn history_op_in_progress(&self) -> Option<&'static str> {
-        let dir = self.git_dir();
-        if dir.join("rebase-merge").exists() || dir.join("rebase-apply").exists() {
-            Some("rebase")
-        } else if dir.join("CHERRY_PICK_HEAD").exists() {
-            Some("cherry-pick")
-        } else if dir.join("REVERT_HEAD").exists() {
-            Some("revert")
-        } else if dir.join("MERGE_HEAD").exists() {
-            Some("merge")
-        } else {
-            None
-        }
-    }
-
-    pub fn cherry_pick_abort(&self) -> Result<()> {
-        self.git().args(["cherry-pick", "--abort"]).run()?;
-        Ok(())
-    }
-
-    pub fn revert_abort(&self) -> Result<()> {
-        self.git().args(["revert", "--abort"]).run()?;
-        Ok(())
-    }
-
-    pub fn rebase_abort(&self) -> Result<()> {
-        self.git().args(["rebase", "--abort"]).run()?;
-        Ok(())
-    }
-
     fn ensure_idle(&self, what: &str) -> Result<()> {
-        match self.history_op_in_progress() {
-            Some(op) => Err(GitError::Invalid(format!(
-                "Can't {what} while a {op} is in progress. Continue or abort it first."
-            ))),
-            None => Ok(()),
+        if self.in_progress().is_some() {
+            return Err(GitError::Invalid(format!(
+                "Can't {what} while another operation (merge, rebase, cherry-pick, revert) is in progress. Continue or abort it first."
+            )));
         }
-    }
-
-    /// If `what` stopped mid-way (conflicts), say so clearly; else pass through.
-    fn stopped_error(&self, what: &str, e: GitError) -> GitError {
-        match self.history_op_in_progress() {
-            Some(op) => GitError::Invalid(format!(
-                "{what} stopped because of conflicts. The {op} is still in progress: \
-                 resolve the conflicts and continue, or abort it.\n{}",
-                first_lines(&e.to_string(), 6)
-            )),
-            None => e,
-        }
+        Ok(())
     }
 
     // ---- simple operations ------------------------------------------------
@@ -203,30 +158,26 @@ impl Repository {
 
     /// New commit undoing `sha` (`-m 1` for merge commits). On conflicts the
     /// revert stays in progress.
-    pub fn revert_commit(&self, sha: &str) -> Result<()> {
+    pub fn revert_commit(&self, sha: &str) -> Result<OpOutcome> {
         self.ensure_idle("revert")?;
         let mut g = self.git().args(["revert", "--no-edit"]);
         if self.parent_count(sha)? > 1 {
             g = g.args(["-m", "1"]);
         }
-        g.arg(sha).run().map_err(|e| self.stopped_error("Revert", e))?;
-        Ok(())
+        let res = g.arg(sha).run().map(|_| ());
+        self.outcome_of(res)
     }
 
     /// Switch to `target` and cherry-pick `shas` (given oldest first) onto
     /// it. Conflicts leave the cherry-pick in progress.
-    pub fn cherry_pick(&self, shas: &[String], target: &str) -> Result<()> {
+    pub fn cherry_pick(&self, shas: &[String], target: &str) -> Result<OpOutcome> {
         if shas.is_empty() {
             return Err(GitError::Invalid("no commits to cherry-pick".into()));
         }
         self.ensure_idle("cherry-pick")?;
         self.git().args(["checkout", "-q", target]).run()?;
-        self.git()
-            .arg("cherry-pick")
-            .args(shas)
-            .run()
-            .map_err(|e| self.stopped_error("Cherry-pick", e))?;
-        Ok(())
+        let res = self.git().arg("cherry-pick").args(shas).run().map(|_| ());
+        self.outcome_of(res)
     }
 
     /// Replace HEAD with a new commit that has the same tree and parents
@@ -324,7 +275,7 @@ impl Repository {
     /// replayed with `rebase --autostash --onto <squashed> <newest>`; since
     /// the squashed tree equals the old tree they apply without conflicts,
     /// but if the rebase does stop it stays in progress.
-    pub fn squash_commits(&self, shas: &[String], message: &str) -> Result<()> {
+    pub fn squash_commits(&self, shas: &[String], message: &str) -> Result<OpOutcome> {
         if message.trim().is_empty() {
             return Err(GitError::Invalid("commit message is empty".into()));
         }
@@ -346,12 +297,14 @@ impl Repository {
                 .args(["update-ref", "-m", "squash", "HEAD", new.as_str(), walk[0].sha.as_str()])
                 .run()?;
         } else {
-            self.git()
+            let res = self
+                .git()
                 .args(["-c", "core.editor=true", "rebase", "--autostash", "--onto", new.as_str(), walk[newest].sha.as_str()])
                 .run()
-                .map_err(|e| self.stopped_error("Squash", e))?;
+                .map(|_| ());
+            return self.outcome_of(res);
         }
-        Ok(())
+        Ok(OpOutcome::Done)
     }
 
     /// Move `sha` one place towards the tip (`up`, newer) or towards the
@@ -359,7 +312,7 @@ impl Repository {
     /// is written to a file inside `.git` and installed by a
     /// `sequence.editor` of `cp <file>`. Only linear history (no merges
     /// between HEAD and the pair) is supported. Conflicts stay in progress.
-    pub fn move_commit(&self, sha: &str, up: bool) -> Result<()> {
+    pub fn move_commit(&self, sha: &str, up: bool) -> Result<OpOutcome> {
         self.ensure_idle("reorder")?;
         let walk = self.first_parent_walk()?;
         let p = walk
@@ -399,13 +352,8 @@ impl Repository {
         };
         let res = g.run();
         let _ = std::fs::remove_file(&path);
-        res.map_err(|e| self.stopped_error("Reorder", e))?;
-        Ok(())
+        self.outcome_of(res.map(|_| ()))
     }
-}
-
-fn first_lines(s: &str, n: usize) -> String {
-    s.lines().take(n).collect::<Vec<_>>().join("\n")
 }
 
 /// Convert a git remote URL (ssh scp-style, `ssh://`, `https://`, `git://`)

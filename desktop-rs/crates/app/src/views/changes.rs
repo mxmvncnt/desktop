@@ -10,6 +10,9 @@ use gpui::{
 };
 
 use super::{split_path, status_color};
+use gd_git::FileStatus;
+use gpui::ColorExt as _;
+use crate::workspace::plural;
 use crate::actions::LIST;
 use crate::repo::{RepoModel, Tab};
 use crate::workspace::{Workspace, text_field};
@@ -74,8 +77,14 @@ impl Workspace {
         let committing = r.committing;
         let amending = self.amending(cx);
         let summary_ok = !self.summary.read(cx).as_str().trim().is_empty();
+        let conflicts = r.conflict_count();
+        let merging = r.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes());
         // Amending may change only the message, so no files are needed.
-        let can_commit = (included > 0 || amending) && summary_ok && !committing;
+        let can_commit = (included > 0 || amending)
+            && summary_ok
+            && !committing
+            && conflicts == 0
+            && r.merge.busy.is_none();
         let head_pushed = r.history_ops.push_state_loaded
             && r.commits.first().is_some_and(|c| !r.is_unpushed(&c.sha));
         let repo_h = repo.clone();
@@ -177,15 +186,33 @@ impl Workspace {
                                                 .child(name),
                                         ),
                                 )
-                                .child(
+                                .child(if change.status == FileStatus::Conflicted {
+                                    // Conflict pill: red wash + warning glyph.
+                                    div()
+                                        .flex_none()
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(3.0))
+                                        .px(px(6.0))
+                                        .h(px(18.0))
+                                        .rounded_full()
+                                        .bg(theme.danger.opacity(0.14))
+                                        .text_size(px(10.5))
+                                        .font_weight(gpui::FontWeight::MEDIUM)
+                                        .text_color(theme.danger)
+                                        .child(icon(Icon::Warning).size(px(11.0)).text_color(theme.danger))
+                                        .child("Conflict")
+                                        .into_any_element()
+                                } else {
                                     div()
                                         .flex_none()
                                         .w(px(14.0))
                                         .text_size(px(13.0))
                                         .font_weight(gpui::FontWeight::BOLD)
                                         .text_color(status_color(change.status, cx))
-                                        .child(change.status.badge()),
-                                )
+                                        .child(change.status.badge())
+                                        .into_any_element()
+                                })
                                 .on_mouse_down(gpui::MouseButton::Right, move |e, w, cx| {
                                     let pos = e.position;
                                     ws_row.update(cx, |this, cx| this.open_file_menu(ix, pos, w, cx))
@@ -207,6 +234,10 @@ impl Workspace {
             if committing { "Amending…".into() } else { "Amend last commit".into() }
         } else if committing {
             "Committing…".into()
+        } else if conflicts > 0 {
+            format!("Resolve {conflicts} conflict{} to commit", plural(conflicts as u32)).into()
+        } else if merging {
+            "Commit merge".into()
         } else {
             format!("Commit to {branch}").into()
         };
@@ -259,6 +290,7 @@ impl Workspace {
             .child(header)
             .child(divider(cx))
             .child(div().key_context(LIST).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list))
+            .children(self.render_stash_panel(repo, cx))
             .children(last_commit.map(|c| undo_strip(c, cx)))
             .child(commit_box)
     }
@@ -270,11 +302,16 @@ impl Workspace {
     ) -> impl IntoElement + use<> {
         let theme = Theme::of(cx).clone();
         let r = repo.read(cx);
+        if r.stashes.viewing {
+            return self.render_stash_main(repo, cx);
+        }
         let Some(change) = r.selected_change.and_then(|ix| r.changes().get(ix)).cloned() else {
             return self.render_no_changes(repo, cx).into_any_element();
         };
         let diff = r.change_diff.clone();
         let hl = r.change_hl.clone();
+        let hint = (change.status == FileStatus::Conflicted)
+            .then(|| self.render_conflict_hint(&change, diff.as_ref(), cx));
         div()
             .flex()
             .flex_col()
@@ -313,8 +350,10 @@ impl Workspace {
                                 .child(div().text_color(theme.diff_add).child(format!("+{}", diff.added)))
                                 .child(div().text_color(theme.diff_del).child(format!("−{}", diff.deleted))),
                         )
-                    }),
+                    })
+                    .child(self.diff_options_button(cx)),
             )
+            .children(hint)
             .child(self.render_diff(diff, hl, SharedString::from(format!("change-diff-{}", change.path)), cx))
             .into_any_element()
     }

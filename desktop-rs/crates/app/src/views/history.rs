@@ -159,9 +159,18 @@ impl Workspace {
             .border_color(theme.border)
             .child(
                 div()
-                    .text_size(px(15.0))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(commit.summary.clone()),
+                    .flex()
+                    .items_start()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_size(px(15.0))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child(commit.summary.clone()),
+                    )
+                    .child(self.diff_options_button(cx)),
             )
             .when(!commit.body.is_empty(), |d| {
                 d.child(

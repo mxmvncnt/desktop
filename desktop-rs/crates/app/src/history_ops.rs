@@ -25,10 +25,6 @@ pub struct HistoryOpsState {
     pub tags: HashMap<String, Vec<String>>,
     /// `https://github.com/owner/repo` when the remote is GitHub.
     pub web_url: Option<String>,
-    /// A merge/rebase/cherry-pick/revert stopped in this repo.
-    pub in_progress: Option<&'static str>,
-    /// Label of the history operation currently running.
-    pub busy: Option<&'static str>,
     /// Multi-selection (shas). Empty means "just `selected_commit`".
     pub multi: HashSet<String>,
     load_gen: u64,
@@ -44,14 +40,9 @@ impl RepoModel {
         let generation = self.history_ops.load_gen;
         let repo = self.repo.clone();
         self.history_ops._task = Some(cx.spawn(async move |this, cx| {
-            let (unpushed, tags, url, op) = cx
+            let (unpushed, tags, url) = cx
                 .background_spawn(async move {
-                    (
-                        repo.unpushed_commits(),
-                        repo.tags_by_commit(),
-                        repo.github_web_url(),
-                        repo.history_op_in_progress(),
-                    )
+                    (repo.unpushed_commits(), repo.tags_by_commit(), repo.github_web_url())
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -67,7 +58,6 @@ impl RepoModel {
                     h.tags = t;
                 }
                 h.web_url = url;
-                h.in_progress = op;
                 cx.notify();
             })
             .ok();
@@ -76,10 +66,7 @@ impl RepoModel {
 
     /// Why history operations are unavailable right now (shown as disabled menu items).
     pub fn history_blocked(&self) -> bool {
-        self.history_ops.busy.is_some()
-            || self.history_ops.in_progress.is_some()
-            || self.remote_op.is_some()
-            || self.committing
+        self.merge.busy.is_some() || self.merge.in_progress.is_some() || self.remote_op.is_some() || self.committing
     }
 
     pub fn is_unpushed(&self, sha: &str) -> bool {
@@ -145,7 +132,8 @@ impl RepoModel {
         cx.notify();
     }
 
-    /// Run a history operation off-thread; one at a time.
+    /// Run a history operation through the shared `run_op` (one at a time,
+    /// refreshes afterwards; conflicts surface as the in-progress banner).
     fn hist_run<R: Send + 'static>(
         &mut self,
         label: &'static str,
@@ -153,29 +141,8 @@ impl RepoModel {
         on_ok: impl FnOnce(&mut Self, R, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        if self.history_ops.busy.is_some() {
-            return;
-        }
-        self.history_ops.busy = Some(label);
-        self.error = None;
-        let repo = self.repo.clone();
-        cx.notify();
-        cx.spawn(async move |this, cx| {
-            let res = cx.background_spawn(async move { op(&repo) }).await;
-            this.update(cx, |this, cx| {
-                this.history_ops.busy = None;
-                this.committing = false;
-                this.history_ops.multi.clear();
-                match res {
-                    Ok(r) => on_ok(this, r, cx),
-                    Err(e) => this.error = Some(e.to_string()),
-                }
-                this.refresh(cx);
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
+        self.history_ops.multi.clear();
+        self.run_op(label, op, on_ok, cx);
     }
 
     pub fn reset_to_commit(&mut self, sha: String, mode: ResetMode, cx: &mut Context<Self>) {
@@ -204,7 +171,7 @@ impl RepoModel {
         self.hist_run(
             "Reverting",
             move |r| r.revert_commit(&sha),
-            |this, _, _| this.notice = Some("Reverted commit".into()),
+            |this, o, _| this.notice_for_outcome(o, "Reverted commit".into(), "Nothing to revert".into()),
             cx,
         );
     }
@@ -244,9 +211,10 @@ impl RepoModel {
         self.hist_run(
             "Cherry-picking",
             move |r| r.cherry_pick(&shas, &target),
-            move |this, _, _| {
+            move |this, o, _| {
                 this.last_commit = None;
-                this.notice = Some(format!("Cherry-picked {n} commit{}", crate::workspace::plural(n as u32)))
+                let done = format!("Cherry-picked {n} commit{}", crate::workspace::plural(n as u32));
+                this.notice_for_outcome(o, done, "Nothing to cherry-pick".into())
             },
             cx,
         );
@@ -258,7 +226,7 @@ impl RepoModel {
         self.hist_run(
             "Squashing",
             move |r| r.squash_commits(&shas, &message),
-            move |this, _, _| this.notice = Some(format!("Squashed {n} commits")),
+            move |this, o, _| this.notice_for_outcome(o, format!("Squashed {n} commits"), "Nothing to squash".into()),
             cx,
         );
     }
@@ -268,7 +236,7 @@ impl RepoModel {
         self.hist_run(
             "Reordering",
             move |r| r.move_commit(&sha, up),
-            |this, _, _| this.notice = Some("Reordered commits".into()),
+            |this, o, _| this.notice_for_outcome(o, "Reordered commits".into(), "Nothing to reorder".into()),
             cx,
         );
     }

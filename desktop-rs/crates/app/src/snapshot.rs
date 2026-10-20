@@ -12,7 +12,12 @@
 //! ```
 //! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
-//! `header-menu`, `discard-dialog`, `undo-strip`, `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `icons` (icon-rendering sanity check, repo arg ignored).
+//! `header-menu`, `discard-dialog`, `split`, `split-history`, `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
+//! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
+//! `switch-branch-dialog`,
+//! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
+//! `rename-dialog`, `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
+//! plain `changes` then shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -85,6 +90,21 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             r.update(cx, |r, cx| r.set_tab(Tab::History, cx));
                         }
                     }
+                    // Diff options (set directly: no settings file is written).
+                    "split" | "split-history" | "hide-ws" | "split-ws" | "diff-options-menu" => {
+                        ws.settings.diff_split = matches!(view, "split" | "split-history" | "split-ws" | "diff-options-menu");
+                        ws.settings.diff_ignore_whitespace = matches!(view, "hide-ws" | "split-ws");
+                        ws.apply_diff_options(cx);
+                        if view == "split-history" {
+                            if let Some(r) = &ws.repo {
+                                r.update(cx, |r, cx| r.set_tab(Tab::History, cx));
+                            }
+                        }
+                        if view == "diff-options-menu" {
+                            ws.open_diff_options(gpui::point(px(1240.0), px(60.0)), window, cx);
+                        }
+                        cx.notify();
+                    }
                     "repos" => ws.toggle_popover(Popover::Repositories, window, cx),
                     "branches" => ws.toggle_popover(Popover::Branches, window, cx),
                     "new-branch" => ws.toggle_popover(Popover::NewBranch, window, cx),
@@ -97,6 +117,79 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             cx.notify();
                         }
                     }
+                    "stash-list" => {}
+                    "stash-detail" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                if let Some(s) = r.stashes.list.first().cloned() {
+                                    r.stashes.all_branches = true;
+                                    r.select_stash(s.sha, cx);
+                                }
+                            });
+                        }
+                    }
+                    "stash-detail-untracked" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                if let Some(s) = r.stashes.list.last().cloned() {
+                                    r.stashes.all_branches = true;
+                                    r.select_stash(s.sha, cx);
+                                }
+                            });
+                        }
+                    }
+                    "stash-all" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| { r.stashes.all_branches = true; cx.notify() });
+                        }
+                    }
+                    "stash-menu" => {
+                        if let Some(s) = ws.repo.as_ref().and_then(|r| r.read(cx).stashes.list.first().cloned()) {
+                            ws.open_stash_menu(s, gpui::point(px(120.0), px(560.0)), window, cx);
+                        }
+                    }
+                    "stash-dialog" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, _| r.excluded.insert("untracked.md".into()));
+                        }
+                        ws.open_stash_create(false, window, cx);
+                    }
+                    "stash-drop-dialog" => {
+                        if let Some(s) = ws.repo.as_ref().and_then(|r| r.read(cx).stashes.list.first().cloned()) {
+                            ws.stash_ui.dialog = Some(crate::views::stashes::StashDialog::Drop(s));
+                            cx.notify();
+                        }
+                    }
+                    "switch-branch-dialog" => {
+                        if let Some(b) = ws.repo.as_ref().and_then(|r| r.read(cx).branches.iter().find(|b| !b.is_head).cloned()) {
+                            ws.open_switch_dialog(b, cx);
+                        }
+                    }
+                    // ---- merge / conflicts (see views/merge.rs) ----
+                    "merge-dialog" | "squash-dialog" | "rebase-dialog" => {
+                        let mode = match view {
+                            "squash-dialog" => crate::merge_ops::MergeMode::Squash,
+                            "rebase-dialog" => crate::merge_ops::MergeMode::Rebase,
+                            _ => crate::merge_ops::MergeMode::Merge,
+                        };
+                        ws.open_merge_dialog(mode, None, window, cx);
+                    }
+                    "branch-menu" | "branch-menu-current" | "delete-dialog" | "rename-dialog" => {
+                        ws.toggle_popover(Popover::Branches, window, cx);
+                        let want_head = view == "branch-menu-current";
+                        let b = ws.repo.as_ref().and_then(|r| {
+                            r.read(cx).branches.iter().find(|b| b.is_head == want_head && b.kind == gd_git::BranchKind::Local).cloned()
+                        });
+                        if let Some(b) = b {
+                            ws.open_branch_menu(b, gpui::point(px(420.0), px(150.0)), window, cx);
+                            match view {
+                                "delete-dialog" => ws.snapshot_menu_action(2, window, cx),
+                                "rename-dialog" => ws.snapshot_menu_action(1, window, cx),
+                                _ => {}
+                            }
+                        }
+                    }
+                    "conflict-menu" => ws.open_file_menu(0, gpui::point(px(120.0), px(150.0)), window, cx),
                     "undo-strip" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| {

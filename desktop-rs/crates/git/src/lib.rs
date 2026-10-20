@@ -13,14 +13,20 @@ mod diff;
 mod exec;
 mod history_ops;
 mod log;
+mod merge;
+mod progress;
 mod refs;
+mod stash;
 mod status;
 
-pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind};
+pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
 pub use history_ops::{ResetMode, github_web_url};
 pub use log::{Commit, CommitFile};
+pub use merge::MergePreview;
+pub use progress::{InProgress, OpOutcome};
 pub use refs::{Branch, BranchKind};
+pub use stash::Stash;
 pub use status::{AheadBehind, FileChange, FileStatus, WorkingStatus};
 
 use std::path::{Path, PathBuf};
