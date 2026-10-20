@@ -73,7 +73,12 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 7. ⬜ Partial (line/hunk) staging in the diff gutter.
 8. ⬜ Split diff view; image diffs; whitespace toggle.
 9. ⬜ Pull requests list (GitHub API); create PR; CI status.
-10. ⬜ Cherry-pick, revert, amend, reorder, and squash commits from History.
+10. ✅ (branch `rust/history-ops`) History commit actions and push status:
+   - Unpushed commits get an arrow-up icon with tooltip ("hasn't been pushed to the remote repository yet"); tags show as pills. Refreshed on every full refresh (push/fetch/commit/checkout).
+   - Right-click menu: Amend, Undo, Reset to commit (soft/mixed dialog), Checkout commit (detached warning), Move commit up/down (reorder), Revert, Create branch from commit, Create/Delete tag, Cherry-pick (branch picker), Copy SHA/tags, View on GitHub. Multi-select (ctrl/cmd-click, shift-click range) offers Cherry-pick N and Squash N (message dialog).
+   - Amend mode in the commit box ("Amend last commit", Stop amending, force-push warning if pushed).
+   - Verified by `cargo run -p gd-git --example history_ops -- $PWD/.tmp/hops` (bare scratch remote). Snapshot views: `history-menu`, `-menu-head`, `-menu-pushed`, `-multiselect`, `-multimenu`, `-squash`, `-reset`, `-cherry`, `-tag`, `-checkout`, `amend-mode`.
+   - Skipped: drag-and-drop reorder (menu Move up/down instead), Delete tag restricted to unpushed tags (needs remote tag knowledge; all tags deletable locally), non-adjacent squash (menu item disabled), conflict continue/abort UI (generic banner is another branch; gd_git has `cherry_pick_abort`/`revert_abort`/`rebase_abort`/`history_op_in_progress`). Not exercised with a real mouse.
 11. ⬜ Tags, branch rename/delete UI, compare branches.
 12. ⬜ Settings (theme light/dark, git identity, default editor/shell), "Open in editor/terminal".
 13. ✅ Client-side decorations (`app/src/chrome.rs`): toolbar doubles as titlebar (drag empty space, double-click maximize, right-click window menu), caption buttons per desktop `button-layout`, resize strips on free edges, 10px rounded + shadowed frame when floating, square when tiled/maximized. Preview headlessly with `GD_SNAPSHOT_CSD=1 … --snapshot`.

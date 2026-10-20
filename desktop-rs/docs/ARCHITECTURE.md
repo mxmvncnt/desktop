@@ -106,6 +106,28 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Headless test (`--snapshot ... watch`): the watcher debounces in wall-clock
   time, so use real sleeps and poll `run_until_parked`.
 
+## History operations (`gd_git::history_ops`, `app/src/history_ops.rs`, `views/history_menu.rs`)
+
+- State: `RepoModel.history_ops` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
+  multi-selection as shas) reloaded in the background by `reload_push_state` on every full refresh.
+  UI state: `Workspace.history_ui` (menu, dialogs, amend, dialog text inputs). Own menu/dialog types so the
+  Changes menu code is untouched; `workspace.rs` routes Esc/Enter/arrows to it first.
+- Every op goes through `RepoModel::hist_run` (one at a time, sets `error`, then `refresh`). Menu items are
+  disabled while an op, remote op, commit, or stopped merge/rebase/cherry-pick/revert is active.
+- Unpushed: `rev-list @{upstream}..HEAD`, or `HEAD --not --remotes` without upstream; empty with no remotes.
+- Squash: adjacent, linear commits only. The squashed commit is built with `commit-tree` (newest tree, oldest's
+  parent). If the run ends at HEAD, `update-ref` moves the branch (working tree and index untouched).
+  Otherwise `rebase --autostash --onto <new> <newest>` replays the later commits; they apply cleanly
+  because the tree is unchanged.
+- Reorder: `move_commit` (swap with neighbour) writes a todo file into `.git/gd-rebase-todo` and runs
+  `rebase -i` with `-c sequence.editor="cp '<file>'"`; removed afterwards. No drag and drop (uniform_list
+  drag with autoscroll not attempted); menu "Move commit up/down" instead.
+- Revert/cherry-pick/rebase conflicts stay in progress; `stopped_error` rewrites the error to say so.
+- Amend: `amend_commit` resets the index, adds the checked paths, `commit --amend --allow-empty -F -`.
+  Undo reuses `undo_last_commit` after seeding `last_commit` from HEAD, so the message returns via `CommitUndone`.
+- Gotchas: `Focusable` must be imported for `Entity<EditableTextState>::focus_handle`; `gd_ui::tooltip(text)` is the
+  tooltip builder (element needs an id); `Dialog::child` takes custom content (inputs, lists).
+
 ## Syntax highlighting (`crates/syntax`, `app/src/diff_highlight.rs`)
 
 - `gd-syntax` is ported from zeron's `zeron-syntax`, trimmed to Rust, JS/JSX/TS/TSX, Python,
