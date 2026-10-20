@@ -7,7 +7,7 @@ use gpui::{
     Context, InteractiveElement, IntoElement, ParentElement, SharedString, Styled, Window, div,
     prelude::*, px, uniform_list,
 };
-use gpui_elements::editable_text::actions::Enter;
+use gpui_elements::editable_text::actions::{Enter, NavDown, NavUp};
 
 use crate::actions::{SelectNext, SelectPrevious};
 use crate::workspace::{Popover, Workspace, text_field};
@@ -77,6 +77,22 @@ impl Workspace {
             .capture_action(cx.listener(move |this, _: &Enter, w, cx| {
                 cx.stop_propagation();
                 on_enter(this, w, cx)
+            }))
+            // The focused text input turns ↑/↓ into NavUp/NavDown, so catch those
+            // too (the LIST-context bindings never reach a focused input).
+            .capture_action(cx.listener(|this, _: &NavDown, _, cx| {
+                this.popover_selected += 1;
+                this.popover_scroll
+                    .scroll_to_item(this.popover_selected, gpui::ScrollStrategy::Nearest);
+                cx.stop_propagation();
+                cx.notify()
+            }))
+            .capture_action(cx.listener(|this, _: &NavUp, _, cx| {
+                this.popover_selected = this.popover_selected.saturating_sub(1);
+                this.popover_scroll
+                    .scroll_to_item(this.popover_selected, gpui::ScrollStrategy::Nearest);
+                cx.stop_propagation();
+                cx.notify()
             }))
             .capture_action(cx.listener(|this, _: &SelectNext, _, cx| {
                 this.popover_selected += 1;
@@ -245,8 +261,13 @@ impl Workspace {
                     let b = r.branches.get(*rows.get(i)?)?.clone();
                     let ws = ws.clone();
                     let repo = list_repo.clone();
+                    let (ws_menu, b_menu) = (ws.clone(), b.clone());
                     Some(
                         pressable(("branch", i), i == selected, cx)
+                            .on_mouse_down(gpui::MouseButton::Right, move |e, w, cx| {
+                                let (pos, b) = (e.position, b_menu.clone());
+                                ws_menu.update(cx, |this, cx| this.open_branch_menu(b, pos, w, cx))
+                            })
                             .flex()
                             .items_center()
                             .gap(px(10.0))
@@ -281,15 +302,30 @@ impl Workspace {
             .px(px(6.0))
         .size_full();
 
-        let footer = Button::new("new-branch")
-            .icon(Icon::Plus)
-            .label("New branch")
-            .compact()
-            .on_click(cx.listener(|this, _, w, cx| {
-                let prefill = this.filter.read(cx).as_str().to_string();
-                this.toggle_popover(Popover::NewBranch, w, cx);
-                this.name_input.update(cx, |s, cx| s.emplace(&prefill, cx));
-            }));
+        let footer = div()
+            .flex()
+            .gap(px(6.0))
+            .w_full()
+            .child(
+                Button::new("new-branch")
+                    .icon(Icon::Plus)
+                    .label("New branch")
+                    .compact()
+                    .on_click(cx.listener(|this, _, w, cx| {
+                        let prefill = this.filter.read(cx).as_str().to_string();
+                        this.toggle_popover(Popover::NewBranch, w, cx);
+                        this.name_input.update(cx, |s, cx| s.emplace(&prefill, cx));
+                    })),
+            )
+            .child(
+                Button::new("merge-into-current")
+                    .icon(Icon::Fork)
+                    .label("Merge into current branch…")
+                    .compact()
+                    .on_click(cx.listener(|this, _, w, cx| {
+                        this.open_merge_dialog(crate::merge_ops::MergeMode::Merge, None, w, cx)
+                    })),
+            );
 
         self.picker_shell(
             "Branches",

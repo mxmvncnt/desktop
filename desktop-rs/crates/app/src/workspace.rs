@@ -32,6 +32,7 @@ use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
 use crate::views::stashes::StashUi;
+use crate::views::merge::MergeUi;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popover {
@@ -54,6 +55,8 @@ pub struct Workspace {
     pub dialog: Option<ConfirmDialog>,
     /// Stash dialogs (create / rename / drop / switch branch) and their input.
     pub stash_ui: StashUi,
+    /// Merge dialog, branch/conflict menus and branch dialogs (views/merge.rs).
+    pub merge_ui: MergeUi,
     /// Window corner radius for this frame (0 unless floating under CSD);
     /// layers touching a window corner round their own background with it.
     pub corner_radius: f32,
@@ -127,6 +130,7 @@ impl Workspace {
             menu_gen: 0,
             dialog: None,
             stash_ui: StashUi::new(cx),
+            merge_ui: MergeUi::new(cx),
             startup_error: None,
             corner_radius: 0.0,
             summary,
@@ -221,6 +225,13 @@ impl Workspace {
                         this.description.update(cx, |s, cx| s.emplace(description, cx));
                     }
                     RepoEvent::SwitchBranchWithChanges(branch) => this.open_switch_dialog(branch.clone(), cx),
+                    RepoEvent::PreparedMessage { summary, description } => {
+                        // A merge paused: show git's prepared message unless the user typed one.
+                        if this.summary.read(cx).as_str().trim().is_empty() {
+                            this.summary.update(cx, |s, cx| s.emplace(summary, cx));
+                            this.description.update(cx, |s, cx| s.emplace(description, cx));
+                        }
+                    }
                 }));
                 self.repo = Some(model);
                 self.menu = None;
@@ -721,10 +732,13 @@ impl Render for Workspace {
         let diff_options = self.render_diff_options_menu(window, cx);
         let dialog = self.render_dialog(cx);
         let stash_dialog = self.render_stash_dialog(cx);
+        let merge_ui = self.render_merge_ui(window, cx);
+        let in_progress = self.render_in_progress_banner(cx);
         let overlay_open = self.menu.is_some()
             || self.dialog.is_some()
             || self.diff_view.menu.is_some()
-            || self.stash_ui.dialog.is_some();
+            || self.stash_ui.dialog.is_some()
+            || self.merge_ui.wants_menu_context();
 
         let root = div()
             .id("workspace")
@@ -741,6 +755,9 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &NewBranch, w, cx| {
                 this.toggle_popover(Popover::NewBranch, w, cx)
             }))
+            .on_action(cx.listener(|this, _: &MergeIntoCurrent, w, cx| {
+                this.open_merge_dialog(crate::merge_ops::MergeMode::Merge, None, w, cx)
+            }))
             .on_action(cx.listener(|this, _: &AddRepository, _, cx| this.prompt_add_repository(cx)))
             .on_action(cx.listener(|this, _: &Fetch, _, cx| this.remote_action(RemoteOp::Fetch, cx)))
             .on_action(cx.listener(|this, _: &Pull, _, cx| this.remote_action(RemoteOp::Pull, cx)))
@@ -756,6 +773,7 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
                 if this.stash_ui.dialog.is_some() {
                     this.close_stash_dialog(cx)
+                } else if this.close_merge_ui(w, cx) {
                 } else if this.dialog.is_some() {
                     this.close_dialog(cx)
                 } else if this.diff_view.menu.is_some() {
@@ -776,13 +794,15 @@ impl Render for Workspace {
             .text_color(theme.text)
             .rounded(px(chrome.radius()))
             .child(self.render_toolbar(chrome, window, cx))
+            .children(in_progress)
             .child(body)
             .children(banner)
             .children(popover)
             .children(menu)
             .children(diff_options)
             .children(dialog)
-            .children(stash_dialog);
+            .children(stash_dialog)
+            .child(merge_ui);
         crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }
 }

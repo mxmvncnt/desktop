@@ -10,6 +10,9 @@ use gpui::{
 };
 
 use super::{split_path, status_color};
+use gd_git::FileStatus;
+use gpui::ColorExt as _;
+use crate::workspace::plural;
 use crate::actions::LIST;
 use crate::repo::{RepoModel, Tab};
 use crate::workspace::{Workspace, text_field};
@@ -72,9 +75,13 @@ impl Workspace {
         };
         let branch = r.branch_name();
         let committing = r.committing;
+        let conflicts = r.conflict_count();
+        let merging = r.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes());
         let can_commit = included > 0
             && !self.summary.read(cx).as_str().trim().is_empty()
-            && !committing;
+            && !committing
+            && conflicts == 0
+            && r.merge.busy.is_none();
         let repo_h = repo.clone();
         let ws = cx.entity();
         let last_commit = r.undoable_commit().cloned();
@@ -174,15 +181,33 @@ impl Workspace {
                                                 .child(name),
                                         ),
                                 )
-                                .child(
+                                .child(if change.status == FileStatus::Conflicted {
+                                    // Conflict pill: red wash + warning glyph.
+                                    div()
+                                        .flex_none()
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(3.0))
+                                        .px(px(6.0))
+                                        .h(px(18.0))
+                                        .rounded_full()
+                                        .bg(theme.danger.opacity(0.14))
+                                        .text_size(px(10.5))
+                                        .font_weight(gpui::FontWeight::MEDIUM)
+                                        .text_color(theme.danger)
+                                        .child(icon(Icon::Warning).size(px(11.0)).text_color(theme.danger))
+                                        .child("Conflict")
+                                        .into_any_element()
+                                } else {
                                     div()
                                         .flex_none()
                                         .w(px(14.0))
                                         .text_size(px(13.0))
                                         .font_weight(gpui::FontWeight::BOLD)
                                         .text_color(status_color(change.status, cx))
-                                        .child(change.status.badge()),
-                                )
+                                        .child(change.status.badge())
+                                        .into_any_element()
+                                })
                                 .on_mouse_down(gpui::MouseButton::Right, move |e, w, cx| {
                                     let pos = e.position;
                                     ws_row.update(cx, |this, cx| this.open_file_menu(ix, pos, w, cx))
@@ -202,6 +227,10 @@ impl Workspace {
 
         let commit_label: SharedString = if committing {
             "Committing…".into()
+        } else if conflicts > 0 {
+            format!("Resolve {conflicts} conflict{} to commit", plural(conflicts as u32)).into()
+        } else if merging {
+            "Commit merge".into()
         } else {
             format!("Commit to {branch}").into()
         };
@@ -273,6 +302,8 @@ impl Workspace {
         };
         let diff = r.change_diff.clone();
         let hl = r.change_hl.clone();
+        let hint = (change.status == FileStatus::Conflicted)
+            .then(|| self.render_conflict_hint(&change, diff.as_ref(), cx));
         div()
             .flex()
             .flex_col()
@@ -314,6 +345,7 @@ impl Workspace {
                     })
                     .child(self.diff_options_button(cx)),
             )
+            .children(hint)
             .child(self.render_diff(diff, hl, SharedString::from(format!("change-diff-{}", change.path)), cx))
             .into_any_element()
     }

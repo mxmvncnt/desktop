@@ -124,6 +124,15 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Headless test (`--snapshot ... watch`): the watcher debounces in wall-clock
   time, so use real sleeps and poll `run_until_parked`.
 
+## Merge, rebase and conflicts
+
+- `gd-git`: `progress.rs` (`Repository::in_progress() -> Option<InProgress>`: Merge/Squash/Rebase/CherryPick/Revert, read from MERGE_HEAD, `rebase-merge/`, `rebase-apply/`, CHERRY_PICK_HEAD, REVERT_HEAD, SQUASH_MSG+unmerged; `continue_operation`, `abort_operation`, `prepared_message`) and `merge.rs` (`merge`, `merge_squash`, `rebase`, `merge_preview`, `commit_merge`, `resolve_with`, `mark_resolved`, branch rename/delete-remote/create-from). Operations return `OpOutcome::{Done, UpToDate, Conflicts}`; a pause is not an error. `Git::no_editor()` sets GIT_EDITOR=true for `--continue`.
+- The watcher already covers `rebase-*` (git dir top level) and MERGE_HEAD etc.
+- App: `RepoModel.merge: MergeState` (`merge_ops.rs`), loaded in every refresh in the background. `RepoModel::run_op` is the busy-flag write helper. A newly paused merge-like op emits `RepoEvent::PreparedMessage` (fills the commit box if empty). While merge-like ops are paused, `commit` uses `commit_merge` (no index reset).
+- Views: `views/in_progress_banner.rs` (banner + conflict hint above the diff), `views/merge.rs` (`Workspace.merge_ui`: merge dialog, branch/conflict context menus, rename/delete/create dialogs). Conflicted file rows route to the conflict menu in `open_file_menu`.
+- **Hooking another op (revert, cherry-pick, squash) in:** run the git command inside `RepoModel::run_op`, map a pause with `Repository::outcome_of`, and use `notice_for_outcome`. Banner, conflict list and Continue/Abort work automatically.
+- Gotchas: absolute overlays must themselves be `.absolute().inset_0()` (GPUI lays absolute children out against their direct parent); a focused text input turns ↑/↓/Esc into `NavUp/NavDown/Escape` actions, so dialogs use `capture_action` for those; `gen` is a reserved word in edition 2024.
+
 ## Syntax highlighting (`crates/syntax`, `app/src/diff_highlight.rs`)
 
 - `gd-syntax` is ported from zeron's `zeron-syntax`, trimmed to Rust, JS/JSX/TS/TSX, Python,

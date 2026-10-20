@@ -3,6 +3,7 @@
 mod actions;
 mod chrome;
 mod diff_highlight;
+mod merge_ops;
 mod repo;
 mod settings;
 mod stashes;

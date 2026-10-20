@@ -12,6 +12,8 @@
 mod diff;
 mod exec;
 mod log;
+mod merge;
+mod progress;
 mod refs;
 mod stash;
 mod status;
@@ -19,6 +21,8 @@ mod status;
 pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
 pub use log::{Commit, CommitFile};
+pub use merge::MergePreview;
+pub use progress::{InProgress, OpOutcome};
 pub use refs::{Branch, BranchKind};
 pub use stash::Stash;
 pub use status::{AheadBehind, FileChange, FileStatus, WorkingStatus};
