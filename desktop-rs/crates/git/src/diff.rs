@@ -9,6 +9,19 @@ use crate::{FileChange, FileStatus, Repository, Result};
 /// Diffs bigger than this are truncated (Desktop shows "diff too large").
 const MAX_LINES: usize = 50_000;
 
+/// How a diff is produced (app-wide display options that change git's output).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DiffOptions {
+    /// Pass `-w` (`--ignore-all-space`): hide whitespace-only changes.
+    pub ignore_whitespace: bool,
+}
+
+impl DiffOptions {
+    fn apply(self, g: crate::exec::Git) -> crate::exec::Git {
+        if self.ignore_whitespace { g.arg("-w") } else { g }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffLineKind {
     Hunk,
@@ -49,23 +62,23 @@ pub struct Diff {
 
 impl Repository {
     /// Diff of a working-directory change against HEAD (index + worktree).
-    pub fn working_diff(&self, change: &FileChange) -> Result<Diff> {
+    pub fn working_diff(&self, change: &FileChange, opts: DiffOptions) -> Result<Diff> {
         let raw = match change.status {
-            FileStatus::Untracked => self
-                .git()
-                .args(["diff", "--no-index", "--no-ext-diff", "--", "/dev/null"])
+            FileStatus::Untracked => opts
+                .apply(self.git().args(["diff", "--no-index", "--no-ext-diff"]))
+                .args(["--", "/dev/null"])
                 .arg(&change.path)
                 .allow_exit_one()
                 .run()?,
-            _ if !self.has_head() => self
-                .git()
-                .args(["diff", "--cached", "--no-ext-diff", "--"])
+            _ if !self.has_head() => opts
+                .apply(self.git().args(["diff", "--cached", "--no-ext-diff"]))
+                .arg("--")
                 .arg(&change.path)
                 .run()?,
             _ => {
-                let mut g = self
-                    .git()
-                    .args(["diff", "HEAD", "-M", "--no-ext-diff", "--"])
+                let mut g = opts
+                    .apply(self.git().args(["diff", "HEAD", "-M", "--no-ext-diff"]))
+                    .arg("--")
                     .arg(&change.path);
                 if let Some(old) = &change.old_path {
                     g = g.arg(old);
@@ -77,18 +90,16 @@ impl Repository {
     }
 
     /// Diff of one file within a commit.
-    pub fn commit_diff(&self, sha: &str, file: &FileChange) -> Result<Diff> {
-        let mut g = self
-            .git()
-            .args([
+    pub fn commit_diff(&self, sha: &str, file: &FileChange, opts: DiffOptions) -> Result<Diff> {
+        let mut g = opts
+            .apply(self.git().args([
                 "show",
                 "--format=",
                 "-M",
                 "--no-ext-diff",
                 "--diff-merges=first-parent",
-                sha,
-                "--",
-            ])
+            ]))
+            .args([sha, "--"])
             .arg(&file.path);
         if let Some(old) = &file.old_path {
             g = g.arg(old);

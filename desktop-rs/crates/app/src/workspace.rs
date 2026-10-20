@@ -68,6 +68,8 @@ pub struct Workspace {
     pub diff_scroll: UniformListScrollHandle,
     /// Identity of the diff shown last; scroll resets when it changes.
     pub diff_key: Option<SharedString>,
+    /// Diff options popover + split-row cache (see `views/diff_options.rs`).
+    pub diff_view: crate::views::diff_options::DiffView,
     pub commit_files_scroll: UniformListScrollHandle,
     pub popover_scroll: UniformListScrollHandle,
 
@@ -132,6 +134,7 @@ impl Workspace {
             history_scroll: UniformListScrollHandle::new(),
             diff_scroll: UniformListScrollHandle::new(),
             diff_key: None,
+            diff_view: Default::default(),
             commit_files_scroll: UniformListScrollHandle::new(),
             popover_scroll: UniformListScrollHandle::new(),
             focus: cx.focus_handle(),
@@ -187,6 +190,9 @@ impl Workspace {
         match Repository::open(&path) {
             Ok(repo) => {
                 let model = cx.new(|cx| RepoModel::new(repo, cx));
+                model.update(cx, |m, _| {
+                    m.diff_options.ignore_whitespace = self.settings.diff_ignore_whitespace
+                });
                 self.repo_sub = Some(cx.observe(&model, |this, model, cx| {
                     // Auto-dismiss success notices after a few seconds.
                     if model.read(cx).notice.is_some() && this.notice_task.is_none() {
@@ -707,8 +713,10 @@ impl Render for Workspace {
         let banner = self.render_banner(cx);
         let popover = self.render_popover(window, cx);
         let menu = self.render_menu(window, cx);
+        let diff_options = self.render_diff_options_menu(window, cx);
         let dialog = self.render_dialog(cx);
-        let overlay_open = self.menu.is_some() || self.dialog.is_some();
+        let overlay_open =
+            self.menu.is_some() || self.dialog.is_some() || self.diff_view.menu.is_some();
 
         let root = div()
             .id("workspace")
@@ -739,6 +747,8 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
                 if this.dialog.is_some() {
                     this.close_dialog(cx)
+                } else if this.diff_view.menu.is_some() {
+                    this.close_diff_options(cx)
                 } else if this.menu.is_some() {
                     this.close_menu(cx)
                 } else if this.popover.is_some() {
@@ -759,6 +769,7 @@ impl Render for Workspace {
             .children(banner)
             .children(popover)
             .children(menu)
+            .children(diff_options)
             .children(dialog);
         crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }

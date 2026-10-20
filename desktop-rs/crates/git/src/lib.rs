@@ -15,7 +15,7 @@ mod log;
 mod refs;
 mod status;
 
-pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind};
+pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
 pub use log::{Commit, CommitFile};
 pub use refs::{Branch, BranchKind};
