@@ -34,10 +34,19 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ Refresh on window focus, F5, and after every operation.
 - ✅ Persisted repository list and last selection.
 
+## Live updates (fs-watcher branch)
+- ✅ `notify` watcher per open repo (`app/src/watcher.rs`), 300ms trailing debounce (2s max wait), coalesced refresh.
+- ✅ `.git` filtering: only HEAD/index/refs/FETCH_HEAD/MERGE_HEAD/... count; objects, logs, `*.lock` ignored. `target/` (top level) and `node_modules` skipped.
+- ✅ Idle = zero refreshes, ~zero CPU. Verify: `cargo run --features snapshot -- --snapshot x.png <repo> watch` (asserts; mutates and restores files/a branch in the repo).
+- ✅ `gd_git::Repository::{git_dir, common_git_dir, last_fetch_time}`; toolbar caption "Last fetched 5 minutes ago" / "Never fetched".
+- ✅ Background fetch: 10s after open if stale, then every 30 min; silent on failure (logged), skipped if a remote op is running or no remote.
+- ✅ Focus refresh skipped if the watcher refreshed within 1s.
+- Notes: headless test shows ~1s from last write to updated status (300ms debounce + dispatcher wake-up latency); real sleeps + `run_until_parked` polling are required. Debug log: `RUST_LOG=github_desktop=debug` prints one line per refresh, `trace` prints fs events.
+
 ## Next rungs of the ladder (suggested order)
 
 1. ⬜ Changes context menu: discard (with confirm dialog), copy path, reveal, ignore. Undo-last-commit UI.
-2. ⬜ File-system watcher (debounced) for live status updates.
+2. ✅ File-system watcher, "Last fetched" caption, background fetch (see below).
 3. ⬜ Syntax highlighting in diffs (background, cached).
 4. ⬜ Auth: GIT_ASKPASS helper → in-app credential dialog; GitHub sign-in (OAuth device flow).
 5. ⬜ Stash (Desktop's "stashed changes"), switch-branch-with-changes dialog.

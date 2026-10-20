@@ -6,6 +6,7 @@ mod settings;
 #[cfg(feature = "snapshot")]
 mod snapshot;
 mod views;
+mod watcher;
 mod workspace;
 
 use gpui::{App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};

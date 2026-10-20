@@ -22,5 +22,7 @@ gpui.workspace = true
 gpui_platform.workspace = true
 gpui_elements.workspace = true
 anyhow.workspace = true
+notify.workspace = true
+smol.workspace = true
 log.workspace = true
 env_logger.workspace = true

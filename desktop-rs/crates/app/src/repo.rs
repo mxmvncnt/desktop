@@ -10,9 +10,18 @@
 
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime};
 
 use gd_git::{Branch, Commit, Diff, FileChange, Repository, WorkingStatus};
 use gpui::{AppContext, Context, Task};
+
+use crate::watcher::RepoWatcher;
+
+/// Background fetch cadence (Desktop: every 1h; the task asks for 30 min).
+pub const BACKGROUND_FETCH_INTERVAL: Duration = Duration::from_secs(30 * 60);
+const BACKGROUND_FETCH_FIRST_CHECK: Duration = Duration::from_secs(10);
+/// How often the background task wakes up (also re-renders "Last fetched").
+const BACKGROUND_TICK: Duration = Duration::from_secs(60);
 
 /// History is paged in so huge repos open instantly.
 pub const HISTORY_PAGE: usize = 200;
@@ -44,7 +53,23 @@ pub struct RepoModel {
     pub change_diff: Option<Arc<Diff>>,
     change_diff_gen: u64,
     _change_diff_task: Option<Task<()>>,
-    status_task: Option<Task<()>>,
+
+    // ---- refresh coalescing / live updates ----
+    /// A refresh is running on the background executor.
+    refreshing: bool,
+    /// A trigger arrived while refreshing: run exactly one more afterwards.
+    /// `true` means "full" (branches + history too).
+    pending_refresh: Option<bool>,
+    /// Number of refreshes started (debug counter; tests assert idle = stable).
+    pub refresh_count: u64,
+    /// When the file watcher last triggered a refresh (focus refresh skips if recent).
+    pub last_watch_refresh: Option<Instant>,
+    /// mtime of `.git/FETCH_HEAD`.
+    pub last_fetch: Option<SystemTime>,
+    last_background_fetch: Option<Instant>,
+    _watcher: Option<RepoWatcher>,
+    _watch_task: Option<Task<()>>,
+    _background_fetch_task: Option<Task<()>>,
 
     // ---- history ----
     pub commits: Vec<Commit>,
@@ -78,7 +103,15 @@ impl RepoModel {
             change_diff: None,
             change_diff_gen: 0,
             _change_diff_task: None,
-            status_task: None,
+            refreshing: false,
+            pending_refresh: None,
+            refresh_count: 0,
+            last_watch_refresh: None,
+            last_fetch: None,
+            last_background_fetch: None,
+            _watcher: None,
+            _watch_task: None,
+            _background_fetch_task: None,
             commits: Vec::new(),
             history_exhausted: false,
             history_loading: false,
@@ -95,7 +128,99 @@ impl RepoModel {
             notice: None,
         };
         this.refresh(cx);
+        this.start_watcher(cx);
+        this.start_background_fetch(cx);
         this
+    }
+
+    /// Watch the working tree + git metadata; each debounced burst requests a
+    /// (coalesced) refresh. The watcher thread dies with this model.
+    fn start_watcher(&mut self, cx: &mut Context<Self>) {
+        let (watcher, rx) = RepoWatcher::start(&self.repo);
+        self._watcher = Some(watcher);
+        self._watch_task = Some(cx.spawn(async move |this, cx| {
+            while let Ok(mut full) = rx.recv().await {
+                while let Ok(more) = rx.try_recv() {
+                    full |= more;
+                }
+                let alive = this
+                    .update(cx, |this, cx| {
+                        this.last_watch_refresh = Some(Instant::now());
+                        this.request_refresh(full, cx);
+                    })
+                    .is_ok();
+                if !alive {
+                    break;
+                }
+            }
+        }));
+    }
+
+    /// Fetch every 30 minutes, first check shortly after opening. Errors are
+    /// only logged. Wakes once a minute (also to refresh "Last fetched Nm ago").
+    fn start_background_fetch(&mut self, cx: &mut Context<Self>) {
+        self._background_fetch_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(BACKGROUND_FETCH_FIRST_CHECK).await;
+            loop {
+                if this
+                    .update(cx, |this, cx| {
+                        this.maybe_background_fetch(cx);
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+                cx.background_executor().timer(BACKGROUND_TICK).await;
+            }
+        }));
+    }
+
+    fn maybe_background_fetch(&mut self, cx: &mut Context<Self>) {
+        if self.remote_op.is_some() {
+            return;
+        }
+        let due = |t: Option<Duration>| t.is_none_or(|d| d >= BACKGROUND_FETCH_INTERVAL);
+        let since_fetch = self.last_fetch.and_then(|t| t.elapsed().ok());
+        let since_attempt = self.last_background_fetch.map(|t| t.elapsed());
+        if !due(since_fetch) || !due(since_attempt) {
+            return;
+        }
+        self.last_background_fetch = Some(Instant::now());
+        let repo = self.repo.clone();
+        cx.spawn(async move |this, cx| {
+            let has_remote = cx
+                .background_spawn(async move { repo.remotes().map(|r| !r.is_empty()).unwrap_or(false) })
+                .await;
+            if !has_remote {
+                return;
+            }
+            this.update(cx, |this, cx| {
+                // Another remote op may have started meanwhile.
+                if this.remote_op.is_some() {
+                    return;
+                }
+                log::info!("background fetch: {}", this.repo.name());
+                this.remote_op = Some(RemoteOp::Fetch);
+                cx.notify();
+                let repo = this.repo.clone();
+                cx.spawn(async move |this, cx| {
+                    let res = cx.background_spawn(async move { repo.fetch() }).await;
+                    this.update(cx, |this, cx| {
+                        this.remote_op = None;
+                        if let Err(e) = res {
+                            log::warn!("background fetch failed: {e}");
+                        }
+                        this.refresh(cx);
+                        cx.notify();
+                    })
+                    .ok();
+                })
+                .detach();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn branch_name(&self) -> String {
@@ -123,26 +248,55 @@ impl RepoModel {
     /// Reload status + branches (+ history if it was loaded). Cheap enough to
     /// call on window focus and after every operation.
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.request_refresh(true, cx);
+    }
+
+    /// Coalescing refresh: at most one runs at a time; triggers arriving
+    /// meanwhile collapse into exactly one follow-up run. `full` also reloads
+    /// branches and history (git metadata changed); otherwise only status.
+    pub fn request_refresh(&mut self, full: bool, cx: &mut Context<Self>) {
+        if self.refreshing {
+            self.pending_refresh = Some(self.pending_refresh.unwrap_or(false) || full);
+            return;
+        }
+        self.refreshing = true;
+        self.refresh_count += 1;
+        log::debug!(
+            "refresh #{} ({}) {}",
+            self.refresh_count,
+            if full { "full" } else { "status" },
+            self.repo.name()
+        );
         let repo = self.repo.clone();
-        self.status_task = Some(cx.spawn(async move |this, cx| {
-            let (status, branches) = cx
-                .background_spawn(async move { (repo.status(), repo.branches()) })
+        cx.spawn(async move |this, cx| {
+            let (status, branches, last_fetch) = cx
+                .background_spawn(async move {
+                    let status = repo.status();
+                    let branches = full.then(|| repo.branches());
+                    (status, branches, repo.last_fetch_time())
+                })
                 .await;
             this.update(cx, |this, cx| {
+                this.refreshing = false;
                 match status {
                     Ok(status) => this.apply_status(status, cx),
                     Err(e) => this.error = Some(e.to_string()),
                 }
-                if let Ok(b) = branches {
+                if let Some(Ok(b)) = branches {
                     this.branches = b;
                 }
+                this.last_fetch = last_fetch;
+                if full && (!this.commits.is_empty() || this.tab == Tab::History) {
+                    this.reload_history(cx);
+                }
                 cx.notify();
+                if let Some(full) = this.pending_refresh.take() {
+                    this.request_refresh(full, cx);
+                }
             })
             .ok();
-        }));
-        if !self.commits.is_empty() || self.tab == Tab::History {
-            self.reload_history(cx);
-        }
+        })
+        .detach();
     }
 
     fn apply_status(&mut self, status: WorkingStatus, cx: &mut Context<Self>) {
@@ -459,10 +613,12 @@ impl RepoModel {
         self.run(move |r| r.create_branch(&name), |_, _, _| {}, cx);
     }
 
+    #[allow(dead_code)] // UI pending (PROGRESS ladder item 1)
     pub fn discard(&mut self, changes: Vec<FileChange>, cx: &mut Context<Self>) {
         self.run(move |r| r.discard(&changes), |_, _, _| {}, cx);
     }
 
+    #[allow(dead_code)] // UI pending (PROGRESS ladder item 1)
     pub fn undo_last_commit(&mut self, cx: &mut Context<Self>) {
         self.run(
             |r| r.undo_last_commit(),
