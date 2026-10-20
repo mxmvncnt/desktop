@@ -103,7 +103,13 @@ impl RenderOnce for ContextMenu {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
         // Keep the card inside the window (flip up / shift left near edges).
-        let view = window.viewport_size();
+        // `position` is in window coordinates; under client-side decorations
+        // the content sits inside a transparent shadow inset, so translate.
+        let inset = window.client_inset().unwrap_or(px(0.0));
+        let position = gpui::point(self.position.x - inset, self.position.y - inset);
+        let mut view = window.viewport_size();
+        view.width -= inset * 2.0;
+        view.height -= inset * 2.0;
         let height: f32 = MENU_PAD * 2.0
             + self
                 .entries
@@ -113,11 +119,11 @@ impl RenderOnce for ContextMenu {
                     MenuEntry::Separator => SEPARATOR_H,
                 })
                 .sum::<f32>();
-        let x = self.position.x.min(view.width - px(MENU_WIDTH + 8.0)).max(px(8.0));
-        let y = if self.position.y + px(height + 8.0) > view.height {
-            (self.position.y - px(height)).max(px(8.0))
+        let x = position.x.min(view.width - px(MENU_WIDTH + 8.0)).max(px(8.0));
+        let y = if position.y + px(height + 8.0) > view.height {
+            (position.y - px(height)).max(px(8.0))
         } else {
-            self.position.y
+            position.y
         };
 
         let mut card = overlay_card(cx)

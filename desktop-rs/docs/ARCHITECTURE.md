@@ -152,6 +152,23 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   SVG from `.ref/zeron/crates/ui/assets/icons/` into `crates/ui/assets/icons/`
   and add a line to the `icons!` macro.
 
+## Window chrome / CSD (`app/src/chrome.rs`)
+
+- Linux requests `WindowDecorations::Client` with `LinuxWindowBackground::Transparent`.
+  GNOME/Wayland never draws a frame. If the compositor negotiates server
+  decorations instead (KDE, X11 WMs), `Chrome::detect` reports `client=false` and nothing extra renders.
+- Floating: a 12px transparent margin (`set_client_inset`) holds the shadow, then a
+  10px-rounded, hairline-bordered window. Tiled/maximized: no margin, square corners.
+- GPUI content masks are rectangles (`.rounded()` doesn't clip children), so every
+  layer touching a window corner rounds its own background: the toolbar (`rounded_t`),
+  the workspace root, and the sidebar (`rounded_bl`, via `Workspace::corner_radius`).
+- The titlebar is the toolbar's empty flex spacer (`titlebar_drag`). It isn't the whole
+  toolbar, because mouse-down would bubble from the buttons and start a window move.
+  Caption buttons stop propagation and follow `cx.button_layout()` (left and/or right).
+- Window-coordinate positions (mouse events) must subtract `window.client_inset()`
+  before absolutely positioning inside the frame (see `ContextMenu`).
+- `GD_SNAPSHOT_CSD=1` forces the floating CSD frame in `--snapshot` renders.
+
 ## GPUI-CE gotchas (learned the hard way)
 
 - **`AssetSource::list("")` must enumerate every asset.** GPUI-CE builds its

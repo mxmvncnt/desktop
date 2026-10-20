@@ -69,6 +69,9 @@ icons! {
     Warning => "danger-triangle",
     Fork => "fork",
     Pen => "pen",
+    WindowMinimize => "window-minimize",
+    WindowMaximize => "window-maximize",
+    WindowRestore => "window-restore",
 }
 
 pub struct Assets;

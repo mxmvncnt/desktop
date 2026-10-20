@@ -33,6 +33,7 @@ impl Workspace {
             .w(px(SIDEBAR_WIDTH))
             .h_full()
             .bg(theme.surface)
+            .rounded_bl(px(self.corner_radius))
             .border_r_1()
             .border_color(theme.border)
             .child(

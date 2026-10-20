@@ -51,6 +51,9 @@ pub struct Workspace {
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,
     pub dialog: Option<ConfirmDialog>,
+    /// Window corner radius for this frame (0 unless floating under CSD);
+    /// layers touching a window corner round their own background with it.
+    pub corner_radius: f32,
     /// Error shown when no repository is open (e.g. bad path on startup).
     pub startup_error: Option<String>,
 
@@ -119,6 +122,7 @@ impl Workspace {
             menu_gen: 0,
             dialog: None,
             startup_error: None,
+            corner_radius: 0.0,
             summary,
             description,
             filter,
@@ -423,7 +427,15 @@ impl Workspace {
 
     // ---- rendering ---------------------------------------------------------
 
-    fn render_toolbar(&mut self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    fn render_toolbar(
+        &mut self,
+        chrome: crate::chrome::Chrome,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        let captions = chrome.buttons(window, cx);
+        let maximized = chrome.maximized;
+        let radius = px(chrome.radius());
         let theme = Theme::of(cx).clone();
         let repo = self.repo.as_ref().map(|r| r.read(cx));
         let repo_name: SharedString = repo
@@ -509,8 +521,10 @@ impl Workspace {
             .py(px(6.0))
             .gap(px(4.0))
             .bg(theme.surface)
+            .rounded_t(radius)
             .border_b_1()
             .border_color(theme.border)
+            .children(captions.and_then(|c| crate::chrome::caption_buttons(&c.left, maximized, cx)))
             .child(
                 ToolbarButton::new("toolbar-repo", Icon::FolderWithFiles, "Current repository", repo_name)
                     .chevron()
@@ -541,7 +555,12 @@ impl Workspace {
                         }
                     })),
             )
-            .child(div().flex_1())
+            // Empty toolbar space is the titlebar: drag / double-click / menu.
+            .child(crate::chrome::titlebar_drag(
+                div().id("titlebar-drag").flex_1().h_full(),
+                chrome,
+            ))
+            .children(captions.and_then(|c| crate::chrome::caption_buttons(&c.right, maximized, cx)))
     }
 
     fn render_banner(&mut self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
@@ -667,6 +686,8 @@ impl Focusable for Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
+        let chrome = crate::chrome::Chrome::detect(window);
+        self.corner_radius = chrome.radius();
         let body = match self.repo.clone() {
             Some(repo) => {
                 let tab = repo.read(cx).tab;
@@ -689,7 +710,7 @@ impl Render for Workspace {
         let dialog = self.render_dialog(cx);
         let overlay_open = self.menu.is_some() || self.dialog.is_some();
 
-        div()
+        let root = div()
             .id("workspace")
             .key_context(if overlay_open { "Workspace Menu" } else { WORKSPACE })
             .track_focus(&self.focus)
@@ -732,12 +753,14 @@ impl Render for Workspace {
             .font_family(theme.font_sans.clone())
             .text_size(px(13.0))
             .text_color(theme.text)
-            .child(self.render_toolbar(cx))
+            .rounded(px(chrome.radius()))
+            .child(self.render_toolbar(chrome, window, cx))
             .child(body)
             .children(banner)
             .children(popover)
             .children(menu)
-            .children(dialog)
+            .children(dialog);
+        crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }
 }
 

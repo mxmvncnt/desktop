@@ -1,6 +1,7 @@
 //! GitHub Desktop — Rust + GPUI-CE rewrite (POC). See desktop-rs/docs/.
 
 mod actions;
+mod chrome;
 mod diff_highlight;
 mod repo;
 mod settings;
@@ -52,13 +53,24 @@ fn main() {
                         }),
                         app_id: Some("github-desktop-rs".into()),
                         window_min_size: Some(size(px(860.0), px(540.0))),
+                        // Linux: draw our own frame (see chrome.rs). GNOME never
+                        // provides server decorations; KDE/X11 WMs may still
+                        // negotiate SSD, in which case chrome.rs draws nothing.
+                        window_decorations: cfg!(target_os = "linux")
+                            .then_some(gpui::WindowDecorations::Client),
+                        // Transparent so the rounded corners + shadow margin show
+                        // the desktop behind the window.
+                        linux_window_background: gpui::LinuxWindowBackground::Transparent,
                         ..Default::default()
                     },
                     |window, cx| cx.new(|cx| workspace::Workspace::new(open_path, window, cx)),
                 )
                 .expect("failed to open window");
             window
-                .update(cx, |ws, window, cx| ws.focus(window, cx))
+                .update(cx, |ws, window, cx| {
+                    log::info!("window decorations: {:?}", window.window_decorations());
+                    ws.focus(window, cx)
+                })
                 .ok();
             cx.on_window_closed(|cx, _| cx.quit()).detach();
             cx.activate(true);

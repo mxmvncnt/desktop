@@ -76,7 +76,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 10. ⬜ Cherry-pick, revert, amend, reorder, and squash commits from History.
 11. ⬜ Tags, branch rename/delete UI, compare branches.
 12. ⬜ Settings (theme light/dark, git identity, default editor/shell), "Open in editor/terminal".
-13. ⬜ Client-side decorations (custom titlebar) like zeron.
+13. ✅ Client-side decorations (`app/src/chrome.rs`): toolbar doubles as titlebar (drag empty space, double-click maximize, right-click window menu), caption buttons per desktop `button-layout`, resize strips on free edges, 10px rounded + shadowed frame when floating, square when tiled/maximized. Preview headlessly with `GD_SNAPSHOT_CSD=1 … --snapshot`.
 14. ⬜ Packaging (AppImage/deb/rpm, macOS, Windows).
 
 ## Test repo recipe
