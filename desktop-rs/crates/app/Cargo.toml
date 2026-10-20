@@ -24,3 +24,4 @@ gpui_elements.workspace = true
 anyhow.workspace = true
 log.workspace = true
 env_logger.workspace = true
+gd-syntax.workspace = true
