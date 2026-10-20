@@ -28,8 +28,9 @@ use gpui::{
 use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged};
 
 use crate::actions::*;
-use crate::repo::{RemoteOp, RepoModel, Tab};
+use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
+use crate::views::menus::{ConfirmDialog, OpenMenu};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popover {
@@ -46,6 +47,10 @@ pub struct Workspace {
     /// Bumped on every popover open so its entrance animation replays.
     pub popover_gen: usize,
     pub popover_selected: usize,
+    /// Open right-click menu / confirm dialog (rendered only while `Some`).
+    pub menu: Option<OpenMenu>,
+    pub menu_gen: usize,
+    pub dialog: Option<ConfirmDialog>,
     /// Error shown when no repository is open (e.g. bad path on startup).
     pub startup_error: Option<String>,
 
@@ -64,6 +69,7 @@ pub struct Workspace {
     focus: FocusHandle,
     notice_task: Option<Task<()>>,
     repo_sub: Option<Subscription>,
+    repo_event_sub: Option<Subscription>,
     _subs: Vec<Subscription>,
 }
 
@@ -99,6 +105,9 @@ impl Workspace {
             popover: None,
             popover_gen: 0,
             popover_selected: 0,
+            menu: None,
+            menu_gen: 0,
+            dialog: None,
             startup_error: None,
             summary,
             description,
@@ -113,6 +122,7 @@ impl Workspace {
             focus: cx.focus_handle(),
             notice_task: None,
             repo_sub: None,
+            repo_event_sub: None,
             _subs: subs,
         };
         if let Some(path) = open_path {
@@ -180,7 +190,15 @@ impl Workspace {
                     }
                     cx.notify()
                 }));
+                self.repo_event_sub = Some(cx.subscribe(&model, |this, _, ev: &RepoEvent, cx| match ev {
+                    RepoEvent::CommitUndone { summary, description } => {
+                        this.summary.update(cx, |s, cx| s.emplace(summary, cx));
+                        this.description.update(cx, |s, cx| s.emplace(description, cx));
+                    }
+                }));
                 self.repo = Some(model);
+                self.menu = None;
+                self.dialog = None;
             }
             Err(e) => {
                 self.repo = None;
@@ -331,6 +349,12 @@ impl Workspace {
         self.summary.update(cx, |s, cx| s.emplace("", cx));
         self.description.update(cx, |s, cx| s.emplace("", cx));
         window.focus(&self.focus, cx);
+    }
+
+    pub fn undo_commit(&mut self, cx: &mut Context<Self>) {
+        if let Some(repo) = &self.repo {
+            repo.update(cx, |r, cx| r.undo_last_commit(cx));
+        }
     }
 
     fn remote_action(&mut self, op: RemoteOp, cx: &mut Context<Self>) {
@@ -650,10 +674,13 @@ impl Render for Workspace {
         };
         let banner = self.render_banner(cx);
         let popover = self.render_popover(window, cx);
+        let menu = self.render_menu(window, cx);
+        let dialog = self.render_dialog(cx);
+        let overlay_open = self.menu.is_some() || self.dialog.is_some();
 
         div()
             .id("workspace")
-            .key_context(WORKSPACE)
+            .key_context(if overlay_open { "Workspace Menu" } else { WORKSPACE })
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &ShowChanges, _, cx| this.set_tab(Tab::Changes, cx)))
             .on_action(cx.listener(|this, _: &ShowHistory, _, cx| this.set_tab(Tab::History, cx)))
@@ -672,10 +699,17 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &Push, _, cx| this.remote_action(RemoteOp::Push, cx)))
             .on_action(cx.listener(|this, _: &Refresh, _, cx| this.refresh(cx)))
             .on_action(cx.listener(|this, _: &Commit, w, cx| this.commit(w, cx)))
+            .on_action(cx.listener(|this, _: &MenuNext, _, cx| this.menu_step(1, cx)))
+            .on_action(cx.listener(|this, _: &MenuPrevious, _, cx| this.menu_step(-1, cx)))
+            .on_action(cx.listener(|this, _: &MenuConfirm, w, cx| this.menu_confirm(w, cx)))
             .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.select_step(1, cx)))
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
-                if this.popover.is_some() {
+                if this.dialog.is_some() {
+                    this.close_dialog(cx)
+                } else if this.menu.is_some() {
+                    this.close_menu(cx)
+                } else if this.popover.is_some() {
                     this.close_popover(w, cx)
                 }
             }))
@@ -691,6 +725,8 @@ impl Render for Workspace {
             .child(body)
             .children(banner)
             .children(popover)
+            .children(menu)
+            .children(dialog)
     }
 }
 

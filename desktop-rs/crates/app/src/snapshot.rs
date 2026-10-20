@@ -11,7 +11,7 @@
 //!     --snapshot .tmp/shot.png .tmp/testrepo history
 //! ```
 //! Views: `changes` (default), `history`, `repos`, `branches`, `new-branch`,
-//! `clone`, `welcome`, `icons` (icon-rendering sanity check, repo arg ignored).
+//! `clone`, `welcome`, `context-menu`, `header-menu`, `discard-dialog`, `undo-strip`, `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -77,6 +77,30 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     "branches" => ws.toggle_popover(Popover::Branches, window, cx),
                     "new-branch" => ws.toggle_popover(Popover::NewBranch, window, cx),
                     "clone" => ws.toggle_popover(Popover::Clone, window, cx),
+                    "context-menu" => ws.open_file_menu(1, gpui::point(px(120.0), px(150.0)), window, cx),
+                    "header-menu" => ws.open_header_menu(gpui::point(px(60.0), px(100.0)), window, cx),
+                    "discard-dialog" => {
+                        if let Some(c) = ws.repo.as_ref().and_then(|r| r.read(cx).changes().get(1).cloned()) {
+                            ws.dialog = Some(crate::views::menus::ConfirmDialog::DiscardFile(c));
+                            cx.notify();
+                        }
+                    }
+                    "undo-strip" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                r.last_commit = Some(crate::repo::LastCommit {
+                                    summary: "Add module 5 with some changes".into(),
+                                    description: "Body".into(),
+                                    branch: r.branch_name(),
+                                    time: std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .map(|d| d.as_secs() as i64)
+                                        .unwrap_or(0),
+                                });
+                                cx.notify();
+                            });
+                        }
+                    }
                     _ => {}
                 }
             });

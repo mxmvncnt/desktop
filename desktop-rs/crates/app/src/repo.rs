@@ -31,6 +31,25 @@ pub enum RemoteOp {
     Push,
 }
 
+/// The commit made in this session, offered for undo (Desktop's strip above
+/// the commit box). Hidden after a branch switch or an undo.
+#[derive(Clone, Debug)]
+pub struct LastCommit {
+    pub summary: String,
+    pub description: String,
+    pub branch: String,
+    /// Unix seconds.
+    pub time: i64,
+}
+
+/// Emitted for the workspace, which owns the commit text inputs.
+pub enum RepoEvent {
+    /// The last commit was undone: put the message back in the commit box.
+    CommitUndone { summary: String, description: String },
+}
+
+impl gpui::EventEmitter<RepoEvent> for RepoModel {}
+
 pub struct RepoModel {
     pub repo: Repository,
     pub tab: Tab,
@@ -61,6 +80,7 @@ pub struct RepoModel {
     pub branches: Vec<Branch>,
     pub remote_op: Option<RemoteOp>,
     pub committing: bool,
+    pub last_commit: Option<LastCommit>,
     /// Last error from any operation, shown as a dismissible banner.
     pub error: Option<String>,
     /// Transient success message ("Committed 3 files").
@@ -91,6 +111,7 @@ impl RepoModel {
             branches: Vec::new(),
             remote_op: None,
             committing: false,
+            last_commit: None,
             error: None,
             notice: None,
         };
@@ -106,6 +127,13 @@ impl RepoModel {
                 .unwrap_or_else(|| "(detached HEAD)".into()),
             None => "…".into(),
         }
+    }
+
+    /// The undoable commit, only while still on the branch it was made on.
+    pub fn undoable_commit(&self) -> Option<&LastCommit> {
+        self.last_commit
+            .as_ref()
+            .filter(|c| self.status.as_ref().and_then(|s| s.branch.as_deref()) == Some(c.branch.as_str()))
     }
 
     pub fn changes(&self) -> &[FileChange] {
@@ -399,11 +427,22 @@ impl RepoModel {
     pub fn commit(&mut self, summary: String, description: String, cx: &mut Context<Self>) {
         let paths = self.included_paths();
         let n = paths.len();
+        let branch = self.branch_name();
         self.committing = true;
         cx.notify();
+        let message = (summary.clone(), description.clone());
         self.run(
             move |r| r.commit(&summary, &description, &paths),
             move |this, _sha, _| {
+                this.last_commit = Some(LastCommit {
+                    summary: message.0,
+                    description: message.1,
+                    branch,
+                    time: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs() as i64)
+                        .unwrap_or(0),
+                });
                 this.notice = Some(format!(
                     "Committed {n} file{}",
                     if n == 1 { "" } else { "s" }
@@ -450,6 +489,7 @@ impl RepoModel {
             |this, _, _| {
                 this.commits.clear();
                 this.selected_commit = None;
+                this.last_commit = None;
             },
             cx,
         );
@@ -459,16 +499,33 @@ impl RepoModel {
         self.run(move |r| r.create_branch(&name), |_, _, _| {}, cx);
     }
 
+    /// Append gitignore `patterns` to `.gitignore`, then refresh.
+    pub fn ignore(&mut self, patterns: Vec<String>, notice: String, cx: &mut Context<Self>) {
+        self.run(
+            move |r| r.ignore(&patterns),
+            move |this, _, _| this.notice = Some(notice),
+            cx,
+        );
+    }
+
     pub fn discard(&mut self, changes: Vec<FileChange>, cx: &mut Context<Self>) {
         self.run(move |r| r.discard(&changes), |_, _, _| {}, cx);
     }
 
+    /// Soft-reset HEAD~1 and hand the message back via [`RepoEvent::CommitUndone`].
     pub fn undo_last_commit(&mut self, cx: &mut Context<Self>) {
+        let last = self.last_commit.take();
         self.run(
             |r| r.undo_last_commit(),
-            |this, _, _| {
+            move |this, _, cx| {
                 this.commits.clear();
                 this.selected_commit = None;
+                if let Some(c) = last {
+                    cx.emit(RepoEvent::CommitUndone {
+                        summary: c.summary,
+                        description: c.description,
+                    });
+                }
             },
             cx,
         );

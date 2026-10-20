@@ -16,7 +16,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ status (porcelain v2: branch, upstream, ahead/behind, renames, conflicts, untracked)
 - ✅ working diff (tracked, untracked, unborn HEAD) and commit diff
 - ✅ commit selected files (checkbox semantics) with summary and description
-- ✅ discard changes (tracked and untracked); undo last commit (soft reset). Both exist in the model, but there's no UI yet.
+- ✅ discard changes (tracked and untracked); undo last commit (soft reset); `ignore` (append to `.gitignore`, `escape_ignore` helper).
 - ✅ branches list, checkout (local, or remote → tracking branch), create, delete
 - ✅ fetch / pull / push, plus publish (`--set-upstream`)
 - ✅ paged log, commit file list
@@ -36,7 +36,12 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 
 ## Next rungs of the ladder (suggested order)
 
-1. ⬜ Changes context menu: discard (with confirm dialog), copy path, reveal, ignore. Undo-last-commit UI.
+1. ✅ Changes context menu: discard (with confirm dialog), copy path, reveal, ignore. Undo-last-commit UI.
+   - Right-click a file row: Discard changes… / Ignore file / Ignore all .ext files / Copy (relative) path / Reveal in file manager. Right-click the "N changed files" header: Discard all changes….
+   - "Ignore file" is disabled for tracked files (ignoring them has no effect in git). Untracked files are deleted permanently on discard (Desktop moves them to the trash; no trash support yet).
+   - Undo strip shows only for the commit made this session, on the same branch. Undo restores summary and description into the inputs.
+   - Snapshot views: `context-menu`, `header-menu`, `discard-dialog`, `undo-strip`.
+   - Not done: Discard of individual hunks, "Open in editor" menu items.
 2. ⬜ File-system watcher (debounced) for live status updates.
 3. ⬜ Syntax highlighting in diffs (background, cached).
 4. ⬜ Auth: GIT_ASKPASS helper → in-app credential dialog; GitHub sign-in (OAuth device flow).
