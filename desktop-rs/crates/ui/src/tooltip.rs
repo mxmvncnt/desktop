@@ -1,6 +1,6 @@
 //! Small zeron-style tooltip for `.tooltip(gd_ui::tooltip("text"))`.
 
-use gpui::{AnyView, App, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, px};
+use gpui::{AnyView, App, AppContext, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, px};
 
 use crate::theme::Theme;
 

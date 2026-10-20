@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use gd_git::{BranchKind, Commit, ResetMode};
 use gd_ui::{ContextMenu, Dialog, Icon, MenuEntry, MenuItem, Tabs, Theme, icon, pressable};
 use gpui::{
+    Focusable,
     ClipboardItem, Context, Entity, InteractiveElement, IntoElement, ParentElement, Pixels, Point,
     SharedString, Styled, Subscription, Window, div, prelude::*, px, uniform_list,
 };
@@ -34,7 +35,6 @@ pub struct HistoryUi {
 
 pub struct AmendState {
     pub root: PathBuf,
-    pub sha: String,
 }
 
 impl HistoryUi {
@@ -275,7 +275,7 @@ impl Workspace {
         let ctx = menu.ctx;
         let commit = ctx.commit.clone();
         let sha = commit.sha.clone();
-        let dialog_input = |this: &mut Self, w: &mut Window, cx: &mut Context<Self>, which: &Entity<EditableTextState>| {
+        let dialog_input = |_this: &mut Self, w: &mut Window, cx: &mut Context<Self>, which: &Entity<EditableTextState>| {
             w.focus(&which.focus_handle(cx), cx);
         };
         match action {
@@ -413,7 +413,7 @@ impl Workspace {
     pub fn start_amend(&mut self, commit: Commit, window: &mut Window, cx: &mut Context<Self>) {
         let Some(repo) = self.repo.clone() else { return };
         let root = repo.read(cx).repo.root().to_path_buf();
-        self.history_ui.amend = Some(AmendState { root, sha: commit.sha });
+        self.history_ui.amend = Some(AmendState { root });
         self.summary.update(cx, |s, cx| s.emplace(&commit.summary, cx));
         self.description.update(cx, |s, cx| s.emplace(&commit.body, cx));
         repo.update(cx, |r, cx| r.set_tab(Tab::Changes, cx));
