@@ -19,6 +19,8 @@ pub enum MenuTarget {
     File(FileChange),
     /// The "N changed files" header.
     Header,
+    /// A row of the stash list.
+    Stash(gd_git::Stash),
 }
 
 pub struct OpenMenu {
@@ -42,6 +44,13 @@ pub enum MenuAction {
     CopyPath,
     CopyRelPath,
     Reveal,
+    StashAll,
+    StashSelected,
+    StashApply,
+    StashPop,
+    StashDrop,
+    StashRename,
+    StashCopy,
 }
 
 struct Row {
@@ -63,13 +72,24 @@ fn extension(path: &str) -> Option<&str> {
 /// Menu layout for a target. `None` entries are separators.
 fn rows(target: &MenuTarget) -> Vec<Option<Row>> {
     match target {
-        MenuTarget::Header => vec![Some(Row {
-            action: MenuAction::DiscardAll,
-            label: "Discard all changes…".into(),
-            icon: Icon::Trash,
-            danger: true,
-            disabled: false,
-        })],
+        MenuTarget::Header => vec![
+            row(MenuAction::StashAll, "Stash all changes…", Icon::Archive),
+            row(MenuAction::StashSelected, "Stash selected files…", Icon::Archive),
+            None,
+            Some(Row {
+                action: MenuAction::DiscardAll,
+                label: "Discard all changes…".into(),
+                icon: Icon::Trash,
+                danger: true,
+                disabled: false,
+            }),
+        ],
+        MenuTarget::Stash(_) => super::stashes::stash_menu_rows()
+            .into_iter()
+            .map(|r| {
+                r.map(|(action, label, icon, danger)| Row { action, label: label.into(), icon, danger, disabled: false })
+            })
+            .collect(),
         MenuTarget::File(change) => {
             let mut v = vec![
                 Some(Row {
@@ -171,6 +191,10 @@ impl Workspace {
 
     /// Enter: run the highlighted menu item, or confirm the open dialog.
     pub fn menu_confirm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.stash_ui.dialog.is_some() {
+            self.stash_confirm(cx);
+            return;
+        }
         if self.dialog.is_some() {
             self.confirm_dialog(cx);
             return;
@@ -187,14 +211,17 @@ impl Workspace {
         }
     }
 
-    pub fn run_menu_action(&mut self, action: MenuAction, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn run_menu_action(&mut self, action: MenuAction, window: &mut Window, cx: &mut Context<Self>) {
         let Some(menu) = self.menu.take() else { return };
         cx.notify();
+        if self.run_stash_action(action, &menu.target, window, cx) {
+            return;
+        }
         let Some(repo) = self.repo.clone() else { return };
         let root = repo.read(cx).repo.root().to_path_buf();
         let file = match &menu.target {
             MenuTarget::File(c) => Some(c.clone()),
-            MenuTarget::Header => None,
+            MenuTarget::Header | MenuTarget::Stash(_) => None,
         };
         match (action, file) {
             (MenuAction::Discard, Some(c)) => self.dialog = Some(ConfirmDialog::DiscardFile(c)),

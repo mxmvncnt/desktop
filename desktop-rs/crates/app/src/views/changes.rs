@@ -253,6 +253,7 @@ impl Workspace {
             .child(header)
             .child(divider(cx))
             .child(div().key_context(LIST).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list))
+            .children(self.render_stash_panel(repo, cx))
             .children(last_commit.map(|c| undo_strip(c, cx)))
             .child(commit_box)
     }
@@ -264,6 +265,9 @@ impl Workspace {
     ) -> impl IntoElement + use<> {
         let theme = Theme::of(cx).clone();
         let r = repo.read(cx);
+        if r.stashes.viewing {
+            return self.render_stash_main(repo, cx);
+        }
         let Some(change) = r.selected_change.and_then(|ix| r.changes().get(ix)).cloned() else {
             return self.render_no_changes(repo, cx).into_any_element();
         };

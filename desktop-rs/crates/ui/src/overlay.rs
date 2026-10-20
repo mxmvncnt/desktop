@@ -198,6 +198,7 @@ pub struct Dialog {
     title: SharedString,
     body: Option<SharedString>,
     detail: Option<SharedString>,
+    content: Option<gpui::AnyElement>,
     confirm_label: SharedString,
     cancel_label: SharedString,
     danger: bool,
@@ -212,6 +213,7 @@ impl Dialog {
             title: title.into(),
             body: None,
             detail: None,
+            content: None,
             confirm_label: "OK".into(),
             cancel_label: "Cancel".into(),
             danger: false,
@@ -226,6 +228,11 @@ impl Dialog {
     /// Smaller, muted secondary text under the body.
     pub fn detail(mut self, d: impl Into<SharedString>) -> Self {
         self.detail = Some(d.into());
+        self
+    }
+    /// Custom body content (inputs, option rows) between the text and the buttons.
+    pub fn content(mut self, c: impl IntoElement) -> Self {
+        self.content = Some(c.into_any_element());
         self
     }
     pub fn confirm_label(mut self, l: impl Into<SharedString>) -> Self {
@@ -293,7 +300,8 @@ impl RenderOnce for Dialog {
                     }))
                     .children(self.detail.map(|d| {
                         div().text_size(px(12.0)).text_color(theme.text_faint).child(d)
-                    })),
+                    }))
+                    .children(self.content),
             )
             .child(
                 div()

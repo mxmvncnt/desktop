@@ -13,12 +13,14 @@ mod diff;
 mod exec;
 mod log;
 mod refs;
+mod stash;
 mod status;
 
 pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind};
 pub use exec::GitError;
 pub use log::{Commit, CommitFile};
 pub use refs::{Branch, BranchKind};
+pub use stash::Stash;
 pub use status::{AheadBehind, FileChange, FileStatus, WorkingStatus};
 
 use std::path::{Path, PathBuf};

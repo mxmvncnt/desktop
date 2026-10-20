@@ -56,6 +56,9 @@ pub struct LastCommit {
 pub enum RepoEvent {
     /// The last commit was undone: put the message back in the commit box.
     CommitUndone { summary: String, description: String },
+    /// Checkout requested while the working tree has changes: the workspace
+    /// asks the user whether to stash them or bring them along.
+    SwitchBranchWithChanges(Branch),
 }
 
 impl gpui::EventEmitter<RepoEvent> for RepoModel {}
@@ -117,6 +120,9 @@ pub struct RepoModel {
     pub error: Option<String>,
     /// Transient success message ("Committed 3 files").
     pub notice: Option<String>,
+
+    /// Stash list, selection, and panel state (see stashes.rs).
+    pub stashes: crate::stashes::StashState,
 }
 
 impl RepoModel {
@@ -159,6 +165,7 @@ impl RepoModel {
             last_commit: None,
             error: None,
             notice: None,
+            stashes: Default::default(),
         };
         this.refresh(cx);
         this.start_watcher(cx);
@@ -326,6 +333,9 @@ impl RepoModel {
                     this.branches = b;
                 }
                 this.last_fetch = last_fetch;
+                if full {
+                    this.reload_stashes(cx);
+                }
                 if full && (!this.commits.is_empty() || this.tab == Tab::History) {
                     this.reload_history(cx);
                 }
@@ -358,6 +368,11 @@ impl RepoModel {
     }
 
     pub fn select_change(&mut self, ix: usize, cx: &mut Context<Self>) {
+        if self.stashes.viewing {
+            // Back from the stash view to the working diff.
+            self.stashes.viewing = false;
+            cx.notify();
+        }
         if self.selected_change == Some(ix) {
             return;
         }
@@ -705,7 +720,17 @@ impl RepoModel {
         );
     }
 
+    /// Switch branch. With uncommitted changes the workspace first asks
+    /// whether to stash them (Desktop's dialog).
     pub fn checkout(&mut self, branch: Branch, cx: &mut Context<Self>) {
+        if !self.changes().is_empty() {
+            cx.emit(RepoEvent::SwitchBranchWithChanges(branch));
+            return;
+        }
+        self.checkout_now(branch, cx);
+    }
+
+    pub fn checkout_now(&mut self, branch: Branch, cx: &mut Context<Self>) {
         self.run(
             move |r| r.checkout(&branch),
             |this, _, _| {

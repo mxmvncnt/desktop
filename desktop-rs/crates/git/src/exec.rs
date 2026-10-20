@@ -126,7 +126,11 @@ impl Git {
         if out.status.success() || (self.allow_exit_one && out.status.code() == Some(1)) {
             Ok(out.stdout)
         } else {
-            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            let mut stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            if stderr.is_empty() {
+                // e.g. `stash apply` reports CONFLICT lines on stdout.
+                stderr = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            }
             Err(GitError::Failed {
                 args,
                 stderr: if stderr.is_empty() {
