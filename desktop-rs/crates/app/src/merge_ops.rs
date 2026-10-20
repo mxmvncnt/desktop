@@ -7,8 +7,6 @@
 //! detected on the next refresh. Use [`RepoModel::notice_for_outcome`] for the
 //! message.
 
-use std::collections::HashSet;
-
 use gd_git::{Branch, FileStatus, InProgress, OpOutcome, Repository};
 use gpui::{AppContext, Context};
 
@@ -40,14 +38,6 @@ pub struct MergeState {
 }
 
 impl RepoModel {
-    pub fn conflicted_paths(&self) -> HashSet<&str> {
-        self.changes()
-            .iter()
-            .filter(|c| c.status == FileStatus::Conflicted)
-            .map(|c| c.path.as_str())
-            .collect()
-    }
-
     pub fn conflict_count(&self) -> usize {
         self.changes().iter().filter(|c| c.status == FileStatus::Conflicted).count()
     }

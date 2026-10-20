@@ -30,7 +30,7 @@ pub struct MergeDialog {
     pub ix: usize,
     pub preview: Option<MergePreview>,
     pub loading: bool,
-    gen: u64,
+    revision: u64,
 }
 
 pub enum BranchDialog {
@@ -133,7 +133,7 @@ fn menu_rows(kind: &MenuKind, paused: bool) -> Vec<Option<Row>> {
             let remote = b.kind == BranchKind::Remote;
             vec![
                 row(Act::Merge, "Merge into current branch…", Icon::Fork, b.is_head || paused),
-                row(Act::Rebase, "Rebase current branch onto this…", Icon::Restart, b.is_head || paused),
+                row(Act::Rebase, "Rebase onto this branch…", Icon::Restart, b.is_head || paused),
                 None,
                 row(Act::CreateFrom, "Create branch from this…", Icon::Plus, false),
                 row(Act::Rename, "Rename…", Icon::Pen, remote),
@@ -213,7 +213,7 @@ impl Workspace {
         self.merge_ui.menu = None;
         self.merge_ui.branch_dialog = None;
         self.merge_ui.filter.update(cx, |s, cx| s.emplace("", cx));
-        self.merge_ui.dialog = Some(MergeDialog { mode, ix: 0, preview: None, loading: false, gen: 0 });
+        self.merge_ui.dialog = Some(MergeDialog { mode, ix: 0, preview: None, loading: false, revision: 0 });
         let ix = preselect
             .and_then(|name| self.merge_candidates(cx).iter().position(|b| b.name == name))
             .unwrap_or(0);
@@ -229,10 +229,10 @@ impl Workspace {
         let branch = cands.get(ix).map(|b| b.name.clone());
         let Some(d) = &mut self.merge_ui.dialog else { return };
         d.ix = ix;
-        d.gen += 1;
+        d.revision += 1;
         d.preview = None;
         d.loading = branch.is_some();
-        let generation = d.gen;
+        let generation = d.revision;
         self.merge_ui.preview_task = None;
         cx.notify();
         let (Some(branch), Some(repo)) = (branch, self.repo.clone()) else { return };
@@ -241,7 +241,7 @@ impl Workspace {
             let res = cx.background_spawn(async move { git.merge_preview(&branch) }).await;
             this.update(cx, |this, cx| {
                 if let Some(d) = &mut this.merge_ui.dialog {
-                    if d.gen == generation {
+                    if d.revision == generation {
                         d.loading = false;
                         match res {
                             Ok(p) => d.preview = Some(p),
@@ -528,7 +528,7 @@ impl Workspace {
         let menu = self.render_merge_menu(cx);
         let dialog = self.render_merge_dialog(cx);
         let branch_dialog = self.render_branch_dialog(cx);
-        div().children(menu).children(dialog).children(branch_dialog)
+        div().absolute().inset_0().children(menu).children(dialog).children(branch_dialog)
     }
 
     fn render_merge_menu(&mut self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
@@ -693,6 +693,8 @@ impl Workspace {
             });
         Some(
             div()
+                .absolute()
+                .inset_0()
                 .capture_action(cx.listener(|this, _: &Enter, w, cx| {
                     cx.stop_propagation();
                     this.merge_confirm(w, cx)
@@ -788,6 +790,8 @@ impl Workspace {
             });
         Some(
             div()
+                .absolute()
+                .inset_0()
                 .capture_action(cx.listener(|this, _: &Enter, w, cx| {
                     cx.stop_propagation();
                     this.branch_dialog_confirm(w, cx)
@@ -811,7 +815,7 @@ fn preview_line(
     theme: &Theme,
 ) -> gpui::Div {
     let mut line = div().flex().flex_wrap().items_center().gap_x(px(4.0)).text_size(px(12.5));
-    let mut say = |parts: Vec<(String, bool)>, line: gpui::Div| {
+    let say = |parts: Vec<(String, bool)>, line: gpui::Div| {
         parts.into_iter().fold(line, |l, (t, bold)| {
             l.child(div().text_color(if bold { theme.text } else { theme.text_muted }).when(bold, |d| {
                 d.font_weight(gpui::FontWeight::MEDIUM)

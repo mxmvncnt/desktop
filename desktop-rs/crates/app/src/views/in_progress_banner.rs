@@ -6,7 +6,7 @@ use std::sync::Arc;
 use gd_git::{Diff, DiffLineKind, FileChange, InProgress};
 use gd_ui::{Button, Icon, Theme, icon, motion};
 use gpui::{
-    ColorExt as _, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
+    ColorExt as _, Context, IntoElement, ParentElement, SharedString, Styled, div, px,
 };
 
 use crate::merge_ops::Resolve;

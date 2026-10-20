@@ -69,7 +69,12 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 3. ✅ Syntax highlighting in diffs (background, cached). `gd-syntax` (tree-sitter), see ARCHITECTURE. Also: diff scroll resets on file/commit change, horizontal scroll sized from the widest row, hunk headers italic/muted with a divider. Timing: 18k-row added Rust file highlights in ~125 ms (small diffs 5-25 ms, first one pays ~20 ms query compile). Snapshot views `changes@N` select the N-th file.
 4. ⬜ Auth: GIT_ASKPASS helper → in-app credential dialog; GitHub sign-in (OAuth device flow).
 5. ⬜ Stash (Desktop's "stashed changes"), switch-branch-with-changes dialog.
-6. ⬜ Merge / rebase / squash into current branch; conflict resolution UI.
+6. ✅ Merge / squash / rebase into current branch; operation-in-progress banner; conflict resolution; branch context menu.
+   - Branch popover footer "Merge into current branch…" (ctrl+shift+M): dialog with Merge | Squash and merge | Rebase modes, filter, ↑/↓/Enter, Desktop-style preview line ("This will merge N commits from X into Y" / "up to date", plus expected conflicts via `git merge-tree`), computed in the background.
+   - Right-click a branch: merge, rebase onto, create from, rename, copy name, delete (also offers deleting the remote branch). Conflicted file rows: Use ours / Use theirs / Mark as resolved / Open in default editor.
+   - Banner with Continue/Abort for merge, squash, rebase, cherry-pick, revert; commit box prefilled with MERGE_MSG and commits via `merge --continue`-equivalent; Continue disabled while conflicts remain.
+   - Snapshot views: `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `delete-dialog`, `rename-dialog`, `conflict-menu`, and `changes` on a conflicted repo (`cargo run -p gd-git --example merge_smoke -- <dir> --keep-conflict`).
+   - Not verified with a real mouse/keyboard. Not done: remote rename, rebase `--autostash`, interactive conflict resolution inside the app, banner for stash-conflicts. Picker ↑/↓ now also capture NavUp/NavDown (the LIST-context bindings never reached a focused input).
 7. ⬜ Partial (line/hunk) staging in the diff gutter.
 8. ⬜ Split diff view; image diffs; whitespace toggle.
 9. ⬜ Pull requests list (GitHub API); create PR; CI status.

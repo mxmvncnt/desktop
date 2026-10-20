@@ -103,7 +103,8 @@ fn main() {
     let d = repo.working_diff(&st.files[0]).unwrap();
     assert!(d.lines.iter().any(|l| l.text.starts_with("<<<<<<<")), "conflict markers in diff");
     println!("prepared message: {:?}", repo.prepared_message());
-    assert!(repo.continue_operation(&ip).is_err(), "continue must fail while conflicted");
+    assert_ne!(repo.continue_operation(&ip).ok(), Some(OpOutcome::Done), "continue must not finish while conflicted");
+    assert!(repo.in_progress().is_some());
     if keep {
         println!("left in conflicted merge state at {}", dir.display());
         return;
