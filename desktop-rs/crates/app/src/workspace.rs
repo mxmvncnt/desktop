@@ -51,6 +51,8 @@ pub struct Workspace {
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,
     pub dialog: Option<ConfirmDialog>,
+    /// History tab: commit menu, dialogs, amend mode (views/history_menu.rs).
+    pub history_ui: crate::views::history_menu::HistoryUi,
     /// Window corner radius for this frame (0 unless floating under CSD);
     /// layers touching a window corner round their own background with it.
     pub corner_radius: f32,
@@ -112,6 +114,7 @@ impl Workspace {
             }
         }));
 
+        let history_ui = crate::views::history_menu::HistoryUi::new(cx);
         let mut this = Self {
             settings: Settings::load(),
             repo: None,
@@ -121,6 +124,7 @@ impl Workspace {
             menu: None,
             menu_gen: 0,
             dialog: None,
+            history_ui,
             startup_error: None,
             corner_radius: 0.0,
             summary,
@@ -354,6 +358,9 @@ impl Workspace {
     }
 
     fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.try_amend(window, cx) {
+            return;
+        }
         let Some(repo) = self.repo.clone() else { return };
         let summary = self.summary.read(cx).as_str().to_string();
         let description = self.description.read(cx).as_str().to_string();
@@ -708,7 +715,9 @@ impl Render for Workspace {
         let popover = self.render_popover(window, cx);
         let menu = self.render_menu(window, cx);
         let dialog = self.render_dialog(cx);
-        let overlay_open = self.menu.is_some() || self.dialog.is_some();
+        let hist_menu = self.render_hist_menu(cx);
+        let hist_dialog = self.render_hist_dialog(cx);
+        let overlay_open = self.menu.is_some() || self.dialog.is_some() || self.history_ui.is_open();
 
         let root = div()
             .id("workspace")
@@ -731,13 +740,22 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &Push, _, cx| this.remote_action(RemoteOp::Push, cx)))
             .on_action(cx.listener(|this, _: &Refresh, _, cx| this.refresh(cx)))
             .on_action(cx.listener(|this, _: &Commit, w, cx| this.commit(w, cx)))
-            .on_action(cx.listener(|this, _: &MenuNext, _, cx| this.menu_step(1, cx)))
-            .on_action(cx.listener(|this, _: &MenuPrevious, _, cx| this.menu_step(-1, cx)))
-            .on_action(cx.listener(|this, _: &MenuConfirm, w, cx| this.menu_confirm(w, cx)))
+            .on_action(cx.listener(|this, _: &MenuNext, _, cx| {
+                if this.history_ui.menu.is_some() { this.hist_menu_step(1, cx) } else { this.menu_step(1, cx) }
+            }))
+            .on_action(cx.listener(|this, _: &MenuPrevious, _, cx| {
+                if this.history_ui.menu.is_some() { this.hist_menu_step(-1, cx) } else { this.menu_step(-1, cx) }
+            }))
+            .on_action(cx.listener(|this, _: &MenuConfirm, w, cx| {
+                if !this.hist_confirm_key(w, cx) {
+                    this.menu_confirm(w, cx)
+                }
+            }))
             .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.select_step(1, cx)))
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
-                if this.dialog.is_some() {
+                if this.hist_dismiss(w, cx) {
+                } else if this.dialog.is_some() {
                     this.close_dialog(cx)
                 } else if this.menu.is_some() {
                     this.close_menu(cx)
@@ -759,7 +777,9 @@ impl Render for Workspace {
             .children(banner)
             .children(popover)
             .children(menu)
-            .children(dialog);
+            .children(dialog)
+            .children(hist_menu)
+            .children(hist_dialog);
         crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }
 }

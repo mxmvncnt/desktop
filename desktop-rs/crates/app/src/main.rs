@@ -3,6 +3,7 @@
 mod actions;
 mod chrome;
 mod diff_highlight;
+mod history_ops;
 mod repo;
 mod settings;
 #[cfg(feature = "snapshot")]
