@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = ["crates/git", "crates/ui", "crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+gd-git = { path = "crates/git" }
+gd-ui = { path = "crates/ui" }
+
+# GPUI Community Edition, pinned. Bump deliberately (see docs/ARCHITECTURE.md §GPUI-CE).
+gpui = { package = "gpui-ce", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
+gpui_platform = { package = "gpui_ce_platform", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a", features = ["wayland", "x11", "font-kit"] }
+gpui_wgpu = { package = "gpui_ce_wgpu", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
+gpui_elements = { package = "gpui_ce_elements", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
+
+anyhow = "1"
+thiserror = "2"
+log = "0.4"
+env_logger = "0.11"
+smol = "2"
+
+[profile.dev]
+# Keep debug builds snappy to iterate on while still optimizing deps,
+# so the UI is representative of real performance during development.
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"

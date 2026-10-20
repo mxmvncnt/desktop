@@ -1,0 +1,15 @@
+[package]
+name = "gd-git"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Pure-Rust, UI-agnostic git layer. Shells out to the system `git` binary
+# (like GitHub Desktop's dugite) so behaviour, hooks, credentials and config
+# match the user's CLI exactly. Every call is blocking: callers must run it on
+# a background executor, never on the UI thread.
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+log.workspace = true
