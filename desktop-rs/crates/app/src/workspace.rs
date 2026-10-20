@@ -31,6 +31,7 @@ use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
+use crate::views::stashes::StashUi;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popover {
@@ -51,6 +52,8 @@ pub struct Workspace {
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,
     pub dialog: Option<ConfirmDialog>,
+    /// Stash dialogs (create / rename / drop / switch branch) and their input.
+    pub stash_ui: StashUi,
     /// Window corner radius for this frame (0 unless floating under CSD);
     /// layers touching a window corner round their own background with it.
     pub corner_radius: f32,
@@ -123,6 +126,7 @@ impl Workspace {
             menu: None,
             menu_gen: 0,
             dialog: None,
+            stash_ui: StashUi::new(cx),
             startup_error: None,
             corner_radius: 0.0,
             summary,
@@ -216,6 +220,7 @@ impl Workspace {
                         this.summary.update(cx, |s, cx| s.emplace(summary, cx));
                         this.description.update(cx, |s, cx| s.emplace(description, cx));
                     }
+                    RepoEvent::SwitchBranchWithChanges(branch) => this.open_switch_dialog(branch.clone(), cx),
                 }));
                 self.repo = Some(model);
                 self.menu = None;
@@ -715,8 +720,11 @@ impl Render for Workspace {
         let menu = self.render_menu(window, cx);
         let diff_options = self.render_diff_options_menu(window, cx);
         let dialog = self.render_dialog(cx);
-        let overlay_open =
-            self.menu.is_some() || self.dialog.is_some() || self.diff_view.menu.is_some();
+        let stash_dialog = self.render_stash_dialog(cx);
+        let overlay_open = self.menu.is_some()
+            || self.dialog.is_some()
+            || self.diff_view.menu.is_some()
+            || self.stash_ui.dialog.is_some();
 
         let root = div()
             .id("workspace")
@@ -744,8 +752,11 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &MenuConfirm, w, cx| this.menu_confirm(w, cx)))
             .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.select_step(1, cx)))
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
+            .on_action(cx.listener(|this, _: &StashChanges, w, cx| this.open_stash_create(false, w, cx)))
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
-                if this.dialog.is_some() {
+                if this.stash_ui.dialog.is_some() {
+                    this.close_stash_dialog(cx)
+                } else if this.dialog.is_some() {
                     this.close_dialog(cx)
                 } else if this.diff_view.menu.is_some() {
                     this.close_diff_options(cx)
@@ -770,7 +781,8 @@ impl Render for Workspace {
             .children(popover)
             .children(menu)
             .children(diff_options)
-            .children(dialog);
+            .children(dialog)
+            .children(stash_dialog);
         crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }
 }

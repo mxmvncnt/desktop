@@ -8,6 +8,7 @@ mod diff_split;
 mod history;
 pub mod menus;
 mod pickers;
+pub mod stashes;
 mod welcome;
 
 use gd_git::FileStatus;

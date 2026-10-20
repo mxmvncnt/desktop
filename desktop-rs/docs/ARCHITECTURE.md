@@ -38,6 +38,24 @@ guessing APIs. To recreate them:
 - `examples/smoke.rs` exercises the write paths against a scratch repo:
   `cargo run -p gd-git --example smoke -- $PWD/.tmp/smoke`.
 
+## Stashes (`gd-git/src/stash.rs`, `app/src/stashes.rs`, `app/src/views/stashes.rs`)
+
+- Listing: `git stash list -z --format=%H%x1f%h%x1f%ct%x1f%cd%x1f%gs` with `--date=format-local`. `%gs` is
+  `WIP on <branch>: <sha> <subject>` (no user message) or `On <branch>: <msg>`; `parse_subject` extracts branch/message
+  (`(no branch)` = detached). Stashes are identified by sha, never by index: write ops re-resolve `stash@{n}` from the sha
+  right before running (indices shift when others are dropped).
+- Layout: tracked changes = `git diff S^1 S`; untracked files (`-u`) live in the parentless third parent `S^3`
+  (`ls-tree -r` for the list, `git show S^3 -- path` for the diff). Untracked entries get `FileStatus::Untracked`.
+- Push uses `-u` always; pathspec pushes pass `--literal-pathspecs` (paths like `notes [1].md`). Gotcha: the global
+  `--literal-pathspecs` breaks `-u` cleanup when no pathspec is given, so it is only passed with paths.
+- `exec.rs` now falls back to stdout for the error text when stderr is empty (`stash apply` prints CONFLICT lines on stdout).
+- Rename = `stash store -m <new subject> <sha>` then drop the old entry (moves to top).
+- State: `RepoModel::stashes: StashState` (list, filter, collapsed, selection, files/diff/highlight, generation counter);
+  loaded in the background from every full refresh. `RepoEvent::SwitchBranchWithChanges` makes `RepoModel::checkout`
+  hand dirty-tree checkouts to the Workspace, which owns `Workspace::stash_ui` (dialog + message input). Use
+  `RepoModel::checkout_now` to skip the dialog. `gd_ui::Dialog::content` embeds inputs/option rows.
+- `select_change` clears `stashes.viewing`, which is what swaps the main pane between stash detail and the working diff.
+
 ## Threading / state (`crates/app`)
 
 - `Workspace` (`workspace.rs`) is the root view. It owns settings, popover state,

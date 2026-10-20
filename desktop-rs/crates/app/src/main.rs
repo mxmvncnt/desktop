@@ -5,6 +5,7 @@ mod chrome;
 mod diff_highlight;
 mod repo;
 mod settings;
+mod stashes;
 #[cfg(feature = "snapshot")]
 mod snapshot;
 mod views;

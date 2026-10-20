@@ -32,6 +32,8 @@ macro_rules! icons {
 }
 
 icons! {
+    Archive => "archive-minimalistic",
+    ArchiveUp => "archive-up-minimalistic",
     ChevronDown => "alt-arrow-down",
     ChevronRight => "alt-arrow-right",
     ChevronUp => "alt-arrow-up",
