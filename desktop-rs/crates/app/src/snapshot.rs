@@ -12,7 +12,7 @@
 //! ```
 //! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
-//! `header-menu`, `discard-dialog`, `undo-strip`, `icons` (icon-rendering sanity check, repo arg ignored).
+//! `header-menu`, `discard-dialog`, `undo-strip`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`, `switch-branch-dialog`, `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -95,6 +95,54 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         if let Some(c) = ws.repo.as_ref().and_then(|r| r.read(cx).changes().get(1).cloned()) {
                             ws.dialog = Some(crate::views::menus::ConfirmDialog::DiscardFile(c));
                             cx.notify();
+                        }
+                    }
+                    "stash-list" => {}
+                    "stash-detail" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                if let Some(s) = r.stashes.list.first().cloned() {
+                                    r.stashes.all_branches = true;
+                                    r.select_stash(s.sha, cx);
+                                }
+                            });
+                        }
+                    }
+                    "stash-detail-untracked" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                if let Some(s) = r.stashes.list.last().cloned() {
+                                    r.stashes.all_branches = true;
+                                    r.select_stash(s.sha, cx);
+                                }
+                            });
+                        }
+                    }
+                    "stash-all" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| { r.stashes.all_branches = true; cx.notify() });
+                        }
+                    }
+                    "stash-menu" => {
+                        if let Some(s) = ws.repo.as_ref().and_then(|r| r.read(cx).stashes.list.first().cloned()) {
+                            ws.open_stash_menu(s, gpui::point(px(120.0), px(560.0)), window, cx);
+                        }
+                    }
+                    "stash-dialog" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, _| r.excluded.insert("untracked.md".into()));
+                        }
+                        ws.open_stash_create(false, window, cx);
+                    }
+                    "stash-drop-dialog" => {
+                        if let Some(s) = ws.repo.as_ref().and_then(|r| r.read(cx).stashes.list.first().cloned()) {
+                            ws.stash_ui.dialog = Some(crate::views::stashes::StashDialog::Drop(s));
+                            cx.notify();
+                        }
+                    }
+                    "switch-branch-dialog" => {
+                        if let Some(b) = ws.repo.as_ref().and_then(|r| r.read(cx).branches.iter().find(|b| !b.is_head).cloned()) {
+                            ws.open_switch_dialog(b, cx);
                         }
                     }
                     "undo-strip" => {

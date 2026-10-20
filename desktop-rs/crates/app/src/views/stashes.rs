@@ -8,7 +8,7 @@
 use gd_git::{Branch, Stash};
 use gd_ui::{Button, Dialog, Icon, Theme, badge, icon, pressable, vdivider};
 use gpui::{
-    App, ClipboardItem, Context, ElementId, Entity, InteractiveElement, IntoElement, ParentElement,
+    App, ClipboardItem, Context, ElementId, Entity, Focusable, InteractiveElement, IntoElement, ParentElement,
     Pixels, Point, SharedString, Styled, Window, div, prelude::*, px, uniform_list,
 };
 use gpui_elements::editable_text::{EditableTextState, StringStorage, actions::Enter};
@@ -145,7 +145,8 @@ impl Workspace {
         self.menu = None;
         self.popover = None;
         self.dialog = None;
-        self.stash_ui.dialog = Some(StashDialog::Switch { branch, stash: false });
+        // Desktop's default: leave the changes behind (stash).
+        self.stash_ui.dialog = Some(StashDialog::Switch { branch, stash: true });
         cx.notify();
     }
 

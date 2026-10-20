@@ -122,7 +122,13 @@ impl Repository {
             ));
         }
         let before = self.stash_top();
-        let mut g = self.git().arg("--literal-pathspecs").args(["stash", "push", "--include-untracked"]);
+        // `--literal-pathspecs` breaks `-u` cleanup of untracked files when no
+        // pathspec is given, so only pass it for the pathspec form.
+        let mut g = self.git();
+        if !paths.is_empty() {
+            g = g.arg("--literal-pathspecs");
+        }
+        let mut g = g.args(["stash", "push", "--include-untracked"]);
         if !message.trim().is_empty() {
             g = g.args(["-m", message.trim()]);
         }

@@ -68,7 +68,15 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 2. ✅ File-system watcher, "Last fetched" caption, background fetch (see below).
 3. ✅ Syntax highlighting in diffs (background, cached). `gd-syntax` (tree-sitter), see ARCHITECTURE. Also: diff scroll resets on file/commit change, horizontal scroll sized from the widest row, hunk headers italic/muted with a divider. Timing: 18k-row added Rust file highlights in ~125 ms (small diffs 5-25 ms, first one pays ~20 ms query compile). Snapshot views `changes@N` select the N-th file.
 4. ⬜ Auth: GIT_ASKPASS helper → in-app credential dialog; GitHub sign-in (OAuth device flow).
-5. ⬜ Stash (Desktop's "stashed changes"), switch-branch-with-changes dialog.
+5. ✅ Multiple stashes + switch-branch-with-changes dialog (branch `rust/stashes`).
+   - Sidebar "Stashes (N)" panel between the file list and commit box: collapsible (state kept per session), "This branch / All branches" filter (default this branch), newest first, this-branch vs other-branch styling. Hidden when the repo has no stashes.
+   - Click a stash: main pane shows header (message, branch, date, sha) with Apply / Restore (pop) / Discard (confirm), file list + syntax-highlighted diff (untracked files included).
+   - Right-click a stash: Apply, Pop, Rename (git `stash store` + drop; moves it to the top), Copy message, Drop (confirm).
+   - Create: "N changed files" header menu -> Stash all changes… / Stash selected files… (pathspecs), Ctrl+Shift+S; optional message; scope radios when only some files are checked. Untracked files are always included (`-u`).
+   - Checkout with uncommitted changes always opens Desktop's dialog (Leave my changes on X = stash / Bring my changes to Y). If checkout fails after stashing, the stash is popped back.
+   - Conflicts on apply/pop: the error is shown, the working tree is left conflicted (files show "!") for the user to resolve, and a conflicted pop keeps the stash. No dedicated conflict UI (belongs to the in-progress banner work).
+   - Known gaps: stashes dropped externally are noticed on the next full refresh (focus/F5/any op), since `git stash drop` of a non-top entry only rewrites the reflog; no auto-restore of the switch-stash when returning to the branch; "Stash selected files" is always enabled in the menu (notice if none checked).
+   - Snapshot views: `stash-list`, `stash-all`, `stash-detail`, `stash-detail-untracked`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`, `switch-branch-dialog`. Smoke: `cargo run -p gd-git --example stash_smoke -- $PWD/.tmp/stash-smoke [--keep]`.
 6. ⬜ Merge / rebase / squash into current branch; conflict resolution UI.
 7. ⬜ Partial (line/hunk) staging in the diff gutter.
 8. ⬜ Split diff view; image diffs; whitespace toggle.
