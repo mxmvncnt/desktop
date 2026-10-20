@@ -11,6 +11,7 @@
 
 mod diff;
 mod exec;
+mod history_ops;
 mod log;
 mod merge;
 mod progress;
@@ -20,6 +21,7 @@ mod status;
 
 pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
+pub use history_ops::{ResetMode, github_web_url};
 pub use log::{Commit, CommitFile};
 pub use merge::MergePreview;
 pub use progress::{InProgress, OpOutcome};

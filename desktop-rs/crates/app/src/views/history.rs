@@ -1,6 +1,7 @@
 //! History tab: paged commit list (sidebar) + commit details/files/diff (main).
 
 use gd_ui::{Icon, Theme, icon, pressable, vdivider};
+use gpui::{InteractiveElement, StatefulInteractiveElement};
 use gpui::{
     Context, Entity, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
     uniform_list,
@@ -33,6 +34,7 @@ impl Workspace {
                 .into_any_element();
         }
         let list_repo = repo.clone();
+        let ws = cx.entity();
         div()
             .key_context(LIST)
             .flex()
@@ -51,8 +53,11 @@ impl Workspace {
                     range
                         .filter_map(|ix| {
                             let c = r.commits.get(ix)?;
-                            let selected = r.selected_commit == Some(ix);
+                            let selected = r.commit_selected(ix);
+                            let unpushed = r.is_unpushed(&c.sha);
+                            let tags = r.history_ops.tags.get(&c.sha).cloned().unwrap_or_default();
                             let repo = list_repo.clone();
+                            let ws = ws.clone();
                             Some(
                                 pressable(("commit", ix), selected, cx)
                                     .flex()
@@ -65,10 +70,30 @@ impl Workspace {
                                     .rounded(px(6.0))
                                     .child(
                                         div()
-                                            .truncate()
-                                            .text_size(px(13.0))
-                                            .text_color(if selected { theme.text } else { theme.text_muted })
-                                            .child(c.summary.clone()),
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(6.0))
+                                            .child(
+                                                div()
+                                                    .flex_1()
+                                                    .min_w_0()
+                                                    .truncate()
+                                                    .text_size(px(13.0))
+                                                    .text_color(if selected { theme.text } else { theme.text_muted })
+                                                    .child(c.summary.clone()),
+                                            )
+                                            .children(tag_pills(&tags, &theme))
+                                            .when(unpushed, |d| {
+                                                d.child(
+                                                    div()
+                                                        .id(("unpushed", ix))
+                                                        .flex_none()
+                                                        .child(icon(Icon::ArrowUp).size(px(13.0)).text_color(theme.text_faint))
+                                                        .tooltip(gd_ui::tooltip(
+                                                            "This commit hasn't been pushed to the remote repository yet",
+                                                        )),
+                                                )
+                                            }),
                                     )
                                     .child(
                                         div()
@@ -77,8 +102,16 @@ impl Workspace {
                                             .text_color(theme.text_faint)
                                             .child(format!("{} • {}", c.author_name, relative_time(c.time))),
                                     )
-                                    .on_click(move |_, _, cx| {
-                                        repo.update(cx, |r, cx| r.select_commit(ix, cx))
+                                    .on_mouse_down(gpui::MouseButton::Right, move |e, w, cx| {
+                                        let pos = e.position;
+                                        ws.update(cx, |this, cx| this.open_commit_menu(ix, pos, w, cx))
+                                    })
+                                    .on_click(move |ev, _, cx| {
+                                        if !ev.standard_click() {
+                                            return;
+                                        }
+                                        let m = ev.modifiers();
+                                        repo.update(cx, |r, cx| r.click_commit(ix, m.secondary(), m.shift, cx))
                                     }),
                             )
                         })
@@ -97,6 +130,10 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let theme = Theme::of(cx).clone();
+        let r = repo.read(cx);
+        if r.multi_indices().len() >= 2 {
+            return self.render_multiselect_main(repo, cx);
+        }
         let r = repo.read(cx);
         let Some(commit) = r.selected_commit.and_then(|ix| r.commits.get(ix)).cloned() else {
             return div().flex_1().into_any_element();
@@ -243,4 +280,27 @@ impl Workspace {
             )
             .into_any_element()
     }
+}
+
+/// Up to two tag pills for a history row (+N for the rest).
+fn tag_pills(tags: &[String], theme: &Theme) -> Vec<gpui::AnyElement> {
+    let pill = |text: String| {
+        div()
+            .flex_none()
+            .max_w(px(90.0))
+            .truncate()
+            .px(px(6.0))
+            .py(px(1.0))
+            .rounded(px(5.0))
+            .bg(gd_ui::theme::ink(0.07))
+            .text_size(px(10.5))
+            .text_color(theme.text_muted)
+            .child(text)
+            .into_any_element()
+    };
+    let mut v: Vec<_> = tags.iter().take(2).cloned().map(pill).collect();
+    if tags.len() > 2 {
+        v.push(pill(format!("+{}", tags.len() - 2)));
+    }
+    v
 }

@@ -6,6 +6,7 @@ mod diff;
 pub mod diff_options;
 mod diff_split;
 mod history;
+pub mod history_menu;
 mod in_progress_banner;
 pub mod menus;
 pub mod merge;

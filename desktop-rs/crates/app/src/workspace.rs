@@ -53,6 +53,8 @@ pub struct Workspace {
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,
     pub dialog: Option<ConfirmDialog>,
+    /// History tab: commit menu, dialogs, amend mode (views/history_menu.rs).
+    pub history_ui: crate::views::history_menu::HistoryUi,
     /// Stash dialogs (create / rename / drop / switch branch) and their input.
     pub stash_ui: StashUi,
     /// Merge dialog, branch/conflict menus and branch dialogs (views/merge.rs).
@@ -120,6 +122,7 @@ impl Workspace {
             }
         }));
 
+        let history_ui = crate::views::history_menu::HistoryUi::new(cx);
         let mut this = Self {
             settings: Settings::load(),
             repo: None,
@@ -129,6 +132,7 @@ impl Workspace {
             menu: None,
             menu_gen: 0,
             dialog: None,
+            history_ui,
             stash_ui: StashUi::new(cx),
             merge_ui: MergeUi::new(cx),
             startup_error: None,
@@ -376,6 +380,9 @@ impl Workspace {
     }
 
     fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.try_amend(window, cx) {
+            return;
+        }
         let Some(repo) = self.repo.clone() else { return };
         let summary = self.summary.read(cx).as_str().to_string();
         let description = self.description.read(cx).as_str().to_string();
@@ -731,10 +738,14 @@ impl Render for Workspace {
         let menu = self.render_menu(window, cx);
         let diff_options = self.render_diff_options_menu(window, cx);
         let dialog = self.render_dialog(cx);
+        let hist_menu = self.render_hist_menu(cx);
+        let hist_dialog = self.render_hist_dialog(cx);
+        
         let stash_dialog = self.render_stash_dialog(cx);
         let merge_ui = self.render_merge_ui(window, cx);
         let in_progress = self.render_in_progress_banner(cx);
-        let overlay_open = self.menu.is_some()
+        let overlay_open = self.history_ui.is_open()
+            || self.menu.is_some()
             || self.dialog.is_some()
             || self.diff_view.menu.is_some()
             || self.stash_ui.dialog.is_some()
@@ -764,14 +775,23 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &Push, _, cx| this.remote_action(RemoteOp::Push, cx)))
             .on_action(cx.listener(|this, _: &Refresh, _, cx| this.refresh(cx)))
             .on_action(cx.listener(|this, _: &Commit, w, cx| this.commit(w, cx)))
-            .on_action(cx.listener(|this, _: &MenuNext, _, cx| this.menu_step(1, cx)))
-            .on_action(cx.listener(|this, _: &MenuPrevious, _, cx| this.menu_step(-1, cx)))
-            .on_action(cx.listener(|this, _: &MenuConfirm, w, cx| this.menu_confirm(w, cx)))
+            .on_action(cx.listener(|this, _: &MenuNext, _, cx| {
+                if this.history_ui.menu.is_some() { this.hist_menu_step(1, cx) } else { this.menu_step(1, cx) }
+            }))
+            .on_action(cx.listener(|this, _: &MenuPrevious, _, cx| {
+                if this.history_ui.menu.is_some() { this.hist_menu_step(-1, cx) } else { this.menu_step(-1, cx) }
+            }))
+            .on_action(cx.listener(|this, _: &MenuConfirm, w, cx| {
+                if !this.hist_confirm_key(w, cx) {
+                    this.menu_confirm(w, cx)
+                }
+            }))
             .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.select_step(1, cx)))
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
             .on_action(cx.listener(|this, _: &StashChanges, w, cx| this.open_stash_create(false, w, cx)))
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
-                if this.stash_ui.dialog.is_some() {
+                if this.hist_dismiss(w, cx) {
+                } else if this.stash_ui.dialog.is_some() {
                     this.close_stash_dialog(cx)
                 } else if this.close_merge_ui(w, cx) {
                 } else if this.dialog.is_some() {
@@ -802,6 +822,8 @@ impl Render for Workspace {
             .children(diff_options)
             .children(dialog)
             .children(stash_dialog)
+            .children(hist_menu)
+            .children(hist_dialog)
             .child(merge_ui);
         crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }

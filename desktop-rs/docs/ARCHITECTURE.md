@@ -124,6 +124,28 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Headless test (`--snapshot ... watch`): the watcher debounces in wall-clock
   time, so use real sleeps and poll `run_until_parked`.
 
+## History operations (`gd_git::history_ops`, `app/src/history_ops.rs`, `views/history_menu.rs`)
+
+- State: `RepoModel.history_ops` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
+  multi-selection as shas) reloaded in the background by `reload_push_state` on every full refresh.
+  UI state: `Workspace.history_ui` (menu, dialogs, amend, dialog text inputs). Own menu/dialog types so the
+  Changes menu code is untouched; `workspace.rs` routes Esc/Enter/arrows to it first.
+- Every op goes through `RepoModel::hist_run`, a thin wrapper over the merge branch's `run_op` (one at a time, then `refresh`). Menu items are
+  disabled while an op, remote op, commit, or stopped merge/rebase/cherry-pick/revert is active.
+- Unpushed: `rev-list @{upstream}..HEAD`, or `HEAD --not --remotes` without upstream; empty with no remotes.
+- Squash: adjacent, linear commits only. The squashed commit is built with `commit-tree` (newest tree, oldest's
+  parent). If the run ends at HEAD, `update-ref` moves the branch (working tree and index untouched).
+  Otherwise `rebase --autostash --onto <new> <newest>` replays the later commits; they apply cleanly
+  because the tree is unchanged.
+- Reorder: `move_commit` (swap with neighbour) writes a todo file into `.git/gd-rebase-todo` and runs
+  `rebase -i` with `-c sequence.editor="cp '<file>'"`; removed afterwards. No drag and drop (uniform_list
+  drag with autoscroll not attempted); menu "Move commit up/down" instead.
+- Revert/cherry-pick/squash-rebase/reorder return `OpOutcome` via `outcome_of`; on conflicts the op stays in progress and the generic in-progress banner (Continue/Abort) takes over. No private abort helpers.
+- Amend: `amend_commit` resets the index, adds the checked paths, `commit --amend --allow-empty -F -`.
+  Undo reuses `undo_last_commit` after seeding `last_commit` from HEAD, so the message returns via `CommitUndone`.
+- Gotchas: `Focusable` must be imported for `Entity<EditableTextState>::focus_handle`; `gd_ui::tooltip(text)` is the
+  tooltip builder (element needs an id); `Dialog::content` takes custom content (inputs, lists).
+
 ## Merge, rebase and conflicts
 
 - `gd-git`: `progress.rs` (`Repository::in_progress() -> Option<InProgress>`: Merge/Squash/Rebase/CherryPick/Revert, read from MERGE_HEAD, `rebase-merge/`, `rebase-apply/`, CHERRY_PICK_HEAD, REVERT_HEAD, SQUASH_MSG+unmerged; `continue_operation`, `abort_operation`, `prepared_message`) and `merge.rs` (`merge`, `merge_squash`, `rebase`, `merge_preview`, `commit_merge`, `resolve_with`, `mark_resolved`, branch rename/delete-remote/create-from). Operations return `OpOutcome::{Done, UpToDate, Conflicts}`; a pause is not an error. `Git::no_editor()` sets GIT_EDITOR=true for `--continue`.

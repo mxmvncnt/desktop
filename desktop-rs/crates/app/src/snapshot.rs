@@ -16,7 +16,7 @@
 //! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
-//! `rename-dialog`, `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
+//! `rename-dialog`, `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
 //! plain `changes` then shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
@@ -85,7 +85,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             r.update(cx, |r, cx| r.select_change(n, cx));
                         }
                     }
-                    "history" => {
+                    v if v.starts_with("history") || v == "amend-mode" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| r.set_tab(Tab::History, cx));
                         }
@@ -211,6 +211,16 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
             });
     })
     .ok();
+    // Phase 2: views that need the history list loaded first.
+    if view.starts_with("history-") || view == "amend-mode" {
+        cx.run_until_parked();
+        cx.update_window(window.into(), |_, window, cx| {
+            let ws = window.root::<Workspace>().flatten().expect("workspace root");
+            ws.update(cx, |ws, cx| history_phase2(ws, view, window, cx));
+        })
+        .ok();
+        cx.run_until_parked();
+    }
     // Let loads finish and entrance animations settle.
     for _ in 0..4 {
         cx.run_until_parked();
@@ -228,6 +238,61 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
     let image = cx.capture_screenshot(window.into()).expect("capture");
     image.save(&out).expect("save png");
     println!("wrote {}", out.display());
+}
+
+/// History views: `history-menu`, `history-menu-head`, `history-multiselect`,
+/// `history-squash`, `history-reset`, `history-cherry`, `history-tag`,
+/// `history-checkout`, `amend-mode`.
+fn history_phase2(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx: &mut gpui::Context<Workspace>) {
+    use crate::views::history_menu::HAction;
+    let Some(repo) = ws.repo.clone() else { return };
+    let at = gpui::point(px(150.0), px(190.0));
+    let multi = |cx: &mut gpui::Context<Workspace>| {
+        repo.update(cx, |r, cx| {
+            r.click_commit(1, false, false, cx);
+            r.click_commit(3, false, true, cx);
+        })
+    };
+    match view {
+        "history-menu" => ws.open_commit_menu(2, at, window, cx),
+        "history-menu-head" => ws.open_commit_menu(0, at, window, cx),
+        "history-menu-pushed" => ws.open_commit_menu(6, at, window, cx),
+        "history-multiselect" => multi(cx),
+        "history-multimenu" => {
+            multi(cx);
+            ws.open_commit_menu(2, at, window, cx);
+        }
+        "history-squash" => {
+            multi(cx);
+            ws.open_commit_menu(2, at, window, cx);
+            ws.run_hist_action(HAction::Squash, window, cx);
+        }
+        "history-reset" => {
+            ws.open_commit_menu(2, at, window, cx);
+            ws.run_hist_action(HAction::Reset, window, cx);
+        }
+        "history-cherry" => {
+            ws.open_commit_menu(2, at, window, cx);
+            ws.run_hist_action(HAction::CherryPick, window, cx);
+        }
+        "history-tag" => {
+            ws.open_commit_menu(2, at, window, cx);
+            ws.run_hist_action(HAction::CreateTag, window, cx);
+            ws.history_ui.name.update(cx, |s, cx| s.emplace("v1.2.0", cx));
+        }
+        "history-checkout" => {
+            ws.open_commit_menu(2, at, window, cx);
+            ws.run_hist_action(HAction::Checkout, window, cx);
+        }
+        "amend-mode" => {
+            let head = repo.read(cx).commits.first().cloned();
+            if let Some(head) = head {
+                ws.start_amend(head, window, cx);
+            }
+        }
+        _ => {}
+    }
+    cx.notify();
 }
 
 fn process_cpu_ticks() -> u64 {

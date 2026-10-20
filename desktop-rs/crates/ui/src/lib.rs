@@ -10,11 +10,13 @@ pub mod components;
 pub mod motion;
 pub mod overlay;
 pub mod theme;
+pub mod tooltip;
 
 pub use assets::{Assets, Icon};
 pub use components::*;
 pub use overlay::{ContextMenu, Dialog, MenuEntry, MenuItem};
 pub use theme::Theme;
+pub use tooltip::tooltip;
 
 use gpui::App;
 

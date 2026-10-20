@@ -114,6 +114,8 @@ pub struct RepoModel {
     _commit_task: Option<Task<()>>,
     _commit_hl_task: Option<Task<()>>,
     hl_cache: HighlightCache,
+    /// Push status, tags, multi-select (see `history_ops.rs`).
+    pub history_ops: crate::history_ops::HistoryOpsState,
 
     // ---- branches / remote ----
     pub branches: Vec<Branch>,
@@ -166,6 +168,7 @@ impl RepoModel {
             _commit_task: None,
             _commit_hl_task: None,
             hl_cache: HighlightCache::default(),
+            history_ops: Default::default(),
             branches: Vec::new(),
             remote_op: None,
             committing: false,
@@ -346,6 +349,7 @@ impl RepoModel {
                 }
                 this.last_fetch = last_fetch;
                 if full {
+                    this.reload_push_state(cx);
                     this.reload_stashes(cx);
                 }
                 this.apply_progress(progress, cx);
@@ -547,6 +551,7 @@ impl RepoModel {
     }
 
     pub fn select_commit(&mut self, ix: usize, cx: &mut Context<Self>) {
+        self.history_ops.multi.clear();
         if self.selected_commit == Some(ix) {
             return;
         }

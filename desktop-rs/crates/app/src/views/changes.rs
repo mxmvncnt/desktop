@@ -75,16 +75,21 @@ impl Workspace {
         };
         let branch = r.branch_name();
         let committing = r.committing;
+        let amending = self.amending(cx);
+        let summary_ok = !self.summary.read(cx).as_str().trim().is_empty();
         let conflicts = r.conflict_count();
         let merging = r.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes());
-        let can_commit = included > 0
-            && !self.summary.read(cx).as_str().trim().is_empty()
+        // Amending may change only the message, so no files are needed.
+        let can_commit = (included > 0 || amending)
+            && summary_ok
             && !committing
             && conflicts == 0
             && r.merge.busy.is_none();
+        let head_pushed = r.history_ops.push_state_loaded
+            && r.commits.first().is_some_and(|c| !r.is_unpushed(&c.sha));
         let repo_h = repo.clone();
         let ws = cx.entity();
-        let last_commit = r.undoable_commit().cloned();
+        let last_commit = r.undoable_commit().cloned().filter(|_| !amending);
         let list_repo = repo.clone();
 
         let ws_header = ws.clone();
@@ -225,7 +230,9 @@ impl Workspace {
             .into_any_element()
         };
 
-        let commit_label: SharedString = if committing {
+        let commit_label: SharedString = if amending {
+            if committing { "Amending…".into() } else { "Amend last commit".into() }
+        } else if committing {
             "Committing…".into()
         } else if conflicts > 0 {
             format!("Resolve {conflicts} conflict{} to commit", plural(conflicts as u32)).into()
@@ -243,6 +250,7 @@ impl Workspace {
             .p(px(12.0))
             .border_t_1()
             .border_color(theme.border)
+            .children(amending.then(|| amend_notice(head_pushed, cx)))
             .child(text_field("summary", &self.summary, "Summary (required)", cx))
             .child(
                 gpui_elements::editable_text::text_area("description")
@@ -268,7 +276,7 @@ impl Workspace {
                 Button::new("commit")
                     .primary()
                     .full_width()
-                    .icon(Icon::Check)
+                    .icon(if amending { Icon::Pen } else { Icon::Check })
                     .label(commit_label)
                     .disabled(!can_commit)
                     .on_click(|_, w, cx| w.dispatch_action(Box::new(crate::actions::Commit), cx)),
@@ -500,6 +508,56 @@ fn undo_strip(c: crate::repo::LastCommit, cx: &mut Context<Workspace>) -> impl I
                     .icon(Icon::Restart)
                     .label("Undo")
                     .on_click(cx.listener(|this, _, _, cx| this.undo_commit(cx))),
+            ),
+    )
+}
+
+/// Desktop's "Your changes will modify your most recent commit" notice, with
+/// a "Stop amending" link and a force-push warning for pushed commits.
+fn amend_notice(pushed: bool, cx: &mut Context<Workspace>) -> impl IntoElement + use<> {
+    let theme = Theme::of(cx).clone();
+    motion::fade_quick(
+        "amend-notice",
+        div()
+            .flex()
+            .items_start()
+            .gap(px(8.0))
+            .p(px(10.0))
+            .rounded(px(gd_ui::theme::CONTROL_RADIUS + 1.0))
+            .bg(gd_ui::theme::ink(0.04))
+            .border_1()
+            .border_color(theme.border)
+            .child(icon(if pushed { Icon::Warning } else { Icon::Info }).size(px(14.0)).text_color(if pushed {
+                theme.warning
+            } else {
+                theme.text_muted
+            }))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.0))
+                    .text_size(px(12.0))
+                    .text_color(theme.text_muted)
+                    .child("Your changes will modify your most recent commit.")
+                    .when(pushed, |d| {
+                        d.child(
+                            div()
+                                .text_color(theme.warning)
+                                .child("It was already pushed: you'll need to force push afterwards."),
+                        )
+                    })
+                    .child(
+                        div()
+                            .id("stop-amending")
+                            .cursor_pointer()
+                            .text_color(theme.text)
+                            .underline()
+                            .child("Stop amending")
+                            .on_click(cx.listener(|this, _, _, cx| this.stop_amend(cx))),
+                    ),
             ),
     )
 }
