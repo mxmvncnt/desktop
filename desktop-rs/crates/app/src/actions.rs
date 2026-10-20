@@ -20,12 +20,18 @@ actions!(
         SelectNext,
         SelectPrevious,
         Dismiss,
+        MenuNext,
+        MenuPrevious,
+        MenuConfirm,
         Quit,
     ]
 );
 
 /// Key context set on the workspace root.
 pub const WORKSPACE: &str = "Workspace";
+/// Key context set on keyboard-navigable lists.
+/// Key context added to the workspace root while a menu or dialog is open.
+pub const MENU: &str = "Menu";
 /// Key context set on keyboard-navigable lists.
 pub const LIST: &str = "List";
 
@@ -46,6 +52,9 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("ctrl-q", Quit, None),
         KeyBinding::new("down", SelectNext, Some(LIST)),
         KeyBinding::new("up", SelectPrevious, Some(LIST)),
+        KeyBinding::new("down", MenuNext, Some(MENU)),
+        KeyBinding::new("up", MenuPrevious, Some(MENU)),
+        KeyBinding::new("enter", MenuConfirm, Some(MENU)),
     ]);
     cx.on_action(|_: &Quit, cx| cx.quit());
 }

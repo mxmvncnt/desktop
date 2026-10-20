@@ -222,6 +222,34 @@ impl Repository {
         Ok(())
     }
 
+    /// Append `patterns` to the repository's root `.gitignore` (created if
+    /// missing). Patterns already present are skipped. Use [`escape_ignore`]
+    /// for literal paths.
+    pub fn ignore(&self, patterns: &[String]) -> Result<()> {
+        use std::io::Write;
+        let file = self.root.join(".gitignore");
+        let existing = std::fs::read_to_string(&file).unwrap_or_default();
+        let mut out = String::new();
+        if !existing.is_empty() && !existing.ends_with('\n') {
+            out.push('\n');
+        }
+        for p in patterns {
+            if !existing.lines().any(|l| l == p) && !out.lines().any(|l| l == p) {
+                out.push_str(p);
+                out.push('\n');
+            }
+        }
+        if out.trim().is_empty() {
+            return Ok(());
+        }
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&file)
+            .and_then(|mut f| f.write_all(out.as_bytes()))
+            .map_err(|e| GitError::Io(format!(".gitignore: {e}")))
+    }
+
     /// Undo the last commit, keeping its changes in the working tree.
     pub fn undo_last_commit(&self) -> Result<()> {
         self.git().args(["reset", "-q", "--soft", "HEAD~1"]).run()?;
@@ -293,4 +321,17 @@ impl Repository {
             .and_then(|m| m.modified())
             .ok()
     }
+}
+
+/// Escape gitignore metacharacters so `path` matches literally, anchored at
+/// the repository root (`/dir/file name.txt`).
+pub fn escape_ignore(path: &str) -> String {
+    let mut out = String::from("/");
+    for (i, c) in path.chars().enumerate() {
+        if matches!(c, '*' | '?' | '[' | ']' | '\\') || (i == 0 && matches!(c, '#' | '!')) {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
 }

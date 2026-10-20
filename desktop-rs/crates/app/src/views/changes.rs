@@ -75,9 +75,17 @@ impl Workspace {
             && !self.summary.read(cx).as_str().trim().is_empty()
             && !committing;
         let repo_h = repo.clone();
+        let ws = cx.entity();
+        let last_commit = r.undoable_commit().cloned();
         let list_repo = repo.clone();
 
+        let ws_header = ws.clone();
         let header = div()
+            .id("changes-header")
+            .on_mouse_down(gpui::MouseButton::Right, move |e, w, cx| {
+                let pos = e.position;
+                ws_header.update(cx, |this, cx| this.open_header_menu(pos, w, cx))
+            })
             .flex()
             .flex_none()
             .items_center()
@@ -115,6 +123,7 @@ impl Workspace {
                         let repo_click = list_repo.clone();
                         let repo_check = list_repo.clone();
                         let path = change.path.clone();
+                        let ws_row = ws.clone();
                         Some(
                             pressable(("change", ix), selected, cx)
                                 .flex()
@@ -173,6 +182,10 @@ impl Workspace {
                                         .text_color(status_color(change.status, cx))
                                         .child(change.status.badge()),
                                 )
+                                .on_mouse_down(gpui::MouseButton::Right, move |e, w, cx| {
+                                    let pos = e.position;
+                                    ws_row.update(cx, |this, cx| this.open_file_menu(ix, pos, w, cx))
+                                })
                                 .on_click(move |_, _, cx| {
                                     repo_click.update(cx, |r, cx| r.select_change(ix, cx))
                                 }),
@@ -239,6 +252,7 @@ impl Workspace {
             .child(header)
             .child(divider(cx))
             .child(div().key_context(LIST).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list))
+            .children(last_commit.map(|c| undo_strip(c, cx)))
             .child(commit_box)
     }
 
@@ -409,4 +423,44 @@ pub fn suggestion_card(
         )
         .child(Button::new(id).label(action).compact().on_click(on_click))
         .into_any_element()
+}
+
+/// Desktop's "Committed just now" strip with an Undo button.
+fn undo_strip(c: crate::repo::LastCommit, cx: &mut Context<Workspace>) -> impl IntoElement + use<> {
+    let theme = Theme::of(cx).clone();
+    motion::fade_quick(
+        ("undo-strip", c.time as usize),
+        div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(px(10.0))
+            .px(px(12.0))
+            .py(px(8.0))
+            .border_t_1()
+            .border_color(theme.border)
+            .bg(gd_ui::theme::ink(0.03))
+            .child(icon(Icon::Check).size(px(14.0)).text_color(theme.success))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .text_size(px(11.5))
+                            .text_color(theme.text_faint)
+                            .child(format!("Committed {}", super::relative_time(c.time))),
+                    )
+                    .child(div().text_size(px(12.5)).truncate().child(c.summary)),
+            )
+            .child(
+                Button::new("undo-commit")
+                    .compact()
+                    .icon(Icon::Restart)
+                    .label("Undo")
+                    .on_click(cx.listener(|this, _, _, cx| this.undo_commit(cx))),
+            ),
+    )
 }

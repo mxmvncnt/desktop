@@ -53,6 +53,18 @@ guessing APIs. To recreate them:
 - Views live in `views/*.rs` as `impl Workspace` blocks. Rows in lists hold
   `Entity<RepoModel>` clones and call `update` in click handlers.
 
+### Menus, dialogs, undo (`views/menus.rs`)
+
+- `Workspace.menu` / `Workspace.dialog` hold the open state. While either is open the root gets key
+  context `"Workspace Menu"` and focus, so `MenuNext/MenuPrevious/MenuConfirm` (↑/↓/Enter) and
+  `Dismiss` (Esc) reach the workspace. Menu rows are described once in `rows(target)`, used for both
+  rendering and keyboard stepping.
+- Right-click handlers in `uniform_list` rows capture `cx.entity()` of the Workspace and call
+  `ws.update(cx, ..)` with the row index, resolved against the live model at event time.
+- `RepoModel.last_commit` records the session's commit; `undoable_commit()` hides it when the branch
+  differs. Undo emits `RepoEvent::CommitUndone`, which the Workspace subscribes to in order to refill the inputs.
+- Setting Workspace fields directly (snapshot code) needs `cx.notify()`.
+
 ### Performance rules (primary goal)
 
 1. Never run git on the UI thread.
@@ -102,6 +114,10 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - `components.rs`: `pressable` (row/ghost base with transitioned hover wash), `Button`
   (Primary, Secondary, Ghost, Danger), `Checkbox`, `Tabs` (segmented), `ToolbarButton`
   (Desktop's toolbar dropdowns), `badge`, `overlay_card`, `divider`/`vdivider`, `icon`.
+- `overlay.rs`: `ContextMenu` (positioned at the mouse, clamped to the window, `menu_in`; items with
+  icon/danger/disabled, separators, keyboard highlight via `.selected(ix)`) and `Dialog` (scrim + `dialog_in` card,
+  Cancel + primary/danger confirm). Both are stateless `RenderOnce` wrapping a `deferred` full-window layer;
+  the owner renders them only while open and handles keys.
 - `assets.rs`: embedded Solar icons and Geist fonts. To add an icon, copy the
   SVG from `.ref/zeron/crates/ui/assets/icons/` into `crates/ui/assets/icons/`
   and add a line to the `icons!` macro.

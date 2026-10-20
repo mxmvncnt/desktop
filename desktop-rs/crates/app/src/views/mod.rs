@@ -4,6 +4,7 @@
 mod changes;
 mod diff;
 mod history;
+pub mod menus;
 mod pickers;
 mod welcome;
 
