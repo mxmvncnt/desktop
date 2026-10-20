@@ -56,6 +56,8 @@ pub struct LastCommit {
 pub enum RepoEvent {
     /// The last commit was undone: put the message back in the commit box.
     CommitUndone { summary: String, description: String },
+    /// A merge-like operation paused; git prepared this commit message.
+    PreparedMessage { summary: String, description: String },
 }
 
 impl gpui::EventEmitter<RepoEvent> for RepoModel {}
@@ -117,6 +119,8 @@ pub struct RepoModel {
     pub error: Option<String>,
     /// Transient success message ("Committed 3 files").
     pub notice: Option<String>,
+    /// Merge / rebase / conflict state (see `merge_ops.rs`).
+    pub merge: crate::merge_ops::MergeState,
 }
 
 impl RepoModel {
@@ -159,6 +163,7 @@ impl RepoModel {
             last_commit: None,
             error: None,
             notice: None,
+            merge: Default::default(),
         };
         this.refresh(cx);
         this.start_watcher(cx);
@@ -309,11 +314,15 @@ impl RepoModel {
         );
         let repo = self.repo.clone();
         cx.spawn(async move |this, cx| {
-            let (status, branches, last_fetch) = cx
+            let (status, branches, last_fetch, progress) = cx
                 .background_spawn(async move {
                     let status = repo.status();
                     let branches = full.then(|| repo.branches());
-                    (status, branches, repo.last_fetch_time())
+                    let progress = repo.in_progress().map(|p| {
+                        let msg = p.commit_finishes().then(|| repo.prepared_message()).flatten();
+                        (p, msg)
+                    });
+                    (status, branches, repo.last_fetch_time(), progress)
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -326,6 +335,7 @@ impl RepoModel {
                     this.branches = b;
                 }
                 this.last_fetch = last_fetch;
+                this.apply_progress(progress, cx);
                 if full && (!this.commits.is_empty() || this.tab == Tab::History) {
                     this.reload_history(cx);
                 }
@@ -337,6 +347,25 @@ impl RepoModel {
             .ok();
         })
         .detach();
+    }
+
+    /// Store the paused operation; announce git's prepared message when a
+    /// different operation newly paused (the workspace fills the commit box).
+    fn apply_progress(
+        &mut self,
+        progress: Option<(gd_git::InProgress, Option<(String, String)>)>,
+        cx: &mut Context<Self>,
+    ) {
+        let (new, msg) = match progress {
+            Some((p, m)) => (Some(p), m),
+            None => (None, None),
+        };
+        let newly = new.is_some()
+            && self.merge.in_progress.as_ref().map(std::mem::discriminant) != new.as_ref().map(std::mem::discriminant);
+        self.merge.in_progress = new;
+        if let (true, Some((summary, description))) = (newly, msg) {
+            cx.emit(crate::merge_ops::message_event(summary, description));
+        }
     }
 
     fn apply_status(&mut self, status: WorkingStatus, cx: &mut Context<Self>) {
@@ -652,6 +681,9 @@ impl RepoModel {
         let branch = self.branch_name();
         self.committing = true;
         cx.notify();
+        if self.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes()) {
+            return self.commit_merge(summary, description, cx);
+        }
         let message = (summary.clone(), description.clone());
         self.run(
             move |r| r.commit(&summary, &description, &paths),

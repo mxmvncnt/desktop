@@ -12,12 +12,16 @@
 mod diff;
 mod exec;
 mod log;
+mod merge;
+mod progress;
 mod refs;
 mod status;
 
 pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind};
 pub use exec::GitError;
 pub use log::{Commit, CommitFile};
+pub use merge::MergePreview;
+pub use progress::{InProgress, OpOutcome};
 pub use refs::{Branch, BranchKind};
 pub use status::{AheadBehind, FileChange, FileStatus, WorkingStatus};
 

@@ -163,6 +163,9 @@ pub(crate) fn parse_status(out: &[u8]) -> Result<WorkingStatus> {
             _ => {}
         }
     }
-    st.files.sort_by(|a, b| a.path.cmp(&b.path));
+    // Conflicted files first (Desktop lists them in their own section on top).
+    st.files.sort_by(|a, b| {
+        (a.status != FileStatus::Conflicted, &a.path).cmp(&(b.status != FileStatus::Conflicted, &b.path))
+    });
     Ok(st)
 }

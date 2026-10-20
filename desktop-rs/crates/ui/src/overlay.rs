@@ -201,6 +201,9 @@ pub struct Dialog {
     confirm_label: SharedString,
     cancel_label: SharedString,
     danger: bool,
+    confirm_disabled: bool,
+    width: f32,
+    content: Option<gpui::AnyElement>,
     on_confirm: Option<Callback>,
     on_cancel: Option<Callback>,
 }
@@ -215,9 +218,26 @@ impl Dialog {
             confirm_label: "OK".into(),
             cancel_label: "Cancel".into(),
             danger: false,
+            confirm_disabled: false,
+            width: 440.0,
+            content: None,
             on_confirm: None,
             on_cancel: None,
         }
+    }
+    /// Card width in px (default 440).
+    pub fn width(mut self, w: f32) -> Self {
+        self.width = w;
+        self
+    }
+    /// Custom content (inputs, lists) between the text and the buttons.
+    pub fn content(mut self, c: impl IntoElement) -> Self {
+        self.content = Some(c.into_any_element());
+        self
+    }
+    pub fn confirm_disabled(mut self, d: bool) -> Self {
+        self.confirm_disabled = d;
+        self
     }
     pub fn body(mut self, b: impl Into<SharedString>) -> Self {
         self.body = Some(b.into());
@@ -264,6 +284,7 @@ impl RenderOnce for Dialog {
         let mut confirm_btn = Button::new("dialog-confirm")
             .label(self.confirm_label)
             .style(if self.danger { ButtonStyle::Danger } else { ButtonStyle::Primary });
+        confirm_btn = confirm_btn.disabled(self.confirm_disabled);
         if let Some(f) = confirm {
             confirm_btn = confirm_btn.on_click(move |_, w, cx| f(w, cx));
         }
@@ -271,7 +292,7 @@ impl RenderOnce for Dialog {
         let card = overlay_card(cx)
             .id(self.id)
             .occlude()
-            .w(px(440.0))
+            .w(px(self.width))
             .flex()
             .flex_col()
             .child(
@@ -293,7 +314,8 @@ impl RenderOnce for Dialog {
                     }))
                     .children(self.detail.map(|d| {
                         div().text_size(px(12.0)).text_color(theme.text_faint).child(d)
-                    })),
+                    }))
+                    .children(self.content),
             )
             .child(
                 div()

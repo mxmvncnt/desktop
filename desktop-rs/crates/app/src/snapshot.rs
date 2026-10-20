@@ -12,7 +12,9 @@
 //! ```
 //! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
-//! `header-menu`, `discard-dialog`, `undo-strip`, `icons` (icon-rendering sanity check, repo arg ignored).
+//! `header-menu`, `discard-dialog`, `undo-strip`, `merge-dialog`, `squash-dialog`, `rebase-dialog`,
+//! `branch-menu`, `branch-menu-current`, `delete-dialog`, `rename-dialog`, `conflict-menu` (use a conflicted repo
+//! made with `merge_smoke -- <dir> --keep-conflict` for the banner and `conflict-menu`; plain `changes` shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -97,6 +99,31 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             cx.notify();
                         }
                     }
+                    // ---- merge / conflicts (see views/merge.rs) ----
+                    "merge-dialog" | "squash-dialog" | "rebase-dialog" => {
+                        let mode = match view {
+                            "squash-dialog" => crate::merge_ops::MergeMode::Squash,
+                            "rebase-dialog" => crate::merge_ops::MergeMode::Rebase,
+                            _ => crate::merge_ops::MergeMode::Merge,
+                        };
+                        ws.open_merge_dialog(mode, None, window, cx);
+                    }
+                    "branch-menu" | "branch-menu-current" | "delete-dialog" | "rename-dialog" => {
+                        ws.toggle_popover(Popover::Branches, window, cx);
+                        let want_head = view == "branch-menu-current";
+                        let b = ws.repo.as_ref().and_then(|r| {
+                            r.read(cx).branches.iter().find(|b| b.is_head == want_head && b.kind == gd_git::BranchKind::Local).cloned()
+                        });
+                        if let Some(b) = b {
+                            ws.open_branch_menu(b, gpui::point(px(420.0), px(150.0)), window, cx);
+                            match view {
+                                "delete-dialog" => ws.snapshot_menu_action(2, window, cx),
+                                "rename-dialog" => ws.snapshot_menu_action(1, window, cx),
+                                _ => {}
+                            }
+                        }
+                    }
+                    "conflict-menu" => ws.open_file_menu(0, gpui::point(px(120.0), px(150.0)), window, cx),
                     "undo-strip" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| {

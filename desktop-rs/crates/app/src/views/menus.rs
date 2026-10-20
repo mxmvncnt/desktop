@@ -145,6 +145,9 @@ impl Workspace {
         else {
             return;
         };
+        if change.status == FileStatus::Conflicted {
+            return self.open_conflict_menu(change, position, window, cx);
+        }
         self.open_menu(position, MenuTarget::File(change), window, cx);
     }
 
@@ -155,6 +158,9 @@ impl Workspace {
     }
 
     pub fn menu_step(&mut self, delta: isize, cx: &mut Context<Self>) {
+        if self.merge_ui.menu.is_some() {
+            return self.merge_menu_step(delta, cx);
+        }
         let Some(menu) = &mut self.menu else { return };
         let rows = rows(&menu.target);
         let n = rows.len() as isize;
@@ -171,6 +177,9 @@ impl Workspace {
 
     /// Enter: run the highlighted menu item, or confirm the open dialog.
     pub fn menu_confirm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.merge_ui_confirm(window, cx) {
+            return;
+        }
         if self.dialog.is_some() {
             self.confirm_dialog(cx);
             return;

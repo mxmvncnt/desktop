@@ -31,6 +31,7 @@ use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
+use crate::views::merge::MergeUi;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popover {
@@ -51,6 +52,8 @@ pub struct Workspace {
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,
     pub dialog: Option<ConfirmDialog>,
+    /// Merge dialog, branch/conflict menus and branch dialogs (views/merge.rs).
+    pub merge_ui: MergeUi,
     /// Window corner radius for this frame (0 unless floating under CSD);
     /// layers touching a window corner round their own background with it.
     pub corner_radius: f32,
@@ -121,6 +124,7 @@ impl Workspace {
             menu: None,
             menu_gen: 0,
             dialog: None,
+            merge_ui: MergeUi::new(cx),
             startup_error: None,
             corner_radius: 0.0,
             summary,
@@ -209,6 +213,13 @@ impl Workspace {
                     RepoEvent::CommitUndone { summary, description } => {
                         this.summary.update(cx, |s, cx| s.emplace(summary, cx));
                         this.description.update(cx, |s, cx| s.emplace(description, cx));
+                    }
+                    RepoEvent::PreparedMessage { summary, description } => {
+                        // A merge paused: show git's prepared message unless the user typed one.
+                        if this.summary.read(cx).as_str().trim().is_empty() {
+                            this.summary.update(cx, |s, cx| s.emplace(summary, cx));
+                            this.description.update(cx, |s, cx| s.emplace(description, cx));
+                        }
                     }
                 }));
                 self.repo = Some(model);
@@ -708,7 +719,9 @@ impl Render for Workspace {
         let popover = self.render_popover(window, cx);
         let menu = self.render_menu(window, cx);
         let dialog = self.render_dialog(cx);
-        let overlay_open = self.menu.is_some() || self.dialog.is_some();
+        let merge_ui = self.render_merge_ui(window, cx);
+        let in_progress = self.render_in_progress_banner(cx);
+        let overlay_open = self.menu.is_some() || self.dialog.is_some() || self.merge_ui.wants_menu_context();
 
         let root = div()
             .id("workspace")
@@ -725,6 +738,9 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &NewBranch, w, cx| {
                 this.toggle_popover(Popover::NewBranch, w, cx)
             }))
+            .on_action(cx.listener(|this, _: &MergeIntoCurrent, w, cx| {
+                this.open_merge_dialog(crate::merge_ops::MergeMode::Merge, None, w, cx)
+            }))
             .on_action(cx.listener(|this, _: &AddRepository, _, cx| this.prompt_add_repository(cx)))
             .on_action(cx.listener(|this, _: &Fetch, _, cx| this.remote_action(RemoteOp::Fetch, cx)))
             .on_action(cx.listener(|this, _: &Pull, _, cx| this.remote_action(RemoteOp::Pull, cx)))
@@ -737,7 +753,8 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.select_step(1, cx)))
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
-                if this.dialog.is_some() {
+                if this.close_merge_ui(w, cx) {
+                } else if this.dialog.is_some() {
                     this.close_dialog(cx)
                 } else if this.menu.is_some() {
                     this.close_menu(cx)
@@ -755,11 +772,13 @@ impl Render for Workspace {
             .text_color(theme.text)
             .rounded(px(chrome.radius()))
             .child(self.render_toolbar(chrome, window, cx))
+            .children(in_progress)
             .child(body)
             .children(banner)
             .children(popover)
             .children(menu)
-            .children(dialog);
+            .children(dialog)
+            .child(merge_ui);
         crate::chrome::frame(root.into_any_element(), chrome, window, cx)
     }
 }

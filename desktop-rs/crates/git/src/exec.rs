@@ -26,6 +26,7 @@ pub(crate) struct Git {
     stdin: Option<String>,
     network: bool,
     allow_exit_one: bool,
+    env: Vec<(OsString, OsString)>,
 }
 
 impl Git {
@@ -36,6 +37,7 @@ impl Git {
             stdin: None,
             network: false,
             allow_exit_one: false,
+            env: Vec::new(),
         }
     }
 
@@ -66,6 +68,18 @@ impl Git {
         self
     }
 
+    /// Set an environment variable for this invocation only.
+    pub fn env(mut self, k: impl AsRef<OsStr>, v: impl AsRef<OsStr>) -> Self {
+        self.env.push((k.as_ref().to_os_string(), v.as_ref().to_os_string()));
+        self
+    }
+
+    /// Never open an editor (merge/rebase/cherry-pick/revert `--continue`
+    /// keep the prepared message).
+    pub fn no_editor(self) -> Self {
+        self.env("GIT_EDITOR", "true").env("GIT_SEQUENCE_EDITOR", "true")
+    }
+
     /// Treat exit code 1 as success (`git diff --no-index` exits 1 when the
     /// inputs differ).
     pub fn allow_exit_one(mut self) -> Self {
@@ -83,6 +97,9 @@ impl Git {
             .args(&self.args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
         if self.network {
             cmd.env("GIT_TERMINAL_PROMPT", "0");
         }
