@@ -12,7 +12,7 @@
 //! ```
 //! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
-//! `header-menu`, `discard-dialog`, `undo-strip`, `icons` (icon-rendering sanity check, repo arg ignored).
+//! `header-menu`, `discard-dialog`, `split`, `split-history`, `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`, `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -84,6 +84,21 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| r.set_tab(Tab::History, cx));
                         }
+                    }
+                    // Diff options (set directly: no settings file is written).
+                    "split" | "split-history" | "hide-ws" | "split-ws" | "diff-options-menu" => {
+                        ws.settings.diff_split = matches!(view, "split" | "split-history" | "split-ws" | "diff-options-menu");
+                        ws.settings.diff_ignore_whitespace = matches!(view, "hide-ws" | "split-ws");
+                        ws.apply_diff_options(cx);
+                        if view == "split-history" {
+                            if let Some(r) = &ws.repo {
+                                r.update(cx, |r, cx| r.set_tab(Tab::History, cx));
+                            }
+                        }
+                        if view == "diff-options-menu" {
+                            ws.open_diff_options(gpui::point(px(1240.0), px(60.0)), window, cx);
+                        }
+                        cx.notify();
                     }
                     "repos" => ws.toggle_popover(Popover::Repositories, window, cx),
                     "branches" => ws.toggle_popover(Popover::Branches, window, cx),

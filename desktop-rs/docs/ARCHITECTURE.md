@@ -135,6 +135,24 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Scroll reset: `Workspace::diff_key` stores the last diff identity; a change resets the list's
   `base_handle` offset to 0.
 
+## Diff options and split view (`views/diff_options.rs`, `views/diff_split.rs`)
+
+- Options are app-wide and persisted in `Settings` (`diff_split`, `diff_ignore_whitespace`), stored in a
+  separate `display` file (`key=value`) so old `repositories` files load unchanged.
+- `gd_git::DiffOptions { ignore_whitespace }` is passed to `working_diff`/`commit_diff` (`-w`).
+  `RepoModel::diff_options` holds it; `set_diff_options` reloads the visible change/commit diff via the
+  normal generation counters (old diff stays on screen until the new one lands). `Workspace::apply_diff_options` pushes settings in;
+  `open_repository` seeds new models.
+- `Workspace::diff_view: DiffView` holds the popover position and the cached `SplitDiff`
+  (keyed by `Arc::ptr_eq` on the diff). `SplitDiff::build` is one linear pass producing
+  `SplitRow { left, right }` index pairs into `Diff::lines` (`NONE` = filler): context on both sides, hunk
+  headers span both columns (`left == right`), delete/add runs are paired row by row and padded.
+  Rendering is a single `uniform_list` (id `diff-split`); each row has two `w_1_2` clipped halves with own gutters.
+  Syntax spans reuse `DiffHighlight::row(ix)` unchanged. No horizontal scroll in split mode (columns clip).
+- The popover is a `deferred` overlay like `ContextMenu` (closes on backdrop click/Esc; counted in `overlay_open`).
+- Gotcha: a `SplitRow` side can be `NONE`; never index `lines[left]` before checking `left == right`.
+- Snapshot views set settings fields directly (no file writes).
+
 ## UI kit (`crates/ui`)
 
 - `theme.rs`: zeron's dark tokens, verbatim (oklch → sRGB helper included).

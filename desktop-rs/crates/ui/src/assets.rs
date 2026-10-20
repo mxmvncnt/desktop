@@ -72,6 +72,7 @@ icons! {
     WindowMinimize => "window-minimize",
     WindowMaximize => "window-maximize",
     WindowRestore => "window-restore",
+    Tuning => "tuning",
 }
 
 pub struct Assets;

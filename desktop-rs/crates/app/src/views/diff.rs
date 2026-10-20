@@ -31,10 +31,15 @@ impl Workspace {
         let Some(diff) = diff else {
             return div().flex_1().into_any_element();
         };
+        let hide_ws = self.settings.diff_ignore_whitespace;
         let message = if diff.is_binary {
             Some("Binary file not shown")
         } else if diff.lines.is_empty() {
-            Some("No content changes (mode change or empty file)")
+            Some(if hide_ws {
+                "No content changes (only whitespace differs, or a mode change)"
+            } else {
+                "No content changes (mode change or empty file)"
+            })
         } else {
             None
         };
@@ -47,6 +52,13 @@ impl Workspace {
                 .text_color(theme.text_faint)
                 .child(message)
                 .into_any_element();
+        }
+        let note = self.whitespace_note(cx);
+        if self.settings.diff_split {
+            let split = self.split_for(&diff);
+            let list =
+                super::diff_split::split_list(split, highlight, &self.diff_scroll, theme.font_mono.clone());
+            return self.diff_body(key, list, diff.truncated, note, &theme);
         }
         let n = diff.lines.len();
         let truncated = diff.truncated;
@@ -140,6 +152,18 @@ impl Workspace {
         .font_family(theme.font_mono.clone())
         .text_size(px(12.0))
         .line_height(px(DIFF_ROW_HEIGHT));
+        self.diff_body(key, list.into_any_element(), truncated, note, &theme)
+    }
+
+    /// Shared frame around either diff list: whitespace note on top, truncation warning below.
+    fn diff_body(
+        &self,
+        key: SharedString,
+        list: gpui::AnyElement,
+        truncated: bool,
+        note: Option<impl IntoElement>,
+        theme: &Theme,
+    ) -> gpui::AnyElement {
         motion::fade_quick(
             key,
             div()
@@ -148,7 +172,8 @@ impl Workspace {
                 .flex_1()
                 .min_h_0()
                 .min_w_0()
-                .child(list)
+                .children(note)
+                .child(div().flex_1().min_h_0().child(list))
                 .when(truncated, |d| {
                     d.child(
                         div()

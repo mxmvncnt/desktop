@@ -307,7 +307,8 @@ impl Workspace {
                                 .child(div().text_color(theme.diff_add).child(format!("+{}", diff.added)))
                                 .child(div().text_color(theme.diff_del).child(format!("−{}", diff.deleted))),
                         )
-                    }),
+                    })
+                    .child(self.diff_options_button(cx)),
             )
             .child(self.render_diff(diff, hl, SharedString::from(format!("change-diff-{}", change.path)), cx))
             .into_any_element()
