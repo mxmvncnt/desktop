@@ -3,10 +3,12 @@
 
 use std::sync::Arc;
 
+use crate::diff_highlight::{DiffHighlight, runs_for};
 use gd_git::{Diff, DiffLineKind};
 use gd_ui::{Theme, motion, theme::DIFF_ROW_HEIGHT};
 use gpui::{
-    Context, ElementId, IntoElement, ParentElement, Styled, div, prelude::*, px, uniform_list,
+    Context, IntoElement, ParentElement, SharedString, Styled, StyledText, div, point, prelude::*,
+    px, uniform_list,
 };
 
 use crate::workspace::Workspace;
@@ -15,10 +17,17 @@ impl Workspace {
     pub fn render_diff(
         &mut self,
         diff: Option<Arc<Diff>>,
-        key: impl Into<ElementId>,
+        highlight: Option<Arc<DiffHighlight>>,
+        key: SharedString,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let theme = Theme::of(cx).clone();
+        // New file/commit selected: start at the top-left. A reload of the same
+        // file (same key) keeps the scroll position.
+        if self.diff_key.as_ref() != Some(&key) {
+            self.diff_key = Some(key.clone());
+            self.diff_scroll.0.borrow().base_handle.set_offset(point(px(0.0), px(0.0)));
+        }
         let Some(diff) = diff else {
             return div().flex_1().into_any_element();
         };
@@ -41,6 +50,7 @@ impl Workspace {
         }
         let n = diff.lines.len();
         let truncated = diff.truncated;
+        let longest = diff.longest_line;
         let gutter_digits = diff
             .lines
             .iter()
@@ -53,6 +63,7 @@ impl Workspace {
         let gutter_w = px(gutter_digits as f32 * 7.5 + 16.0);
         let list = uniform_list("diff-lines", n, move |range, _w, cx| {
             let theme = Theme::of(cx).clone();
+            let font = gpui::font(theme.font_mono.clone());
             range
                 .map(|ix| {
                     let line = &diff.lines[ix];
@@ -68,6 +79,14 @@ impl Workspace {
                         DiffLineKind::Delete => theme.diff_del,
                         _ => theme.text_faint,
                     };
+                    let text = match highlight.as_ref().map(|h| h.row(ix)) {
+                        Some(spans) if !spans.is_empty() => {
+                            let runs = runs_for(&line.text, spans, fg, &font, &theme.syntax);
+                            StyledText::new(line.text.clone()).with_runs(runs).into_any_element()
+                        }
+                        _ => div().text_color(fg).child(line.text.clone()).into_any_element(),
+                    };
+                    let hunk = line.kind == DiffLineKind::Hunk;
                     let num = |n: Option<u32>| n.map(|n| n.to_string()).unwrap_or_default();
                     div()
                         .flex()
@@ -75,6 +94,8 @@ impl Workspace {
                         .w_full()
                         .bg(bg)
                         .whitespace_nowrap()
+                        .when(hunk && ix > 0, |d| d.border_t_1().border_color(theme.border))
+                        .when(hunk, |d| d.text_color(theme.text_faint).italic())
                         .child(
                             div()
                                 .flex_none()
@@ -106,11 +127,14 @@ impl Workspace {
                                 .text_color(marker_color)
                                 .child(marker),
                         )
-                        .child(div().text_color(fg).child(line.text.clone()))
+                        .child(text)
                 })
                 .collect()
         })
         .with_horizontal_sizing_behavior(gpui::ListHorizontalSizingBehavior::Unconstrained)
+        // The list measures ONE row to size the horizontal scroll extent;
+        // measure the widest, not row 0 (a short hunk header).
+        .with_width_from_item(Some(longest))
         .track_scroll(&self.diff_scroll)
         .size_full()
         .font_family(theme.font_mono.clone())

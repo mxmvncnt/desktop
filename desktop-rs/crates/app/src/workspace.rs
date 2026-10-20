@@ -58,6 +58,8 @@ pub struct Workspace {
     pub changes_scroll: UniformListScrollHandle,
     pub history_scroll: UniformListScrollHandle,
     pub diff_scroll: UniformListScrollHandle,
+    /// Identity of the diff shown last; scroll resets when it changes.
+    pub diff_key: Option<SharedString>,
     pub commit_files_scroll: UniformListScrollHandle,
     pub popover_scroll: UniformListScrollHandle,
 
@@ -108,6 +110,7 @@ impl Workspace {
             changes_scroll: UniformListScrollHandle::new(),
             history_scroll: UniformListScrollHandle::new(),
             diff_scroll: UniformListScrollHandle::new(),
+            diff_key: None,
             commit_files_scroll: UniformListScrollHandle::new(),
             popover_scroll: UniformListScrollHandle::new(),
             focus: cx.focus_handle(),

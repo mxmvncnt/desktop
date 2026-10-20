@@ -10,7 +10,7 @@
 //! GD_CONFIG_DIR=$PWD/.tmp/config cargo run --features snapshot -- \
 //!     --snapshot .tmp/shot.png .tmp/testrepo history
 //! ```
-//! Views: `changes` (default), `history`, `repos`, `branches`, `new-branch`,
+//! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
 //! `clone`, `welcome`, `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
@@ -68,6 +68,13 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
             .expect("workspace root")
             .update(cx, |ws, cx| {
                 match view {
+                    v if v.starts_with("changes@") => {
+                        // `changes@N`: select the N-th changed file.
+                        let n = v[8..].parse().unwrap_or(0);
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| r.select_change(n, cx));
+                        }
+                    }
                     "history" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| r.set_tab(Tab::History, cx));

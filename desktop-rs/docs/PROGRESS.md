@@ -38,7 +38,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 
 1. ⬜ Changes context menu: discard (with confirm dialog), copy path, reveal, ignore. Undo-last-commit UI.
 2. ⬜ File-system watcher (debounced) for live status updates.
-3. ⬜ Syntax highlighting in diffs (background, cached).
+3. ✅ Syntax highlighting in diffs (background, cached). `gd-syntax` (tree-sitter), see ARCHITECTURE. Also: diff scroll resets on file/commit change, horizontal scroll sized from the widest row, hunk headers italic/muted with a divider. Timing: 18k-row added Rust file highlights in ~125 ms (small diffs 5-25 ms, first one pays ~20 ms query compile). Snapshot views `changes@N` select the N-th file.
 4. ⬜ Auth: GIT_ASKPASS helper → in-app credential dialog; GitHub sign-in (OAuth device flow).
 5. ⬜ Stash (Desktop's "stashed changes"), switch-branch-with-changes dialog.
 6. ⬜ Merge / rebase / squash into current branch; conflict resolution UI.

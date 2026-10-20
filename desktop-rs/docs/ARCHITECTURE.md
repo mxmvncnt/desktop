@@ -8,6 +8,7 @@ desktop-rs/
 ├── env.sh              source before cargo: CARGO_HOME/TMPDIR inside the project
 ├── crates/
 │   ├── git/   (gd-git)  UI-agnostic git layer, shells out to `git`
+│   ├── syntax/ (gd-syntax) UI-agnostic tree-sitter highlighting
 │   ├── ui/    (gd-ui)   zeron-style design system: theme, motion, components, assets
 │   └── app/   (github-desktop)  the binary: models + views
 ├── docs/
@@ -67,6 +68,35 @@ guessing APIs. To recreate them:
 Known perf TODOs: split `Workspace` into child entities so typing in the commit
 box doesn't re-render the diff (it's virtualized, so it's cheap but not free);
 add syntax highlighting with a cache; add a file watcher so focus refresh isn't the only trigger.
+
+## Syntax highlighting (`crates/syntax`, `app/src/diff_highlight.rs`)
+
+- `gd-syntax` is ported from zeron's `zeron-syntax`, trimmed to Rust, JS/JSX/TS/TSX, Python,
+  Go, JSON, Bash, TOML, Markdown, HTML (+JS/CSS injection), CSS, YAML, C, C++.
+  `highlight(HighlightRequest{source, path, ..})` returns per-line `(byte_range, HighlightKind)`.
+  Limits: 2 MB source, 1M spans; unknown extension -> `UnknownLanguage`.
+- Why tree-sitter over syntect: parse is incremental-grade fast (18k rows in ~125 ms), queries
+  are shared with zeron, and the palette maps 1:1 to `HighlightKind`. Cost: ~16 grammar crates
+  of C code (longer cold build, a few MB of binary).
+- `gd-ui::theme::SyntaxPalette` (zeron dark: indigo keywords/functions, emerald strings,
+  amber numbers/types, pink macros). Variable/parameter/operator/punctuation are drawn in the
+  row's own color (no run) to cut noise and run count.
+- App flow: after a diff loads, `RepoModel::spawn_highlight` runs `highlight_diff` via
+  `background_spawn`. Until it lands the view renders plain text; then `change_hl`/`commit_hl`
+  is set and the row switches to `StyledText::with_runs` (same metrics, so no layout shift).
+  Staleness: the result is applied only if `Arc::ptr_eq` with the currently displayed diff;
+  the task slot is overwritten on each new diff. Results are cached in an 8-entry LRU keyed by
+  hash(path, diff text), shared with the background task.
+- Both sides are highlighted separately (context+delete = old, context+add = new; context and
+  adds take new-side spans, deletes old-side spans). Hunks are stitched with a blank line, so a
+  comment/string spanning an unchanged gap may be mis-colored (full-file highlight would fix it).
+- Caps: skip above 20k diff rows or 2 MB text. Per-row runs are built only for visible rows.
+- Gotcha: `uniform_list` measures ONE item (default row 0) for the horizontal extent; use
+  `with_width_from_item(Some(diff.longest_line))`. Gotcha: `StyledText::with_runs` panics if run
+  lengths don't sum to the text length / split a char; `runs_for` guards both.
+- Gotcha: `Hsla` here is palette `Alpha<Hsl>`: use `color.color.saturation`, not `.s`.
+- Scroll reset: `Workspace::diff_key` stores the last diff identity; a change resets the list's
+  `base_handle` offset to 0.
 
 ## UI kit (`crates/ui`)
 
