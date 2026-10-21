@@ -1,11 +1,11 @@
 //! GitHub Desktop — Rust + GPUI-CE rewrite (POC). See desktop-rs/docs/.
 
 mod actions;
-mod chrome;
 mod frame_debug;
 mod diff_highlight;
 mod history_ops;
 mod merge_ops;
+mod platform;
 mod repo;
 mod settings;
 mod stashes;
@@ -47,26 +47,20 @@ fn main() {
             actions::bind(cx);
 
             let bounds = Bounds::centered(None, size(px(1280.0), px(820.0)), cx);
+            let mut options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("GitHub Desktop".into()),
+                    ..Default::default()
+                }),
+                app_id: Some("github-desktop-rs".into()),
+                window_min_size: Some(size(px(860.0), px(540.0))),
+                ..Default::default()
+            };
+            platform::configure_window(&mut options);
             let window = cx
                 .open_window(
-                    WindowOptions {
-                        window_bounds: Some(WindowBounds::Windowed(bounds)),
-                        titlebar: Some(TitlebarOptions {
-                            title: Some("GitHub Desktop".into()),
-                            ..Default::default()
-                        }),
-                        app_id: Some("github-desktop-rs".into()),
-                        window_min_size: Some(size(px(860.0), px(540.0))),
-                        // Linux: draw our own frame (see chrome.rs). GNOME never
-                        // provides server decorations; KDE/X11 WMs may still
-                        // negotiate SSD, in which case chrome.rs draws nothing.
-                        window_decorations: cfg!(target_os = "linux")
-                            .then_some(gpui::WindowDecorations::Client),
-                        // Transparent so the rounded corners + shadow margin show
-                        // the desktop behind the window.
-                        linux_window_background: gpui::LinuxWindowBackground::Transparent,
-                        ..Default::default()
-                    },
+                    options,
                     |window, cx| cx.new(|cx| workspace::Workspace::new(open_path, window, cx)),
                 )
                 .expect("failed to open window");

@@ -27,3 +27,7 @@ smol.workspace = true
 log.workspace = true
 env_logger.workspace = true
 gd-syntax.workspace = true
+
+# Wayland/X11 backends are only meaningful (and only build) on Linux.
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+gpui_platform = { workspace = true, features = ["wayland", "x11"] }

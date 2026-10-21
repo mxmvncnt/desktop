@@ -66,6 +66,11 @@ impl Chrome {
         if self.floating() { CORNER_RADIUS } else { 0.0 }
     }
 
+    /// Extra left padding for the toolbar (macOS reserves room for the traffic lights).
+    pub fn leading_inset(&self) -> f32 {
+        0.0
+    }
+
     pub fn inset(&self) -> f32 {
         if self.floating() { SHADOW_INSET } else { 0.0 }
     }

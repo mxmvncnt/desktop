@@ -15,7 +15,7 @@ gd-syntax = { path = "crates/syntax" }
 
 # GPUI Community Edition, pinned. Bump deliberately (see docs/ARCHITECTURE.md §GPUI-CE).
 gpui = { package = "gpui-ce", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
-gpui_platform = { package = "gpui_ce_platform", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a", features = ["wayland", "x11", "font-kit"] }
+gpui_platform = { package = "gpui_ce_platform", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a", features = ["font-kit"] }
 gpui_wgpu = { package = "gpui_ce_wgpu", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
 gpui_elements = { package = "gpui_ce_elements", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
 

@@ -2,7 +2,8 @@
 //!
 //! Stored as plain text in `$GD_CONFIG_DIR` (override, used by dev/test runs so
 //! nothing is written outside the project), else
-//! `$XDG_CONFIG_HOME/github-desktop-rs`, else `~/.config/github-desktop-rs`.
+//! `github-desktop-rs` under the platform config dir (`platform::config_base_dir`:
+//! `$XDG_CONFIG_HOME` or `~/.config` on Linux, `~/Library/Application Support` on macOS).
 //!
 //! Format of `repositories`: one absolute path per line; a line starting with
 //! `*` marks the last-selected repository.
@@ -18,10 +19,7 @@ pub fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("GD_CONFIG_DIR") {
         return Some(PathBuf::from(dir));
     }
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("github-desktop-rs"))
+    Some(crate::platform::config_base_dir()?.join("github-desktop-rs"))
 }
 
 #[derive(Default, Debug, Clone)]

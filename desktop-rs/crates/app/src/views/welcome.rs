@@ -42,7 +42,7 @@ impl Workspace {
                         "welcome-add",
                         Icon::Folder,
                         "Add an existing repository",
-                        "Pick a folder on this computer (Ctrl+O)",
+                        format!("Pick a folder on this computer ({}+O)", crate::platform::SECONDARY_LABEL),
                         "Choose…",
                         cx.listener(|this, _, _, cx| this.prompt_add_repository(cx)),
                         cx,

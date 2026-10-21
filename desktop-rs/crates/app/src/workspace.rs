@@ -23,7 +23,7 @@ use gd_ui::{
 use gpui::{
     App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
     ParentElement, PathPromptOptions, Render, SharedString, Styled, Subscription, Task,
-    UniformListScrollHandle, Window, deferred, div, px,
+    ClickEvent, Pixels, Point, UniformListScrollHandle, Window, deferred, div, px,
 };
 use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged};
 
@@ -48,6 +48,11 @@ pub struct Workspace {
     pub popover: Option<Popover>,
     /// Bumped on every popover open so its entrance animation replays.
     pub popover_gen: usize,
+    /// Popover the backdrop just dismissed, and where that press landed. The
+    /// backdrop doesn't occlude the toolbar, so the same press also clicks
+    /// the trigger underneath; this lets the trigger ignore that click
+    /// instead of reopening.
+    popover_dismissed: Option<(Popover, Point<Pixels>)>,
     pub popover_selected: usize,
     /// Open right-click menu / confirm dialog (rendered only while `Some`).
     pub menu: Option<OpenMenu>,
@@ -128,6 +133,7 @@ impl Workspace {
             repo: None,
             popover: None,
             popover_gen: 0,
+            popover_dismissed: None,
             popover_selected: 0,
             menu: None,
             menu_gen: 0,
@@ -350,6 +356,19 @@ impl Workspace {
 
     // ---- popovers ----------------------------------------------------------
 
+    /// Toolbar trigger click: toggles `p`, unless this press is the one that
+    /// just closed it through the backdrop.
+    fn click_popover_trigger(&mut self, p: Popover, ev: &ClickEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let dismissed = self.popover_dismissed.take();
+        if let (Some((was, at)), ClickEvent::Mouse(m)) = (dismissed, ev)
+            && popover_trigger(was) == p
+            && at == m.down.position
+        {
+            return;
+        }
+        self.toggle_popover(p, window, cx)
+    }
+
     pub fn toggle_popover(&mut self, p: Popover, window: &mut Window, cx: &mut Context<Self>) {
         if self.popover == Some(p) {
             self.close_popover(window, cx);
@@ -458,7 +477,7 @@ impl Workspace {
 
     fn render_toolbar(
         &mut self,
-        chrome: crate::chrome::Chrome,
+        chrome: crate::platform::Chrome,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
@@ -546,21 +565,22 @@ impl Workspace {
             .flex_none()
             .items_center()
             .h(px(TOOLBAR_HEIGHT))
-            .px(px(6.0))
+            .pl(px(6.0 + chrome.leading_inset()))
+            .pr(px(6.0))
             .py(px(6.0))
             .gap(px(4.0))
             .bg(theme.surface)
             .rounded_t(radius)
             .border_b_1()
             .border_color(theme.border)
-            .children(captions.and_then(|c| crate::chrome::caption_buttons(&c.left, maximized, cx)))
+            .children(captions.and_then(|c| crate::platform::caption_buttons(&c.left, maximized, cx)))
             .child(
                 ToolbarButton::new("toolbar-repo", Icon::FolderWithFiles, "Current repository", repo_name)
                     .chevron()
                     .width(280.0)
                     .open(self.popover == Some(Popover::Repositories))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.toggle_popover(Popover::Repositories, window, cx)
+                    .on_click(cx.listener(|this, ev, window, cx| {
+                        this.click_popover_trigger(Popover::Repositories, ev, window, cx)
                     })),
             )
             .child(div().h(px(24.0)).child(vdivider(cx)))
@@ -569,8 +589,8 @@ impl Workspace {
                     .chevron()
                     .width(260.0)
                     .open(matches!(self.popover, Some(Popover::Branches | Popover::NewBranch)))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.toggle_popover(Popover::Branches, window, cx)
+                    .on_click(cx.listener(|this, ev, window, cx| {
+                        this.click_popover_trigger(Popover::Branches, ev, window, cx)
                     })),
             )
             .child(div().h(px(24.0)).child(vdivider(cx)))
@@ -585,11 +605,11 @@ impl Workspace {
                     })),
             )
             // Empty toolbar space is the titlebar: drag / double-click / menu.
-            .child(crate::chrome::titlebar_drag(
+            .child(crate::platform::titlebar_drag(
                 div().id("titlebar-drag").flex_1().h_full(),
                 chrome,
             ))
-            .children(captions.and_then(|c| crate::chrome::caption_buttons(&c.right, maximized, cx)))
+            .children(captions.and_then(|c| crate::platform::caption_buttons(&c.right, maximized, cx)))
     }
 
     fn render_banner(&mut self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
@@ -674,7 +694,10 @@ impl Workspace {
                         .bg(scrim(0.18))
                         .on_mouse_down(
                             gpui::MouseButton::Left,
-                            cx.listener(|this, _, window, cx| this.close_popover(window, cx)),
+                            cx.listener(|this, ev: &gpui::MouseDownEvent, window, cx| {
+                                this.popover_dismissed = this.popover.map(|p| (p, ev.position));
+                                this.close_popover(window, cx)
+                            }),
                         ),
                 )
                 .child(
@@ -692,6 +715,14 @@ impl Workspace {
                         )),
                 ),
         ))
+    }
+}
+
+/// The toolbar button that owns a popover.
+fn popover_trigger(p: Popover) -> Popover {
+    match p {
+        Popover::Repositories | Popover::Clone => Popover::Repositories,
+        Popover::Branches | Popover::NewBranch => Popover::Branches,
     }
 }
 
@@ -716,7 +747,7 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
         crate::frame_debug::on_render();
-        let chrome = crate::chrome::Chrome::detect(window);
+        let chrome = crate::platform::Chrome::detect(window);
         self.corner_radius = chrome.radius();
         let body = match self.repo.clone() {
             Some(repo) => {
@@ -827,7 +858,7 @@ impl Render for Workspace {
             .children(hist_menu)
             .children(hist_dialog)
             .child(merge_ui);
-        crate::chrome::frame(root.into_any_element(), chrome, window, cx)
+        crate::platform::frame(root.into_any_element(), chrome, window, cx)
     }
 }
 

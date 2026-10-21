@@ -246,7 +246,22 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   SVG from `.ref/zeron/crates/ui/assets/icons/` into `crates/ui/assets/icons/`
   and add a line to the `icons!` macro.
 
-## Window chrome / CSD (`app/src/chrome.rs`)
+## Platform code (`app/src/platform/`)
+
+OS-specific code lives in `platform/linux/` and `platform/macos/`; `platform/mod.rs`
+re-exports the one for the target. Both expose the same surface: `Chrome`,
+`caption_buttons`, `titlebar_drag`, `frame`, `config_base_dir`, `configure_window`,
+and the shortcut constants `SECONDARY` (ctrl/cmd), `SECONDARY_LABEL`, `REFRESH_KEY`,
+`QUIT_KEY`. Keep OS `cfg`s out of the rest of the app; add to both modules instead.
+Wayland/X11 gpui features are enabled only for Linux targets in `crates/app/Cargo.toml`.
+
+- **macOS** (not yet compiled or run, no Mac available): native frame with a transparent
+  titlebar, so the toolbar is the titlebar. `Chrome::leading_inset` (78px) clears the traffic
+  lights, the empty toolbar space is a `WindowControlArea::Drag`, no caption buttons or CSD
+  frame. Shortcuts use cmd (Refresh is cmd-r, Quit cmd-q); config is in
+  `~/Library/Application Support/github-desktop-rs`.
+
+## Window chrome / CSD (`app/src/platform/linux/chrome.rs`)
 
 - Linux requests `WindowDecorations::Client` with `LinuxWindowBackground::Transparent`.
   GNOME/Wayland never draws a frame. If the compositor negotiates server

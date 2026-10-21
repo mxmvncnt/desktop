@@ -1,5 +1,5 @@
-//! Actions and default keybindings (mirrors GitHub Desktop's shortcuts on
-//! Linux/Windows; `secondary` = ctrl on Linux, cmd on macOS).
+//! Actions and default keybindings (mirrors GitHub Desktop's shortcuts;
+//! `secondary` = ctrl on Linux, cmd on macOS, see `platform::SECONDARY`).
 
 use gpui::{App, KeyBinding, actions};
 
@@ -38,22 +38,24 @@ pub const MENU: &str = "Menu";
 pub const LIST: &str = "List";
 
 pub fn bind(cx: &mut App) {
+    use crate::platform::{QUIT_KEY, REFRESH_KEY, SECONDARY as M};
+    let ws = Some(WORKSPACE);
     cx.bind_keys([
-        KeyBinding::new("ctrl-1", ShowChanges, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-2", ShowHistory, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-t", ToggleRepositoryList, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-b", ToggleBranchList, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-shift-n", NewBranch, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-shift-m", MergeIntoCurrent, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-o", AddRepository, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-shift-t", Fetch, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-shift-p", Pull, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-p", Push, Some(WORKSPACE)),
-        KeyBinding::new("f5", Refresh, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-enter", Commit, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-shift-s", StashChanges, Some(WORKSPACE)),
-        KeyBinding::new("escape", Dismiss, Some(WORKSPACE)),
-        KeyBinding::new("ctrl-q", Quit, None),
+        KeyBinding::new(&format!("{M}-1"), ShowChanges, ws),
+        KeyBinding::new(&format!("{M}-2"), ShowHistory, ws),
+        KeyBinding::new(&format!("{M}-t"), ToggleRepositoryList, ws),
+        KeyBinding::new(&format!("{M}-b"), ToggleBranchList, ws),
+        KeyBinding::new(&format!("{M}-shift-n"), NewBranch, ws),
+        KeyBinding::new(&format!("{M}-shift-m"), MergeIntoCurrent, ws),
+        KeyBinding::new(&format!("{M}-o"), AddRepository, ws),
+        KeyBinding::new(&format!("{M}-shift-t"), Fetch, ws),
+        KeyBinding::new(&format!("{M}-shift-p"), Pull, ws),
+        KeyBinding::new(&format!("{M}-p"), Push, ws),
+        KeyBinding::new(REFRESH_KEY, Refresh, ws),
+        KeyBinding::new(&format!("{M}-enter"), Commit, ws),
+        KeyBinding::new(&format!("{M}-shift-s"), StashChanges, ws),
+        KeyBinding::new("escape", Dismiss, ws),
+        KeyBinding::new(QUIT_KEY, Quit, None),
         KeyBinding::new("down", SelectNext, Some(LIST)),
         KeyBinding::new("up", SelectPrevious, Some(LIST)),
         KeyBinding::new("down", MenuNext, Some(MENU)),
