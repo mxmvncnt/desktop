@@ -56,6 +56,26 @@ guessing APIs. To recreate them:
   `RepoModel::checkout_now` to skip the dialog. `gd_ui::Dialog::content` embeds inputs/option rows.
 - `select_change` clears `stashes.viewing`, which is what swaps the main pane between stash detail and the working diff.
 
+## Diff engine (`crates/git/src/engine.rs`, the `similar` crate)
+
+- git only *fetches* the two versions (`Side::{Empty, Blob{rev,path}, Worktree(path)}` via
+  `Repository::read_side`: `cat-file blob rev:path`, or the filesystem). The diff is computed
+  in-process (`engine::diff_texts`: Myers via `capture_diff_slices_deadline` with an 800ms deadline,
+  `group_diff_ops(…, 3)` for hunks). Working, commit and stash diffs all go through
+  `Repository::diff_sides`.
+- Hide whitespace = compare lines with all whitespace removed (git `-w` semantics). A missing
+  final newline is part of the line key, so newline-only changes show git's "\ No newline" row.
+- Word emphasis: in each replace block the i-th deleted row pairs with the i-th added row.
+  Lines are tokenized into word/space/punct tokens and diffed again, and changed byte ranges go to
+  `DiffLine::emphasis`. It's skipped above 1000 chars or when more than 60% of both lines changed. It's
+  rendered as a background wash by `diff_highlight::line_text` (merged with the syntax runs).
+- `Diff::source` keeps the exact old/new texts (for partial staging). It's `None` when either side
+  isn't valid UTF-8, so staging never writes back lossily decoded bytes. Binary = NUL in the first 8000
+  bytes, like git. `too_large` above 8 MB per side.
+- Cross-check vs git: `cargo run --release -p gd-git --example diff_compare -- <repo> [N]`.
+  On this repo's last 150 commits, 468/472 files had identical +/- counts. The rest differ where git's
+  Myers heuristics are non-minimal (e.g. yarn.lock, where ours is smaller).
+
 ## Threading / state (`crates/app`)
 
 - `Workspace` (`workspace.rs`) is the root view. It owns settings, popover state,
