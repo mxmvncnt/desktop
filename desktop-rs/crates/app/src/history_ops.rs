@@ -19,6 +19,9 @@ use crate::repo::{LastCommit, RepoModel};
 pub struct HistoryOpsState {
     /// Commits reachable from HEAD that are not on the remote yet.
     pub unpushed: HashSet<String>,
+    /// The repository has no remote at all: every commit is local, so
+    /// `unpushed` (empty in that case) must not be read as "all pushed".
+    pub all_local: bool,
     /// Whether `unpushed` has been computed at least once.
     pub push_state_loaded: bool,
     /// Tags by commit sha.
@@ -40,9 +43,14 @@ impl RepoModel {
         let generation = self.history_ops.load_gen;
         let repo = self.repo.clone();
         self.history_ops._task = Some(cx.spawn(async move |this, cx| {
-            let (unpushed, tags, url) = cx
+            let (unpushed, tags, url, no_remote) = cx
                 .background_spawn(async move {
-                    (repo.unpushed_commits(), repo.tags_by_commit(), repo.github_web_url())
+                    (
+                        repo.unpushed_commits(),
+                        repo.tags_by_commit(),
+                        repo.github_web_url(),
+                        repo.remotes().map(|r| r.is_empty()).unwrap_or(false),
+                    )
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -50,6 +58,7 @@ impl RepoModel {
                 if h.load_gen != generation {
                     return;
                 }
+                h.all_local = no_remote;
                 if let Ok(u) = unpushed {
                     h.unpushed = u;
                     h.push_state_loaded = true;
@@ -70,7 +79,7 @@ impl RepoModel {
     }
 
     pub fn is_unpushed(&self, sha: &str) -> bool {
-        self.history_ops.unpushed.contains(sha)
+        self.history_ops.all_local || self.history_ops.unpushed.contains(sha)
     }
 
     /// Indices of the multi-selected commits (ascending = newest first).

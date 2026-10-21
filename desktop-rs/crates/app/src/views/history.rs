@@ -54,7 +54,8 @@ impl Workspace {
                         .filter_map(|ix| {
                             let c = r.commits.get(ix)?;
                             let selected = r.commit_selected(ix);
-                            let unpushed = r.is_unpushed(&c.sha);
+                            // No remote: nothing to push to, so no "will be pushed" arrow.
+                            let unpushed = !r.history_ops.all_local && r.is_unpushed(&c.sha);
                             let tags = r.history_ops.tags.get(&c.sha).cloned().unwrap_or_default();
                             let repo = list_repo.clone();
                             let ws = ws.clone();

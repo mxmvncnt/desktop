@@ -78,6 +78,9 @@ pub enum HistDialog {
     Reset { commit: Commit, mode: ResetMode },
     Checkout(Commit),
     AmendPushed(Commit),
+    /// Undo / reset / move on a commit that's already on the remote: allowed,
+    /// but warn that the branch will need a force push. Confirm runs `action`.
+    PushedRewrite { action: HAction, commit: Commit },
     CreateBranch(Commit),
     CreateTag(Commit),
     DeleteTag(String),
@@ -128,14 +131,14 @@ fn rows(c: &MenuCtx) -> Vec<Option<Row>> {
     let mut v = Vec::new();
     if c.is_head {
         v.push(row(HAction::Amend, "Amend commit…", Icon::Pen, c.blocked));
-        // Undo is only offered for local commits (Desktop); a pushed commit
-        // would need a force push.
-        v.push(row(HAction::Undo, "Undo commit…", Icon::Restart, c.blocked || !c.unpushed));
+        // Pushed commits are allowed too, behind a force-push warning
+        // (`HistDialog::PushedRewrite`).
+        v.push(row(HAction::Undo, "Undo commit…", Icon::Restart, c.blocked));
     }
-    v.push(row(HAction::Reset, "Reset to commit…", Icon::ArrowLeft, c.blocked || c.is_head || !c.unpushed));
+    v.push(row(HAction::Reset, "Reset to commit…", Icon::ArrowLeft, c.blocked || c.is_head));
     v.push(row(HAction::Checkout, "Checkout commit", Icon::GitBranch, c.blocked || c.is_head));
-    v.push(row(HAction::MoveUp, "Move commit up (newer)", Icon::ChevronUp, c.blocked || !c.unpushed || !c.can_up));
-    v.push(row(HAction::MoveDown, "Move commit down (older)", Icon::ChevronDown, c.blocked || !c.unpushed || !c.can_down));
+    v.push(row(HAction::MoveUp, "Move commit up (newer)", Icon::ChevronUp, c.blocked || !c.can_up));
+    v.push(row(HAction::MoveDown, "Move commit down (older)", Icon::ChevronDown, c.blocked || !c.can_down));
     v.push(row(HAction::Revert, "Revert changes in commit", Icon::Restart, c.blocked));
     v.push(None);
     v.push(row(HAction::CreateBranch, "Create branch from commit", Icon::GitBranch, c.blocked));
@@ -278,6 +281,11 @@ impl Workspace {
         let dialog_input = |_this: &mut Self, w: &mut Window, cx: &mut Context<Self>, which: &Entity<EditableTextState>| {
             w.focus(&which.focus_handle(cx), cx);
         };
+        // History-rewriting actions on a pushed commit: warn first.
+        if !ctx.unpushed && matches!(action, HAction::Undo | HAction::Reset | HAction::MoveUp | HAction::MoveDown) {
+            self.history_ui.dialog = Some(HistDialog::PushedRewrite { action, commit });
+            return;
+        }
         match action {
             HAction::Amend => {
                 if ctx.unpushed {
@@ -383,6 +391,16 @@ impl Workspace {
             HistDialog::Reset { commit, mode } => repo.update(cx, |r, cx| r.reset_to_commit(commit.sha, mode, cx)),
             HistDialog::Checkout(c) => repo.update(cx, |r, cx| r.checkout_commit(c.sha, cx)),
             HistDialog::AmendPushed(c) => self.start_amend(c, window, cx),
+            HistDialog::PushedRewrite { action, commit } => match action {
+                HAction::Undo => repo.update(cx, |r, cx| r.undo_head_commit(cx)),
+                HAction::MoveUp => repo.update(cx, |r, cx| r.move_commit(commit.sha, true, cx)),
+                HAction::MoveDown => repo.update(cx, |r, cx| r.move_commit(commit.sha, false, cx)),
+                // Reset still asks for the soft/mixed mode next.
+                HAction::Reset => {
+                    self.history_ui.dialog = Some(HistDialog::Reset { commit, mode: ResetMode::Mixed })
+                }
+                _ => {}
+            },
             HistDialog::CreateBranch(c) => repo.update(cx, |r, cx| r.create_branch_at(name, c.sha, cx)),
             HistDialog::CreateTag(c) => repo.update(cx, |r, cx| r.create_tag(name, c.sha, cx)),
             HistDialog::DeleteTag(t) => repo.update(cx, |r, cx| r.delete_tag(t, cx)),
@@ -531,6 +549,17 @@ impl Workspace {
                     format!("Check out {}?", short(c)),
                     Some("This puts you in a detached HEAD state: commits you make won't belong to any branch until you create one. Your current branch is left untouched.".into()),
                     "Checkout",
+                    None,
+                ),
+                HistDialog::PushedRewrite { action, commit } => (
+                    "Rewrite pushed history?".into(),
+                    format!("{} has already been pushed to the remote.", short(commit)),
+                    Some("This rewrites your branch's history, so it will diverge from the remote and you'll need to force push, which can disrupt anyone who already pulled it.".into()),
+                    match action {
+                        HAction::Undo => "Undo anyway",
+                        HAction::Reset => "Continue",
+                        _ => "Move anyway",
+                    },
                     None,
                 ),
                 HistDialog::AmendPushed(c) => (
