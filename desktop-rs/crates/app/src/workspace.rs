@@ -715,6 +715,7 @@ impl Focusable for Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
+        crate::frame_debug::on_render();
         let chrome = crate::chrome::Chrome::detect(window);
         self.corner_radius = chrome.radius();
         let body = match self.repo.clone() {
@@ -753,6 +754,7 @@ impl Render for Workspace {
 
         let root = div()
             .id("workspace")
+            .on_mouse_move(|_, _, _| crate::frame_debug::on_input())
             .key_context(if overlay_open { "Workspace Menu" } else { WORKSPACE })
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &ShowChanges, _, cx| this.set_tab(Tab::Changes, cx)))

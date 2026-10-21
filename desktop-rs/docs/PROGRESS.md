@@ -1,5 +1,14 @@
 # Progress
 
+## Session 2 (2026-10-20, evening)
+
+- Merged in: CSD window chrome, diff options (split view, hide whitespace), multiple stashes,
+  merge/squash/rebase + in-progress banner + conflict resolution, and history ops
+  (push status, full commit context menu, multi-select squash, amend, reorder via menu).
+- All git smoke suites pass on the integrated tree: `smoke`, `merge_smoke`, `stash_smoke`, `history_ops`.
+- Idle is still zero renders (`GD_DEBUG_FRAMES=1`). RSS is ~67 MB (release, small repo).
+- Still untested by hand: everything interactive in the new menus and dialogs.
+
 ## Status at end of session 1 (2026-10-20, overnight autonomous run)
 
 - `rust-rewrite` holds the POC plus three merged feature branches (fs-watcher,

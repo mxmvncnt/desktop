@@ -2,6 +2,7 @@
 
 mod actions;
 mod chrome;
+mod frame_debug;
 mod diff_highlight;
 mod history_ops;
 mod merge_ops;

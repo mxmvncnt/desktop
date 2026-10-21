@@ -95,6 +95,13 @@ guessing APIs. To recreate them:
 5. The dev profile builds deps at `opt-level=3` so debug runs are representative.
 6. Release profile: thin LTO, `codegen-units=1`.
 
+Measuring idle cost: `GD_DEBUG_FRAMES=1` logs `renders=N moves=M` once per second
+while the root view renders (`app/src/frame_debug.rs`). Silence means truly idle.
+Renders far above pointer moves mean something requests frames on its own.
+Don't measure with raw CPU ticks on a live desktop: pointer movement over the
+window legitimately re-renders (hover transitions), which made one session chase
+a phantom regression.
+
 Known perf TODOs: split `Workspace` into child entities so typing in the commit
 box doesn't re-render the diff (it's virtualized, so it's cheap but not free);
 add syntax highlighting with a cache; add a file watcher so focus refresh isn't the only trigger.
