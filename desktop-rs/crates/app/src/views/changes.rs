@@ -70,7 +70,7 @@ impl Workspace {
         let included = n - r.changes().iter().filter(|c| r.excluded.contains(&c.path)).count();
         let all_state = match included {
             0 => CheckState::Unchecked,
-            i if i == n => CheckState::Checked,
+            i if i == n && r.partial.is_empty() => CheckState::Checked,
             _ => CheckState::Mixed,
         };
         let branch = r.branch_name();
@@ -130,7 +130,7 @@ impl Workspace {
                     .filter_map(|ix| {
                         let change = r.changes().get(ix)?.clone();
                         let selected = r.selected_change == Some(ix);
-                        let checked = !r.excluded.contains(&change.path);
+                        let check = r.file_check_state(&change.path);
                         let (dir, name) = split_path(&change.path);
                         let (dir, name) = (dir.to_string(), name.to_string());
                         let repo_click = list_repo.clone();
@@ -147,14 +147,7 @@ impl Workspace {
                                 .px(px(8.0))
                                 .rounded(px(6.0))
                                 .child(
-                                    Checkbox::new(
-                                        ("check", ix),
-                                        if checked {
-                                            CheckState::Checked
-                                        } else {
-                                            CheckState::Unchecked
-                                        },
-                                    )
+                                    Checkbox::new(("check", ix), check)
                                     .on_click(move |_, _, cx| {
                                         repo_check.update(cx, |r, cx| r.toggle_included(&path, cx))
                                     }),
@@ -354,7 +347,13 @@ impl Workspace {
                     .child(self.diff_options_button(cx)),
             )
             .children(hint)
-            .child(self.render_diff(diff, hl, SharedString::from(format!("change-diff-{}", change.path)), cx))
+            .child(self.render_diff(
+                diff,
+                hl,
+                SharedString::from(format!("change-diff-{}", change.path)),
+                Some(repo.clone()),
+                cx,
+            ))
             .into_any_element()
     }
 

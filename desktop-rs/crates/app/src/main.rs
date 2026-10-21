@@ -4,6 +4,7 @@ mod actions;
 mod frame_debug;
 mod diff_highlight;
 mod history_ops;
+mod line_selection;
 mod merge_ops;
 mod platform;
 mod repo;

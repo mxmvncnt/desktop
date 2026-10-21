@@ -276,6 +276,7 @@ impl Workspace {
                         diff,
                         hl,
                         SharedString::from(format!("commit-diff-{}-{file_key}", commit.sha)),
+                        None,
                         cx,
                     )),
             )

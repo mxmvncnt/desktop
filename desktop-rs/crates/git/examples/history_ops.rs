@@ -193,7 +193,7 @@ fn main() {
     sh(&work, &["checkout", "-q", "main"]);
     std::fs::write(work.join("amended.txt"), "a\n").unwrap();
     let old = sh(&work, &["rev-parse", "HEAD"]);
-    repo.amend_commit("reworded", "new body", &["amended.txt".into()]).unwrap();
+    repo.amend_commit("reworded", "new body", &["amended.txt".into()], &[]).unwrap();
     let log = repo.log(0, 2).unwrap();
     assert_eq!(log[0].summary, "reworded");
     assert_eq!(log[0].body, "new body");

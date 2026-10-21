@@ -2,7 +2,7 @@
 //! root entity's state. Heavy lists are always `uniform_list` (virtualized).
 
 mod changes;
-mod diff;
+pub mod diff;
 pub mod diff_options;
 mod diff_split;
 mod history;

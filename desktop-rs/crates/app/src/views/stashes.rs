@@ -129,7 +129,7 @@ impl Workspace {
         if r.changes().is_empty() {
             return;
         }
-        if selected_only && r.included_paths().is_empty() {
+        if selected_only && !r.has_included() {
             repo.update(cx, |r, cx| {
                 r.notice = Some("Check at least one file to stash".into());
                 cx.notify()
@@ -192,7 +192,8 @@ impl Workspace {
         let d = match dialog {
             StashDialog::Create { selected_only } => {
                 let n = r.changes().len();
-                let m = r.included_paths().len();
+                // Stashing works on whole files, partially selected ones included.
+                let m = r.changes().iter().filter(|c| !r.excluded.contains(&c.path)).count();
                 let partial = m > 0 && m < n;
                 let selected_only = *selected_only;
                 let count = if selected_only { m } else { n };
@@ -656,6 +657,7 @@ impl Workspace {
                         diff,
                         hl,
                         SharedString::from(format!("stash-diff-{}-{file_key}", stash.sha)),
+                        None,
                         cx,
                     )),
             )

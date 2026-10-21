@@ -8,7 +8,7 @@
 //!   completion handler ignores results from an older generation (the user
 //!   may have clicked another file while a big diff was loading).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -76,6 +76,8 @@ pub struct RepoModel {
     /// Paths excluded from the next commit (Desktop's unchecked boxes). We
     /// store the *excluded* set so new files default to included.
     pub excluded: HashSet<String>,
+    /// Files with only some lines selected (see `line_selection.rs`).
+    pub partial: HashMap<String, crate::line_selection::LineSelection>,
     pub selected_change: Option<usize>,
     pub change_diff: Option<Arc<Diff>>,
     change_diff_gen: u64,
@@ -141,6 +143,7 @@ impl RepoModel {
             diff_options: DiffOptions::default(),
             status: None,
             excluded: HashSet::new(),
+            partial: HashMap::new(),
             selected_change: None,
             change_diff: None,
             change_diff_gen: 0,
@@ -298,7 +301,7 @@ impl RepoModel {
     pub fn included_paths(&self) -> Vec<String> {
         self.changes()
             .iter()
-            .filter(|c| !self.excluded.contains(&c.path))
+            .filter(|c| !self.excluded.contains(&c.path) && !self.partial.contains_key(&c.path))
             .map(|c| c.path.clone())
             .collect()
     }
@@ -393,6 +396,7 @@ impl RepoModel {
             .map(|c| c.path.clone());
         let paths: HashSet<&str> = status.files.iter().map(|f| f.path.as_str()).collect();
         self.excluded.retain(|p| paths.contains(p.as_str()));
+        self.partial.retain(|p, _| paths.contains(p.as_str()));
         let changed = self.status.as_ref().map(|s| &s.files) != Some(&status.files);
         self.status = Some(status);
         self.selected_change = selected_path
@@ -444,6 +448,7 @@ impl RepoModel {
                 match diff {
                     Ok(d) => {
                         let d = Arc::new(d);
+                        this.reconcile_selection(&path, &d);
                         this.change_diff = Some(d.clone());
                         this.change_hl = None;
                         this._change_hl_task = Some(this.spawn_highlight(d, path, false, cx));
@@ -456,14 +461,18 @@ impl RepoModel {
         }));
     }
 
+    /// File checkbox: a partially selected file becomes fully included.
     pub fn toggle_included(&mut self, path: &str, cx: &mut Context<Self>) {
-        if !self.excluded.remove(path) {
+        if self.partial.remove(path).is_some() {
+            self.excluded.remove(path);
+        } else if !self.excluded.remove(path) {
             self.excluded.insert(path.to_string());
         }
         cx.notify();
     }
 
     pub fn set_all_included(&mut self, included: bool, cx: &mut Context<Self>) {
+        self.partial.clear();
         if included {
             self.excluded.clear();
         } else {
@@ -717,7 +726,8 @@ impl RepoModel {
 
     pub fn commit(&mut self, summary: String, description: String, cx: &mut Context<Self>) {
         let paths = self.included_paths();
-        let n = paths.len();
+        let partial = self.partial_files();
+        let n = paths.len() + partial.len();
         let branch = self.branch_name();
         self.committing = true;
         cx.notify();
@@ -726,7 +736,7 @@ impl RepoModel {
         }
         let message = (summary.clone(), description.clone());
         self.run(
-            move |r| r.commit(&summary, &description, &paths),
+            move |r| r.commit_partial(&summary, &description, &paths, &partial),
             move |this, _sha, _| {
                 this.last_commit = Some(LastCommit {
                     summary: message.0,
@@ -742,6 +752,8 @@ impl RepoModel {
                     if n == 1 { "" } else { "s" }
                 ));
                 this.selected_change = None;
+                // Row indices refer to diffs that no longer exist.
+                this.partial.clear();
             },
             cx,
         );

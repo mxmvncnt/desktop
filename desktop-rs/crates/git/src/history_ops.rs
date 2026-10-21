@@ -183,7 +183,13 @@ impl Repository {
     /// Replace HEAD with a new commit that has the same tree and parents
     /// but the given message and the staged `paths` added (Desktop's amend).
     /// The author is kept. Pass no paths to only reword.
-    pub fn amend_commit(&self, summary: &str, description: &str, paths: &[String]) -> Result<String> {
+    pub fn amend_commit(
+        &self,
+        summary: &str,
+        description: &str,
+        paths: &[String],
+        partial: &[crate::PartialFile],
+    ) -> Result<String> {
         if summary.trim().is_empty() {
             return Err(GitError::Invalid("commit summary is empty".into()));
         }
@@ -192,6 +198,7 @@ impl Repository {
         for chunk in paths.chunks(500) {
             self.git().args(["add", "-A", "--"]).args(chunk.iter().map(String::as_str)).run()?;
         }
+        self.stage_partial(partial)?;
         let mut message = summary.trim().to_string();
         if !description.trim().is_empty() {
             message.push_str("\n\n");

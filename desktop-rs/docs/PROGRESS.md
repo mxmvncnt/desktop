@@ -92,7 +92,17 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
    - Banner with Continue/Abort for merge, squash, rebase, cherry-pick, revert; commit box prefilled with MERGE_MSG and commits via `merge --continue`-equivalent; Continue disabled while conflicts remain.
    - Snapshot views: `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `delete-dialog`, `rename-dialog`, `conflict-menu`, and `changes` on a conflicted repo (`cargo run -p gd-git --example merge_smoke -- <dir> --keep-conflict`).
    - Not verified with a real mouse/keyboard. Not done: remote rename, rebase `--autostash`, interactive conflict resolution inside the app, banner for stash-conflicts. Picker ↑/↓ now also capture NavUp/NavDown (the LIST-context bindings never reached a focused input).
-7. ⬜ Partial (line/hunk) staging in the diff gutter.
+7. ✅ Partial (line/hunk) staging in the diff gutter (Changes tab, unified and split).
+   - Click a line number to (de)select that line; drag along the gutter to apply the same state to a range.
+     Included lines get a blue outlined number gutter (adjacent ones merge into one block).
+   - Whole hunk: the tri-state checkbox in the hunk header's gutter, or the hunk handle (thin strip left of the
+     gutter, unified view only): hovering it highlights the hunk, clicking toggles it.
+   - File checkbox shows Mixed for partially selected files; clicking it selects the whole file again. Header select-all
+     clears partial selections.
+   - Not selectable: history/stash diffs, "Hide whitespace changes" on (selection is kept for later), truncated or
+     non-UTF-8 diffs, conflicted files, while a merge commit is pending. Stash "selected files" still stashes whole files.
+   - Verified: `cargo test -p gd-git` (staged_text), `smoke` example (real partial commit). Snapshot views
+     `partial[@N]`, `partial-split[@N]`. Not yet clicked with a real mouse.
 8. 🟨 Split diff view and whitespace toggle done (gear button in both diff headers: Unified/Split + Hide whitespace changes, persisted in `display` settings file, `-w` via `gd_git::DiffOptions`). Image diffs still open. Split view clips long lines (no horizontal scroll). Snapshot views: `split`, `split-ws`, `split-history`, `hide-ws`, `diff-options-menu`. Split row build: 0.36 ms for an 18k-line diff (cached per loaded diff), so toggling is instant.
 9. ⬜ Pull requests list (GitHub API); create PR; CI status.
 10. ✅ (branch `rust/history-ops`) History commit actions and push status:

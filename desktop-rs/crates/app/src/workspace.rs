@@ -83,6 +83,7 @@ pub struct Workspace {
     pub diff_key: Option<SharedString>,
     /// Diff options popover + split-row cache (see `views/diff_options.rs`).
     pub diff_view: crate::views::diff_options::DiffView,
+    pub diff_select: crate::views::diff::DiffSelectUi,
     pub commit_files_scroll: UniformListScrollHandle,
     pub popover_scroll: UniformListScrollHandle,
 
@@ -153,6 +154,7 @@ impl Workspace {
             diff_scroll: UniformListScrollHandle::new(),
             diff_key: None,
             diff_view: Default::default(),
+            diff_select: Default::default(),
             commit_files_scroll: UniformListScrollHandle::new(),
             popover_scroll: UniformListScrollHandle::new(),
             focus: cx.focus_handle(),
@@ -405,7 +407,7 @@ impl Workspace {
         let Some(repo) = self.repo.clone() else { return };
         let summary = self.summary.read(cx).as_str().to_string();
         let description = self.description.read(cx).as_str().to_string();
-        if summary.trim().is_empty() || repo.read(cx).included_paths().is_empty() {
+        if summary.trim().is_empty() || !repo.read(cx).has_included() {
             return;
         }
         repo.update(cx, |r, cx| r.commit(summary, description, cx));

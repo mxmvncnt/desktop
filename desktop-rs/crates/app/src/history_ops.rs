@@ -253,13 +253,15 @@ impl RepoModel {
     /// `commit --amend` with the staged selection and the given message.
     pub fn amend(&mut self, summary: String, description: String, cx: &mut Context<Self>) {
         let paths = self.included_paths();
+        let partial = self.partial_files();
         self.committing = true;
         self.last_commit = None;
         self.hist_run(
             "Amending",
-            move |r| r.amend_commit(&summary, &description, &paths),
+            move |r| r.amend_commit(&summary, &description, &paths, &partial),
             |this, _, _| {
                 this.notice = Some("Amended last commit".into());
+                this.partial.clear();
                 this.selected_change = None;
             },
             cx,

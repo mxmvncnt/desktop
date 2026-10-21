@@ -28,6 +28,8 @@ use gpui::{
 };
 
 use crate::diff_highlight::{DiffHighlight, line_text};
+use crate::repo::RepoModel;
+use crate::views::diff::RowSelect;
 
 /// "No line on this side" (filler cell).
 pub const NONE: u32 = u32::MAX;
@@ -107,6 +109,7 @@ fn half(
     ix: u32,
     left: bool,
     gutter_w: f32,
+    select: Option<(&RowSelect, &RepoModel)>,
     theme: &Theme,
 ) -> Div {
     let cell = div().flex().flex_none().w_1_2().h_full().overflow_hidden();
@@ -125,17 +128,29 @@ fn half(
     let emph_bg = if line.kind == DiffLineKind::Add { theme.diff_add_emph } else { theme.diff_del_emph };
     let spans = hl.map(|h| h.row(ix as usize)).unwrap_or(&[]);
     let text: AnyElement = line_text(&line.text, spans, &line.emphasis, fg, emph_bg, &font, &theme.syntax);
+    let number = div()
+        .flex_none()
+        .w(px(gutter_w))
+        .pr(px(8.0))
+        .flex()
+        .justify_end()
+        .text_color(theme.diff_gutter)
+        .child(no.map(|n| n.to_string()).unwrap_or_default());
+    // Context rows show on both sides; only the side that owns a change
+    // (deletes left, adds right) is clickable.
+    let gutter = match select {
+        Some((sel, r)) => {
+            let ix = ix as usize;
+            let id = if left { "split-gutter-l" } else { "split-gutter-r" };
+            let included = gd_git::selectable(diff, ix) && r.row_included(ix);
+            sel.gutter(diff, ix, id, true, r, theme)
+                .child(number.when(included, |d| d.text_color(theme.text)))
+                .into_any_element()
+        }
+        None => number.into_any_element(),
+    };
     cell.bg(bg)
-        .child(
-            div()
-                .flex_none()
-                .w(px(gutter_w))
-                .pr(px(8.0))
-                .flex()
-                .justify_end()
-                .text_color(theme.diff_gutter)
-                .child(no.map(|n| n.to_string()).unwrap_or_default()),
-        )
+        .child(gutter)
         .child(
             div()
                 .flex_none()
@@ -152,6 +167,7 @@ fn half(
 pub fn split_list(
     split: Arc<SplitDiff>,
     hl: Option<Arc<DiffHighlight>>,
+    select: Option<RowSelect>,
     scroll: &gpui::UniformListScrollHandle,
     mono: gpui::SharedString,
 ) -> AnyElement {
@@ -160,6 +176,8 @@ pub fn split_list(
     uniform_list("diff-split", n, move |range, _w, cx: &mut App| {
         let theme = Theme::of(cx).clone();
         let diff = &split.diff;
+        let r = select.as_ref().map(|s| s.repo.read(cx));
+        let sel = select.as_ref().zip(r);
         range
             .map(|ix| {
                 let row = split.rows[ix];
@@ -168,7 +186,19 @@ pub fn split_list(
                     let line = &diff.lines[row.left as usize];
                     return base
                         .bg(theme.diff_hunk_bg)
-                        .pl(px(gutter_w + 16.0))
+                        .map(|d| match sel {
+                            Some((s, r)) => d.child(
+                                div()
+                                    .flex()
+                                    .flex_none()
+                                    .w(px(gutter_w + 16.0))
+                                    .h_full()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(s.hunk_checkbox(diff, row.left as usize, r)),
+                            ),
+                            None => d.pl(px(gutter_w + 16.0)),
+                        })
                         .italic()
                         .text_color(theme.text_faint)
                         .when(ix > 0, |d| d.border_t_1().border_color(theme.border))
@@ -176,9 +206,9 @@ pub fn split_list(
                         .into_any_element();
                 }
                 let hl = hl.as_deref();
-                base.child(half(diff, hl, row.left, true, gutter_w, &theme))
+                base.child(half(diff, hl, row.left, true, gutter_w, sel, &theme))
                     .child(
-                        half(diff, hl, row.right, false, gutter_w, &theme)
+                        half(diff, hl, row.right, false, gutter_w, sel, &theme)
                             .border_l_1()
                             .border_color(theme.border),
                     )

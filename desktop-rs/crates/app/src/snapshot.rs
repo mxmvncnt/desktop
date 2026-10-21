@@ -16,7 +16,7 @@
 //! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
-//! `rename-dialog`, `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
+//! `rename-dialog`, `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
 //! plain `changes` then shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
@@ -211,6 +211,43 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
             });
     })
     .ok();
+    // `partial[-split][@N]`: file N with some lines deselected and hunk 0's handle hovered.
+    if view.starts_with("partial") {
+        let n = view.split_once('@').and_then(|(_, n)| n.parse().ok()).unwrap_or(0);
+        cx.update_window(window.into(), |_, window, cx| {
+            let ws = window.root::<Workspace>().flatten().expect("workspace root");
+            ws.update(cx, |ws, cx| {
+                ws.settings.diff_split = view.starts_with("partial-split");
+                ws.apply_diff_options(cx);
+                if let Some(r) = &ws.repo {
+                    r.update(cx, |r, cx| r.select_change(n, cx));
+                }
+            });
+        })
+        .ok();
+        cx.run_until_parked();
+        cx.update_window(window.into(), |_, window, cx| {
+            let ws = window.root::<Workspace>().flatten().expect("workspace root");
+            ws.update(cx, |ws, cx| {
+                if let Some(r) = &ws.repo {
+                    r.update(cx, |r, cx| {
+                        let Some(diff) = r.change_diff.clone() else { return };
+                        let rows: Vec<usize> = (0..diff.lines.len()).filter(|&i| gd_git::selectable(&diff, i)).collect();
+                        // Deselect the 2nd selectable row and the last hunk.
+                        if let Some(&ix) = rows.get(1) {
+                            r.toggle_row(ix, cx);
+                        }
+                        if diff.hunks.len() > 1 {
+                            r.toggle_hunk(diff.hunks.len() - 1, cx);
+                        }
+                    });
+                }
+                ws.diff_select.hovered_hunk = Some(0);
+                cx.notify();
+            });
+        })
+        .ok();
+    }
     // Phase 2: views that need the history list loaded first.
     if view.starts_with("history-") || view == "amend-mode" {
         cx.run_until_parked();

@@ -15,6 +15,7 @@ mod exec;
 mod history_ops;
 mod log;
 mod merge;
+mod partial;
 mod progress;
 mod refs;
 mod stash;
@@ -25,6 +26,7 @@ pub use exec::GitError;
 pub use history_ops::{ResetMode, github_web_url};
 pub use log::{Commit, CommitFile};
 pub use merge::MergePreview;
+pub use partial::{PartialFile, selectable, staged_text};
 pub use progress::{InProgress, OpOutcome};
 pub use refs::{Branch, BranchKind};
 pub use stash::Stash;
@@ -103,10 +105,22 @@ impl Repository {
     /// "checkbox" model: the index is reset to HEAD and only the selected
     /// paths are staged, so whatever the user ticked is what gets committed.
     pub fn commit(&self, summary: &str, description: &str, paths: &[String]) -> Result<String> {
+        self.commit_partial(summary, description, paths, &[])
+    }
+
+    /// [`Self::commit`] plus files of which only some lines are committed
+    /// (`partial`, not listed in `paths`).
+    pub fn commit_partial(
+        &self,
+        summary: &str,
+        description: &str,
+        paths: &[String],
+        partial: &[PartialFile],
+    ) -> Result<String> {
         if summary.trim().is_empty() {
             return Err(GitError::Invalid("commit summary is empty".into()));
         }
-        if paths.is_empty() {
+        if paths.is_empty() && partial.is_empty() {
             return Err(GitError::Invalid("no files selected".into()));
         }
         if self.has_head() {
@@ -124,6 +138,7 @@ impl Repository {
                 .args(chunk.iter().map(String::as_str))
                 .run()?;
         }
+        self.stage_partial(partial)?;
         let mut message = summary.trim().to_string();
         if !description.trim().is_empty() {
             message.push_str("\n\n");

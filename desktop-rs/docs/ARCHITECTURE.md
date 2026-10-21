@@ -32,7 +32,7 @@ guessing APIs. To recreate them:
 - **All functions block.** Call them only from a background executor.
 - Commit model (`Repository::commit`): reset the index to HEAD, `add -A` the
   checked paths, then `commit -F -`. This matches Desktop's checkbox semantics.
-  Partial-line commits aren't supported yet.
+  Partial files go through `commit_partial` / `amend_commit(.., partial)`, see §Partial staging.
 - Diffs are parsed into a flat `Vec<DiffLine>` (hunk headers included) so the UI
   can index row `i` in O(1) from a `uniform_list`. Parsing is capped at 50k lines (`truncated`).
 - `examples/smoke.rs` exercises the write paths against a scratch repo:
@@ -75,6 +75,22 @@ guessing APIs. To recreate them:
 - Cross-check vs git: `cargo run --release -p gd-git --example diff_compare -- <repo> [N]`.
   On this repo's last 150 commits, 468/472 files had identical +/- counts. The rest differ where git's
   Myers heuristics are non-minimal (e.g. yarn.lock, where ours is smaller).
+
+## Partial staging (`gd-git/src/partial.rs`, `app/src/line_selection.rs`, `views/diff.rs`)
+
+- No `git apply`: `staged_text(diff, include)` replays the diff over `DiffSource::old` (raw lines via
+  `split_inclusive`, so CRLF and a missing final newline survive) keeping only included adds/deletes.
+  `stage_partial` checks the worktree still equals `source.new` (else errors: "changed on disk"), then
+  `hash-object -w --stdin --path=<p>` + `update-index --add --cacheinfo <mode>,<sha>,<p>` (mode = worktree exec bit
+  on unix, else HEAD's). Renames also `--force-remove` the old path.
+- App state: `RepoModel.partial: HashMap<path, LineSelection { diff: Arc<Diff>, excluded: HashSet<row> }>` next to
+  `excluded` (whole file off). `set_rows_included` normalizes: all rows off → `excluded`, none off → entry removed, so
+  `partial` only holds mixed files. A reloaded diff keeps the selection only if `lines` are identical
+  (`reconcile_selection`); `-w` diffs are ignored there. `partial` is cleared after a successful commit/amend.
+- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`; `RowSelect` builds the gutter, hunk handle and hunk
+  checkbox. Pointer state (`hovered_hunk`, `drag` anchor) is `Workspace.diff_select`, reset when the diff key changes;
+  drag ends via `on_mouse_up_all` on the list wrapper and only extends while `pressed_button == Left`.
+- Gotcha: `on_mouse_up_all` takes 5 args (event, phase, hitbox, window, cx).
 
 ## Threading / state (`crates/app`)
 

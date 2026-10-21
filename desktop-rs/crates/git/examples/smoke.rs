@@ -20,6 +20,20 @@ fn main() {
     let st = repo.status().unwrap();
     let d = repo.working_diff(&st.files[0], Default::default()).unwrap();
     println!("modified diff: +{} -{} lines={}", d.added, d.deleted, d.lines.len());
+    // Partial commit: only the added line of a two-line change.
+    std::fs::write(dir.join("a.txt"), "A\nmore\n").unwrap();
+    let st = repo.status().unwrap();
+    let d = repo.working_diff(&st.files[0], Default::default()).unwrap();
+    let content = staged_text(&d, |ix| d.lines[ix].kind == DiffLineKind::Add && d.lines[ix].text == "more").unwrap();
+    let pf = PartialFile { path: "a.txt".into(), old_path: None, content, source: d.source.clone().unwrap() };
+    repo.commit_partial("partial", "", &[], &[pf]).unwrap();
+    let show = std::process::Command::new("git").current_dir(&dir).args(["show", "HEAD:a.txt"]).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&show.stdout), "a\nmore\n");
+    assert_eq!(std::fs::read_to_string(dir.join("a.txt")).unwrap(), "A\nmore\n");
+    let st = repo.status().unwrap();
+    println!("after line commit: HEAD has 'a, more'; still modified: {:?}", st.files.iter().map(|f| &f.path).collect::<Vec<_>>());
+    repo.undo_last_commit().unwrap();
+    let st = repo.status().unwrap();
     repo.discard(&st.files).unwrap();
     println!("after discard: {} changes", repo.status().unwrap().files.len());
     // ignore: literal + extension patterns, idempotent, ends with newline.
