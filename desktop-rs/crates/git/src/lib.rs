@@ -10,6 +10,7 @@
 //!   `log` formats) so parsing is cheap and locale-independent.
 
 mod diff;
+pub mod engine;
 mod exec;
 mod history_ops;
 mod log;
@@ -19,7 +20,7 @@ mod refs;
 mod stash;
 mod status;
 
-pub use diff::{Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
+pub use diff::{Side, Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
 pub use history_ops::{ResetMode, github_web_url};
 pub use log::{Commit, CommitFile};

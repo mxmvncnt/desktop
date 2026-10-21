@@ -3,11 +3,11 @@
 
 use std::sync::Arc;
 
-use crate::diff_highlight::{DiffHighlight, runs_for};
+use crate::diff_highlight::{DiffHighlight, line_text};
 use gd_git::{Diff, DiffLineKind};
 use gd_ui::{Theme, motion, theme::DIFF_ROW_HEIGHT};
 use gpui::{
-    Context, IntoElement, ParentElement, SharedString, Styled, StyledText, div, point, prelude::*,
+    Context, IntoElement, ParentElement, SharedString, Styled, div, point, prelude::*,
     px, uniform_list,
 };
 
@@ -91,13 +91,9 @@ impl Workspace {
                         DiffLineKind::Delete => theme.diff_del,
                         _ => theme.text_faint,
                     };
-                    let text = match highlight.as_ref().map(|h| h.row(ix)) {
-                        Some(spans) if !spans.is_empty() => {
-                            let runs = runs_for(&line.text, spans, fg, &font, &theme.syntax);
-                            StyledText::new(line.text.clone()).with_runs(runs).into_any_element()
-                        }
-                        _ => div().text_color(fg).child(line.text.clone()).into_any_element(),
-                    };
+                    let emph_bg = if line.kind == DiffLineKind::Add { theme.diff_add_emph } else { theme.diff_del_emph };
+                    let spans = highlight.as_ref().map(|h| h.row(ix)).unwrap_or(&[]);
+                    let text = line_text(&line.text, spans, &line.emphasis, fg, emph_bg, &font, &theme.syntax);
                     let hunk = line.kind == DiffLineKind::Hunk;
                     let num = |n: Option<u32>| n.map(|n| n.to_string()).unwrap_or_default();
                     div()

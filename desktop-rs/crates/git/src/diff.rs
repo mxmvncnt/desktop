@@ -1,4 +1,5 @@
-//! Unified-diff loading and parsing into a flat, render-ready line list.
+//! Diff model + loading. git only fetches the two file versions; the diff
+//! itself is computed in-process by `engine.rs` (the `similar` crate).
 //!
 //! The UI renders diffs with a virtualized `uniform_list`, so the parsed form
 //! is a flat `Vec<DiffLine>` (hunk headers included) rather than nested hunks:
@@ -6,8 +7,6 @@
 
 use crate::{FileChange, FileStatus, Repository, Result};
 
-/// Diffs bigger than this are truncated (Desktop shows "diff too large").
-const MAX_LINES: usize = 50_000;
 
 /// How a diff is produced (app-wide display options that change git's output).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -16,11 +15,6 @@ pub struct DiffOptions {
     pub ignore_whitespace: bool,
 }
 
-impl DiffOptions {
-    fn apply(self, g: crate::exec::Git) -> crate::exec::Git {
-        if self.ignore_whitespace { g.arg("-w") } else { g }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffLineKind {
@@ -39,6 +33,9 @@ pub struct DiffLine {
     pub new_line: Option<u32>,
     /// Line content without the leading `+`/`-`/` ` marker.
     pub text: String,
+    /// Byte ranges of `text` that changed within a paired delete/add row
+    /// (word-level emphasis, computed by the engine).
+    pub emphasis: Vec<(usize, usize)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,143 +55,115 @@ pub struct Diff {
     pub longest_line: usize,
     pub added: u32,
     pub deleted: u32,
+    /// A side exceeded `engine::MAX_BYTES`; nothing was diffed.
+    pub too_large: bool,
+    /// Full old/new texts the diff came from (for partial staging). `None`
+    /// for binary, non-UTF-8, or parsed-from-git diffs.
+    pub source: Option<std::sync::Arc<crate::engine::DiffSource>>,
+}
+
+/// One side of a diff: where to read the file version from.
+#[derive(Debug, Clone)]
+pub enum Side {
+    /// The file doesn't exist on this side (added / deleted).
+    Empty,
+    /// `git cat-file blob <rev>:<path>`. A path missing at `rev` reads as empty.
+    Blob { rev: String, path: String },
+    /// The working-tree file (symlinks read as their target, like git).
+    Worktree(String),
 }
 
 impl Repository {
-    /// Diff of a working-directory change against HEAD (index + worktree).
+    /// Diff of a working-directory change against HEAD (index + worktree),
+    /// computed in-process with `similar` (see `engine.rs`).
     pub fn working_diff(&self, change: &FileChange, opts: DiffOptions) -> Result<Diff> {
-        let raw = match change.status {
-            FileStatus::Untracked => opts
-                .apply(self.git().args(["diff", "--no-index", "--no-ext-diff"]))
-                .args(["--", "/dev/null"])
-                .arg(&change.path)
-                .allow_exit_one()
-                .run()?,
-            _ if !self.has_head() => opts
-                .apply(self.git().args(["diff", "--cached", "--no-ext-diff"]))
-                .arg("--")
-                .arg(&change.path)
-                .run()?,
-            _ => {
-                let mut g = opts
-                    .apply(self.git().args(["diff", "HEAD", "-M", "--no-ext-diff"]))
-                    .arg("--")
-                    .arg(&change.path);
-                if let Some(old) = &change.old_path {
-                    g = g.arg(old);
-                }
-                g.run()?
-            }
+        let old = match change.status {
+            FileStatus::Untracked => Side::Empty,
+            _ if !self.has_head() => Side::Empty,
+            _ => Side::Blob {
+                rev: "HEAD".into(),
+                path: change.old_path.clone().unwrap_or_else(|| change.path.clone()),
+            },
         };
-        Ok(parse_diff(&raw))
+        let new = match change.status {
+            FileStatus::Deleted => Side::Empty,
+            _ => Side::Worktree(change.path.clone()),
+        };
+        self.diff_sides(&old, &new, opts)
     }
 
-    /// Diff of one file within a commit.
+    /// Diff of one file within a commit (against its first parent).
     pub fn commit_diff(&self, sha: &str, file: &FileChange, opts: DiffOptions) -> Result<Diff> {
-        let mut g = opts
-            .apply(self.git().args([
-                "show",
-                "--format=",
-                "-M",
-                "--no-ext-diff",
-                "--diff-merges=first-parent",
-            ]))
-            .args([sha, "--"])
-            .arg(&file.path);
-        if let Some(old) = &file.old_path {
-            g = g.arg(old);
-        }
-        Ok(parse_diff(&g.run()?))
-    }
-}
-
-fn parse_hunk_header(line: &str) -> Option<(u32, u32)> {
-    // @@ -a,b +c,d @@ ...
-    let mut it = line.split(' ');
-    it.next()?;
-    let old = it.next()?.trim_start_matches('-');
-    let new = it.next()?.trim_start_matches('+');
-    let start = |s: &str| s.split(',').next()?.parse::<u32>().ok();
-    Some((start(old)?, start(new)?))
-}
-
-pub fn parse_diff(raw: &str) -> Diff {
-    let mut diff = Diff::default();
-    let mut longest = 0usize;
-    let mut in_hunk = false;
-    let (mut old_no, mut new_no) = (0u32, 0u32);
-    for line in raw.lines() {
-        if line.starts_with("@@") {
-            in_hunk = true;
-            if let Some((o, n)) = parse_hunk_header(line) {
-                old_no = o;
-                new_no = n;
+        let has_parent = self
+            .git()
+            .args(["rev-parse", "--verify", "-q"])
+            .arg(format!("{sha}^1"))
+            .run()
+            .is_ok();
+        let old = if !has_parent || file.status == FileStatus::New {
+            Side::Empty
+        } else {
+            Side::Blob {
+                rev: format!("{sha}^1"),
+                path: file.old_path.clone().unwrap_or_else(|| file.path.clone()),
             }
-            diff.hunks.push(DiffHunk {
-                header_index: diff.lines.len(),
-            });
-            diff.lines.push(DiffLine {
-                kind: DiffLineKind::Hunk,
-                old_line: None,
-                new_line: None,
-                text: line.to_string(),
-            });
-            continue;
-        }
-        if !in_hunk {
-            if line.starts_with("Binary files") || line.starts_with("GIT binary patch") {
-                diff.is_binary = true;
-            }
-            continue;
-        }
-        if line.starts_with("diff --git") {
-            // A second file section (shouldn't happen with a single pathspec).
-            in_hunk = false;
-            continue;
-        }
-        if diff.lines.len() >= MAX_LINES {
-            diff.truncated = true;
-            break;
-        }
-        let (kind, text) = match line.as_bytes().first() {
-            Some(b'+') => (DiffLineKind::Add, &line[1..]),
-            Some(b'-') => (DiffLineKind::Delete, &line[1..]),
-            Some(b'\\') => (DiffLineKind::NoNewline, line),
-            Some(b' ') => (DiffLineKind::Context, &line[1..]),
-            None => (DiffLineKind::Context, ""),
-            _ => (DiffLineKind::Context, line),
         };
-        let (o, n) = match kind {
-            DiffLineKind::Add => {
-                diff.added += 1;
-                new_no += 1;
-                (None, Some(new_no - 1))
-            }
-            DiffLineKind::Delete => {
-                diff.deleted += 1;
-                old_no += 1;
-                (Some(old_no - 1), None)
-            }
-            DiffLineKind::Context => {
-                old_no += 1;
-                new_no += 1;
-                (Some(old_no - 1), Some(new_no - 1))
-            }
-            _ => (None, None),
+        let new = if file.status == FileStatus::Deleted {
+            Side::Empty
+        } else {
+            Side::Blob { rev: sha.to_string(), path: file.path.clone() }
         };
-        // Tabs render at inconsistent widths in proportional fallbacks;
-        // expand once here instead of at every paint.
-        let text = text.replace('\t', "    ");
-        if text.len() > longest {
-            longest = text.len();
-            diff.longest_line = diff.lines.len();
-        }
-        diff.lines.push(DiffLine {
-            kind,
-            old_line: o,
-            new_line: n,
-            text,
-        });
+        self.diff_sides(&old, &new, opts)
     }
-    diff
+
+    /// Read one side's bytes.
+    pub fn read_side(&self, side: &Side) -> Result<Vec<u8>> {
+        match side {
+            Side::Empty => Ok(Vec::new()),
+            Side::Blob { rev, path } => {
+                match self.git().args(["cat-file", "blob"]).arg(format!("{rev}:{path}")).run_bytes() {
+                    Ok(b) => Ok(b),
+                    // Path absent at that revision (e.g. staged-new file vs HEAD).
+                    Err(crate::GitError::Failed { stderr, .. })
+                        if stderr.contains("does not exist") || stderr.contains("Not a valid object") =>
+                    {
+                        Ok(Vec::new())
+                    }
+                    Err(e) => Err(e),
+                }
+            }
+            Side::Worktree(path) => {
+                let p = self.root().join(path);
+                let meta = std::fs::symlink_metadata(&p).map_err(|e| crate::GitError::Io(format!("{path}: {e}")))?;
+                if meta.file_type().is_symlink() {
+                    let target = std::fs::read_link(&p).map_err(|e| crate::GitError::Io(e.to_string()))?;
+                    Ok(target.to_string_lossy().into_owned().into_bytes())
+                } else if meta.is_dir() {
+                    // Submodule / nested repo: no textual content.
+                    Ok(Vec::new())
+                } else {
+                    std::fs::read(&p).map_err(|e| crate::GitError::Io(format!("{path}: {e}")))
+                }
+            }
+        }
+    }
+
+    /// Fetch both sides and diff them with the in-process engine.
+    pub fn diff_sides(&self, old: &Side, new: &Side, opts: DiffOptions) -> Result<Diff> {
+        let old_b = self.read_side(old)?;
+        let new_b = self.read_side(new)?;
+        if crate::engine::looks_binary(&old_b) || crate::engine::looks_binary(&new_b) {
+            return Ok(Diff { is_binary: true, ..Default::default() });
+        }
+        let old_s = String::from_utf8_lossy(&old_b);
+        let new_s = String::from_utf8_lossy(&new_b);
+        let lossy = matches!(old_s, std::borrow::Cow::Owned(_)) || matches!(new_s, std::borrow::Cow::Owned(_));
+        let mut diff = crate::engine::diff_texts(&old_s, &new_s, opts);
+        if lossy {
+            // Not valid UTF-8: viewable, but partial staging would corrupt
+            // the bytes on write-back, so don't offer it.
+            diff.source = None;
+        }
+        Ok(diff)
+    }
 }

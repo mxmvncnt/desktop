@@ -57,6 +57,9 @@ pub struct Theme {
     pub diff_del: Hsla,
     pub diff_add_bg: Hsla,
     pub diff_del_bg: Hsla,
+    /// Word-level emphasis inside changed lines (stronger wash).
+    pub diff_add_emph: Hsla,
+    pub diff_del_emph: Hsla,
     pub diff_hunk_bg: Hsla,
     pub diff_gutter: Hsla,
 
@@ -116,6 +119,8 @@ impl Theme {
             diff_del: oklch(0.704, 0.191, 22.216),
             diff_add_bg: oklch(0.765, 0.177, 163.223).opacity(0.10),
             diff_del_bg: oklch(0.704, 0.191, 22.216).opacity(0.10),
+            diff_add_emph: oklch(0.765, 0.177, 163.223).opacity(0.30),
+            diff_del_emph: oklch(0.704, 0.191, 22.216).opacity(0.30),
             diff_hunk_bg: hsla(0.6, 0.35, 0.6, 0.06),
             diff_gutter: neutral(0.45),
             syntax: SyntaxPalette::dark(neutral(0.922), neutral(0.60), oklch(0.704, 0.191, 22.216)),

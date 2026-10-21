@@ -97,6 +97,65 @@ pub fn runs_for(
     runs
 }
 
+/// The text element for one diff row: syntax colors (`spans`, may be empty)
+/// plus a background wash over the word-level `emphasis` ranges. Plain rows
+/// (no spans, no emphasis) stay a cheap single-run text.
+pub fn line_text(
+    text: &str,
+    spans: &[Span],
+    emphasis: &[(usize, usize)],
+    fg: Hsla,
+    emph_bg: Hsla,
+    font: &Font,
+    palette: &SyntaxPalette,
+) -> gpui::AnyElement {
+    use gpui::{IntoElement, ParentElement, Styled};
+    if spans.is_empty() && emphasis.is_empty() {
+        return gpui::div().text_color(fg).child(text.to_string()).into_any_element();
+    }
+    let mut runs = runs_for(text, spans, fg, font, palette);
+    if !emphasis.is_empty() {
+        runs = overlay_background(text, runs, emphasis, emph_bg);
+    }
+    gpui::StyledText::new(text.to_string()).with_runs(runs).into_any_element()
+}
+
+/// Split `runs` at emphasis edges and set `background_color` inside them.
+fn overlay_background(text: &str, runs: Vec<TextRun>, ranges: &[(usize, usize)], bg: Hsla) -> Vec<TextRun> {
+    let ranges: Vec<(usize, usize)> = ranges
+        .iter()
+        .map(|&(s, e)| (s.min(text.len()), e.min(text.len())))
+        .filter(|&(s, e)| s < e && text.is_char_boundary(s) && text.is_char_boundary(e))
+        .collect();
+    let mut out = Vec::with_capacity(runs.len() + ranges.len() * 2);
+    let mut pos = 0usize;
+    for run in runs {
+        let (rs, re) = (pos, pos + run.len);
+        let mut cuts = vec![rs, re];
+        for &(s, e) in &ranges {
+            for c in [s, e] {
+                if c > rs && c < re {
+                    cuts.push(c);
+                }
+            }
+        }
+        cuts.sort_unstable();
+        cuts.dedup();
+        for w in cuts.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            let inside = ranges.iter().any(|&(s, e)| a >= s && b <= e);
+            let mut piece = run.clone();
+            piece.len = b - a;
+            if inside {
+                piece.background_color = Some(bg);
+            }
+            out.push(piece);
+        }
+        pos = re;
+    }
+    out
+}
+
 /// Small LRU keyed by a hash of (path, diff content). Shared with the
 /// background task so re-selecting a file is a lookup, not a re-parse.
 #[derive(Clone, Default)]

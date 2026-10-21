@@ -20,6 +20,7 @@ gpui_wgpu = { package = "gpui_ce_wgpu", git = "https://github.com/gpui-ce/gpui-c
 gpui_elements = { package = "gpui_ce_elements", git = "https://github.com/gpui-ce/gpui-ce", rev = "9a82fba4e5f1f9194a5489b7a417d164083dd67a" }
 
 anyhow = "1"
+similar = { version = "2", features = ["unicode"] }
 thiserror = "2"
 log = "0.4"
 env_logger = "0.11"

@@ -10,6 +10,7 @@ publish.workspace = true
 # match the user's CLI exactly. Every call is blocking: callers must run it on
 # a background executor, never on the UI thread.
 [dependencies]
+similar.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 log.workspace = true

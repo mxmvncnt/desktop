@@ -23,11 +23,11 @@ use std::time::Instant;
 use gd_git::{Diff, DiffLineKind};
 use gd_ui::{Theme, theme::{DIFF_ROW_HEIGHT, ink}};
 use gpui::{
-    AnyElement, App, Div, IntoElement, ParentElement, StyledText, Styled, div, prelude::*, px,
+    AnyElement, App, Div, IntoElement, ParentElement, Styled, div, prelude::*, px,
     uniform_list,
 };
 
-use crate::diff_highlight::{DiffHighlight, runs_for};
+use crate::diff_highlight::{DiffHighlight, line_text};
 
 /// "No line on this side" (filler cell).
 pub const NONE: u32 = u32::MAX;
@@ -121,14 +121,10 @@ fn half(
         _ => (gpui::transparent_black(), theme.text_muted, " ", theme.text_faint),
     };
     let no = if left { line.old_line } else { line.new_line };
-    let text: AnyElement = match hl.map(|h| h.row(ix as usize)) {
-        Some(spans) if !spans.is_empty() => {
-            let font = gpui::font(theme.font_mono.clone());
-            let runs = runs_for(&line.text, spans, fg, &font, &theme.syntax);
-            StyledText::new(line.text.clone()).with_runs(runs).into_any_element()
-        }
-        _ => div().text_color(fg).child(line.text.clone()).into_any_element(),
-    };
+    let font = gpui::font(theme.font_mono.clone());
+    let emph_bg = if line.kind == DiffLineKind::Add { theme.diff_add_emph } else { theme.diff_del_emph };
+    let spans = hl.map(|h| h.row(ix as usize)).unwrap_or(&[]);
+    let text: AnyElement = line_text(&line.text, spans, &line.emphasis, fg, emph_bg, &font, &theme.syntax);
     cell.bg(bg)
         .child(
             div()

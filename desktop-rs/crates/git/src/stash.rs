@@ -8,7 +8,7 @@
 //! - tracked changes = `git diff S^1 S`
 //! - untracked files = the tree of `S^3` (a root commit: `git show S^3`)
 
-use crate::diff::{Diff, parse_diff};
+use crate::diff::{Diff, Side};
 use crate::{FileChange, FileStatus, GitError, Repository, Result};
 
 const SEP: char = '\u{1f}';
@@ -236,32 +236,28 @@ impl Repository {
             .is_ok()
     }
 
-    /// Diff of one file in a stash.
+    /// Diff of one file in a stash (tracked: base `^1` vs stash; untracked
+    /// files live in the parentless `^3` commit).
     pub fn stash_diff(&self, sha: &str, file: &FileChange) -> Result<Diff> {
-        let raw = if file.status == FileStatus::Untracked {
-            // The untracked commit is parentless: `show` diffs it against nothing.
-            self.git()
-                .arg("--literal-pathspecs")
-                .args(["show", "--format=", "--no-ext-diff"])
-                .arg(format!("{sha}^3"))
-                .arg("--")
-                .arg(&file.path)
-                .run()?
+        let (old, new) = if file.status == FileStatus::Untracked {
+            (Side::Empty, Side::Blob { rev: format!("{sha}^3"), path: file.path.clone() })
         } else {
-            let mut g = self
-                .git()
-                .arg("--literal-pathspecs")
-                .args(["diff", "-M", "--no-ext-diff"])
-                .arg(format!("{sha}^1"))
-                .arg(sha)
-                .arg("--")
-                .arg(&file.path);
-            if let Some(old) = &file.old_path {
-                g = g.arg(old);
-            }
-            g.run()?
+            let old = if file.status == FileStatus::New {
+                Side::Empty
+            } else {
+                Side::Blob {
+                    rev: format!("{sha}^1"),
+                    path: file.old_path.clone().unwrap_or_else(|| file.path.clone()),
+                }
+            };
+            let new = if file.status == FileStatus::Deleted {
+                Side::Empty
+            } else {
+                Side::Blob { rev: sha.to_string(), path: file.path.clone() }
+            };
+            (old, new)
         };
-        Ok(parse_diff(&raw))
+        self.diff_sides(&old, &new, Default::default())
     }
 }
 
