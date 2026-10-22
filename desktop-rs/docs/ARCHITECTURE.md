@@ -101,6 +101,20 @@ guessing APIs. To recreate them:
   included/partial blocks `accent_strong` (hover `accent`).
 - Gotcha: `on_mouse_up_all` takes 5 args (event, phase, hitbox, window, cx).
 
+## Hunk expansion (`gd-git/src/expand.rs`, `views/diff.rs` `Expander`)
+
+- `DiffHunk` carries 0-based `old_start/old_len/new_start/new_len`. `expand(diff, Up(h)|Down(h)|All(h))` is pure: it
+  splits the flat rows into hunks, pulls context rows from `source.new` into the gap (20 = `EXPANSION_STEP`), merges
+  touching hunks, re-flattens with fresh headers. Changed rows are copied untouched, so `staged_text` gives the same
+  result before and after expanding (tested). `gap_above`/`gap_below` drive which buttons show.
+- `RepoModel::expand_diff(commit, e)` swaps `change_diff`/`commit_diff` and re-highlights in the background.
+  `change_diff_key` (path + options) lets `load_change_diff` keep the expanded diff when a reload returns the same
+  source texts. Line selection is keyed by `LineKey = (is_add, line number)` instead of row index, so it survives
+  row shifts; `reconcile_selection` drops it only when the source texts change.
+- `render_diff(.., pane: DiffPane, ..)`: `Changes` (select + expand), `History` (expand), `ReadOnly` (stashes).
+  Header rows render `Expander::gutter` instead of number cells; an extra trailing list row (index == rows) holds
+  the last Expand Down. Buttons use `group` + `group_hover_style` so the svg icon recolors on hover.
+
 ## Threading / state (`crates/app`)
 
 - `Workspace` (`workspace.rs`) is the root view. It owns settings, popover state,

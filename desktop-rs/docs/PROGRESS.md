@@ -111,6 +111,10 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
    - Chunks: each run of changed lines between unchanged lines is one handle (`RepoModel::change_block`). It stays blue
      while any of its lines is included, with one mark on its first row (check = all, dash = some). Hover lights up
      that chunk only; click (de)selects it. Rows outside chunks show a dark strip.
+   - Hunk expansion (Changes and History diffs, not stashes): buttons in the hunk header gutter like Desktop. First
+     hunk: Expand Up; between hunks: Expand All when the gap is at most 20 lines, else Expand Down + Expand Up; a
+     trailing row after the last hunk: Expand Down. 20 lines per click, hunks merge when the gap closes. The expanded
+     diff survives watcher reloads while the file is unchanged. Snapshot views `expanded`, `expanded-split`.
    - File checkbox shows Mixed for partially selected files; clicking it selects the whole file again. Header select-all
      clears partial selections.
    - Not selectable: history/stash diffs, "Hide whitespace changes" on (selection is kept for later), truncated or

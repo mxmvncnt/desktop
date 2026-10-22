@@ -16,7 +16,7 @@
 //! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
-//! `rename-dialog`, `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
+//! `rename-dialog`, `expanded`/`expanded-split` (hunk expansion), `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
 //! plain `changes` then shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
@@ -253,6 +253,32 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     });
                 }
                 cx.notify();
+            });
+        })
+        .ok();
+    }
+    // `expanded[-split]`: file 0 with hunk 0 expanded down once and the gap
+    // above the last hunk expanded fully (see `gd_git::expand`).
+    if view.starts_with("expanded") {
+        cx.update_window(window.into(), |_, window, cx| {
+            let ws = window.root::<Workspace>().flatten().expect("workspace root");
+            ws.update(cx, |ws, cx| {
+                ws.settings.diff_split = view == "expanded-split";
+                ws.apply_diff_options(cx);
+            });
+        })
+        .ok();
+        cx.run_until_parked();
+        cx.update_window(window.into(), |_, window, cx| {
+            let ws = window.root::<Workspace>().flatten().expect("workspace root");
+            ws.update(cx, |ws, cx| {
+                if let Some(r) = &ws.repo {
+                    r.update(cx, |r, cx| {
+                        let last = r.change_diff.as_ref().map_or(0, |d| d.hunks.len().saturating_sub(1));
+                        r.expand_diff(false, gd_git::Expansion::Down(0), cx);
+                        r.expand_diff(false, gd_git::Expansion::All(last), cx);
+                    });
+                }
             });
         })
         .ok();
