@@ -5,14 +5,13 @@
 ```
 .
 ├── Cargo.toml          workspace; GPUI-CE pinned by git rev
-├── env.sh              source before cargo: CARGO_HOME/TMPDIR inside the project
 ├── crates/
 │   ├── git/   (gd-git)  UI-agnostic git layer, shells out to `git`
 │   ├── syntax/ (gd-syntax) UI-agnostic tree-sitter highlighting
 │   ├── ui/    (gd-ui)   zeron-style design system: theme, motion, components, assets
 │   └── app/   (github-desktop)  the binary: models + views
 ├── docs/
-└── .ref/ .cargo-home/ .tmp/ target/   (git-ignored; see below)
+└── .ref/ target/   (git-ignored; see below)
 ```
 
 `.ref/` holds read-only reference clones: `.ref/zeron` (the design source) and
@@ -36,7 +35,7 @@ guessing APIs. To recreate them:
 - Diffs are parsed into a flat `Vec<DiffLine>` (hunk headers included) so the UI
   can index row `i` in O(1) from a `uniform_list`. Parsing is capped at 50k lines (`truncated`).
 - `examples/smoke.rs` exercises the write paths against a scratch repo:
-  `cargo run -p gd-git --example smoke -- $PWD/.tmp/smoke`.
+  `cargo run -p gd-git --example smoke -- /tmp/desktop-rs/smoke`.
 
 ## Stashes (`gd-git/src/stash.rs`, `app/src/stashes.rs`, `app/src/views/stashes.rs`)
 

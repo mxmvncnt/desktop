@@ -28,7 +28,7 @@
 - ✅ "Wrap long lines" checkbox in the diff options popover (persisted as `diff_wrap`). It wraps both views
   through a variable-height `list`.
 - Snapshot views: `hscroll`, `split-hscroll` (offset preset to 160px), `wrap`, `split-wrap`. Test repo:
-  `.tmp/longlines` (a single `main.rs` with long changed lines).
+  `/tmp/desktop-rs/longlines` (a single `main.rs` with long changed lines).
 - Not yet tried by hand: real wheel/trackpad horizontal scrolling and the clamp at the right edge
   (snapshots can't send wheel events).
 
@@ -52,7 +52,6 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 
 ### Foundation
 - ✅ Cargo workspace (`gd-git`, `gd-ui`, `github-desktop`), GPUI-CE pinned.
-- ✅ Project-local cargo, tmp, and config (`env.sh`).
 - ✅ zeron theme tokens, motion catalog, Geist fonts, Solar icons.
 - ✅ Components: Button, Checkbox, Tabs, ToolbarButton, pressable rows, overlay card, badge.
 - ✅ Headless `--snapshot` PNG renderer for visual verification.
@@ -108,7 +107,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
    - Checkout with uncommitted changes always opens Desktop's dialog (Leave my changes on X = stash / Bring my changes to Y). If checkout fails after stashing, the stash is popped back.
    - Conflicts on apply/pop: the error is shown, the working tree is left conflicted (files show "!") for the user to resolve, and a conflicted pop keeps the stash. No dedicated conflict UI (belongs to the in-progress banner work).
    - Known gaps: stashes dropped externally are noticed on the next full refresh (focus/F5/any op), since `git stash drop` of a non-top entry only rewrites the reflog; no auto-restore of the switch-stash when returning to the branch; "Stash selected files" is always enabled in the menu (notice if none checked).
-   - Snapshot views: `stash-list`, `stash-all`, `stash-detail`, `stash-detail-untracked`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`, `switch-branch-dialog`. Smoke: `cargo run -p gd-git --example stash_smoke -- $PWD/.tmp/stash-smoke [--keep]`.
+   - Snapshot views: `stash-list`, `stash-all`, `stash-detail`, `stash-detail-untracked`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`, `switch-branch-dialog`. Smoke: `cargo run -p gd-git --example stash_smoke -- /tmp/desktop-rs/stash-smoke [--keep]`.
 6. ✅ Merge / squash / rebase into current branch; operation-in-progress banner; conflict resolution; branch context menu.
    - Branch popover footer "Merge into current branch…" (ctrl+shift+M): dialog with Merge | Squash and merge | Rebase modes, filter, ↑/↓/Enter, Desktop-style preview line ("This will merge N commits from X into Y" / "up to date", plus expected conflicts via `git merge-tree`), computed in the background.
    - Right-click a branch: merge, rebase onto, create from, rename, copy name, delete (also offers deleting the remote branch). Conflicted file rows: Use ours / Use theirs / Mark as resolved / Open in default editor.
@@ -139,7 +138,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
    - Unpushed commits get an arrow-up icon with tooltip ("hasn't been pushed to the remote repository yet"); tags show as pills. Refreshed on every full refresh (push/fetch/commit/checkout).
    - Right-click menu: Amend, Undo, Reset to commit (soft/mixed dialog), Checkout commit (detached warning), Move commit up/down (reorder), Revert, Create branch from commit, Create/Delete tag, Cherry-pick (branch picker), Copy SHA/tags, View on GitHub. Multi-select (ctrl/cmd-click, shift-click range) offers Cherry-pick N and Squash N (message dialog).
    - Amend mode in the commit box ("Amend last commit", Stop amending, force-push warning if pushed).
-   - Verified by `cargo run -p gd-git --example history_ops -- $PWD/.tmp/hops` (bare scratch remote). Snapshot views: `history-menu`, `-menu-head`, `-menu-pushed`, `-multiselect`, `-multimenu`, `-squash`, `-reset`, `-cherry`, `-tag`, `-checkout`, `amend-mode`.
+   - Verified by `cargo run -p gd-git --example history_ops -- /tmp/desktop-rs/hops` (bare scratch remote). Snapshot views: `history-menu`, `-menu-head`, `-menu-pushed`, `-multiselect`, `-multimenu`, `-squash`, `-reset`, `-cherry`, `-tag`, `-checkout`, `amend-mode`.
    - Skipped: drag-and-drop reorder (menu Move up/down instead), Delete tag restricted to unpushed tags (needs remote tag knowledge; all tags deletable locally), non-adjacent squash (menu item disabled), own conflict UI (uses the generic in-progress banner via `run_op`). Not exercised with a real mouse.
 11. ⬜ Tags, branch rename/delete UI, compare branches.
 12. ⬜ Settings (theme light/dark, git identity, default editor/shell), "Open in editor/terminal".
@@ -150,7 +149,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 ## Test repo recipe
 
 ```sh
-cd .tmp && rm -rf testrepo && mkdir testrepo && cd testrepo && git init -q -b main
+mkdir -p /tmp/desktop-rs && cd /tmp/desktop-rs && rm -rf testrepo && mkdir testrepo && cd testrepo && git init -q -b main
 for i in 1 2 3 4 5; do echo "line $i" >> file$i.txt; mkdir -p src/mod$i
   printf 'fn main() {\n    println!("hello %s");\n}\n' $i > src/mod$i/main.rs
   git add -A; git commit -qm "Add module $i with some changes" -m "Body text for commit $i"; done

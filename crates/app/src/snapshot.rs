@@ -6,9 +6,8 @@
 //! `run_until_parked` waits for status/diff/history loads to finish.
 //!
 //! ```sh
-//! source env.sh
-//! GD_CONFIG_DIR=$PWD/.tmp/config cargo run --features snapshot -- \
-//!     --snapshot .tmp/shot.png .tmp/testrepo history
+//! GD_CONFIG_DIR=/tmp/desktop-rs/config cargo run --features snapshot -- \
+//!     --snapshot /tmp/desktop-rs/shot.png /tmp/desktop-rs/testrepo history
 //! ```
 //! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,

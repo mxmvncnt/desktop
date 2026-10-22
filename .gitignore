@@ -1,5 +1,4 @@
 target/
 .ref/
 .cargo-home/
-.tmp/
 .worktrees/

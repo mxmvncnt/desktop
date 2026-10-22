@@ -14,7 +14,6 @@ Status: **POC**. Docs:
 ## Build and run
 
 ```sh
-source env.sh                 # keeps cargo cache + temp files inside the project
 cargo run --release           # or: cargo run -- /path/to/repo
 ```
 
@@ -45,8 +44,8 @@ The app stores its repository list in `$GD_CONFIG_DIR` (if set), otherwise in
 ### Headless screenshots
 
 ```sh
-GD_CONFIG_DIR=$PWD/.tmp/config cargo run --features snapshot -- \
-    --snapshot $PWD/.tmp/shot.png /path/to/repo [changes|history|repos|branches|new-branch|clone|welcome|icons]
+GD_CONFIG_DIR=/tmp/desktop-rs/config cargo run --features snapshot -- \
+    --snapshot /tmp/desktop-rs/shot.png /path/to/repo [changes|history|repos|branches|new-branch|clone|welcome|icons]
 ```
 
 This renders the real UI offscreen with wgpu and writes a PNG. It's how agents
