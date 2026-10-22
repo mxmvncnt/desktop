@@ -12,7 +12,6 @@ pub mod menus;
 pub mod merge;
 mod pickers;
 pub mod settings;
-pub mod stashes;
 mod welcome;
 
 use gd_git::FileStatus;

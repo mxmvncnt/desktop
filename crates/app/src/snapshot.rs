@@ -177,7 +177,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     }
                     "stash-drop-dialog" => {
                         if let Some(s) = ws.repo.as_ref().and_then(|r| r.read(cx).stashes.list.first().cloned()) {
-                            ws.stash_ui.dialog = Some(crate::views::stashes::StashDialog::Drop(s));
+                            ws.stash_ui.dialog = Some(crate::features::stashes::StashDialog::Drop(s));
                             cx.notify();
                         }
                     }

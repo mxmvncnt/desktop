@@ -9,6 +9,7 @@ use gpui::{
     ClipboardItem, Context, IntoElement, Pixels, Point, Window,
 };
 
+use crate::shared::menu_row::{MenuRow, RowItem};
 use crate::workspace::Workspace;
 
 /// What was right-clicked.
@@ -53,78 +54,44 @@ pub enum MenuAction {
     StashCopy,
 }
 
-struct Row {
-    action: MenuAction,
-    label: String,
-    icon: Icon,
-    danger: bool,
-    disabled: bool,
-}
-
-fn row(action: MenuAction, label: impl Into<String>, icon: Icon) -> Option<Row> {
-    Some(Row { action, label: label.into(), icon, danger: false, disabled: false })
-}
-
 fn extension(path: &str) -> Option<&str> {
     Path::new(path).extension().and_then(|e| e.to_str())
 }
 
-/// Menu layout for a target. `None` entries are separators.
-fn rows(target: &MenuTarget) -> Vec<Option<Row>> {
+/// Menu layout for a target.
+fn rows(target: &MenuTarget) -> Vec<MenuRow> {
     match target {
         MenuTarget::Header => vec![
-            row(MenuAction::StashAll, "Stash all changes…", Icon::Archive),
-            row(MenuAction::StashSelected, "Stash selected files…", Icon::Archive),
-            None,
-            Some(Row {
-                action: MenuAction::DiscardAll,
-                label: "Discard all changes…".into(),
-                icon: Icon::Trash,
-                danger: true,
-                disabled: false,
-            }),
+            MenuRow::item(MenuAction::StashAll, "Stash all changes…", Icon::Archive),
+            MenuRow::item(MenuAction::StashSelected, "Stash selected files…", Icon::Archive),
+            MenuRow::Separator,
+            MenuRow::Item(RowItem::new(MenuAction::DiscardAll, "Discard all changes…", Icon::Trash).danger()),
         ],
-        MenuTarget::Stash(_) => super::stashes::stash_menu_rows()
-            .into_iter()
-            .map(|r| {
-                r.map(|(action, label, icon, danger)| Row { action, label: label.into(), icon, danger, disabled: false })
-            })
-            .collect(),
-        MenuTarget::File(change) => {
-            let mut v = vec![
-                Some(Row {
-                    action: MenuAction::Discard,
-                    label: "Discard changes…".into(),
-                    icon: Icon::Trash,
-                    danger: true,
-                    disabled: false,
-                }),
-                None,
-                // Ignoring a tracked file has no effect in git, so only
-                // offer it for untracked files.
-                Some(Row {
-                    action: MenuAction::Ignore,
-                    label: "Ignore file (add to .gitignore)".into(),
-                    icon: Icon::EyeClosed,
-                    danger: false,
-                    disabled: change.status != FileStatus::Untracked,
-                }),
-            ];
-            if let Some(ext) = extension(&change.path) {
-                v.push(row(MenuAction::IgnoreExt, format!("Ignore all .{ext} files"), Icon::EyeClosed));
-            }
-            v.push(None);
-            v.push(row(MenuAction::CopyPath, "Copy file path", Icon::Copy));
-            v.push(row(MenuAction::CopyRelPath, "Copy relative file path", Icon::Copy));
-            v.push(None);
-            v.push(row(MenuAction::Reveal, "Reveal in file manager", Icon::Folder));
-            v
-        }
+        MenuTarget::Stash(_) => crate::features::stashes::stash_menu_rows(),
+        MenuTarget::File(change) => file_rows(change),
     }
 }
 
-fn is_selectable(r: &Option<Row>) -> bool {
-    matches!(r, Some(r) if !r.disabled)
+fn file_rows(change: &FileChange) -> Vec<MenuRow> {
+    let mut v = vec![
+        MenuRow::Item(RowItem::new(MenuAction::Discard, "Discard changes…", Icon::Trash).danger()),
+        MenuRow::Separator,
+        // Ignoring a tracked file has no effect in git, so only
+        // offer it for untracked files.
+        MenuRow::Item(
+            RowItem::new(MenuAction::Ignore, "Ignore file (add to .gitignore)", Icon::EyeClosed)
+                .disabled(change.status != FileStatus::Untracked),
+        ),
+    ];
+    if let Some(ext) = extension(&change.path) {
+        v.push(MenuRow::item(MenuAction::IgnoreExt, format!("Ignore all .{ext} files"), Icon::EyeClosed));
+    }
+    v.push(MenuRow::Separator);
+    v.push(MenuRow::item(MenuAction::CopyPath, "Copy file path", Icon::Copy));
+    v.push(MenuRow::item(MenuAction::CopyRelPath, "Copy relative file path", Icon::Copy));
+    v.push(MenuRow::Separator);
+    v.push(MenuRow::item(MenuAction::Reveal, "Reveal in file manager", Icon::Folder));
+    v
 }
 
 impl Workspace {
@@ -187,7 +154,7 @@ impl Workspace {
         let mut ix = menu.selected.map(|s| s as isize).unwrap_or(if delta > 0 { -1 } else { n });
         for _ in 0..n {
             ix = (ix + delta).rem_euclid(n);
-            if is_selectable(&rows[ix as usize]) {
+            if rows[ix as usize].is_selectable() {
                 menu.selected = Some(ix as usize);
                 break;
             }
@@ -212,9 +179,7 @@ impl Workspace {
         let action = menu
             .selected
             .and_then(|s| rows(&menu.target).into_iter().nth(s))
-            .flatten()
-            .filter(|r| !r.disabled)
-            .map(|r| r.action);
+            .and_then(|r| r.action());
         if let Some(a) = action {
             self.run_menu_action(a, window, cx);
         }
@@ -293,16 +258,14 @@ impl Workspace {
             });
         for r in rows(&menu.target) {
             m = m.entries([match r {
-                None => MenuEntry::Separator,
-                Some(r) => {
+                MenuRow::Separator => MenuEntry::Separator,
+                MenuRow::Item(r) => {
                     let ws = ws.clone();
                     let action = r.action;
                     let mut item = MenuItem::new(r.label)
                         .icon(r.icon)
                         .disabled(r.disabled)
-                        .on_select(move |w, cx| {
-                            ws.update(cx, |this, cx| this.run_menu_action(action, w, cx))
-                        });
+                        .on_select(move |w, cx| ws.update(cx, |this, cx| this.run_menu_action(action, w, cx)));
                     if r.danger {
                         item = item.danger();
                     }

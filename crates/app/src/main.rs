@@ -2,6 +2,7 @@
 
 mod actions;
 mod diff_highlight;
+mod features;
 mod frame_debug;
 mod history_ops;
 mod line_selection;
@@ -12,7 +13,7 @@ mod settings;
 mod shared;
 #[cfg(feature = "snapshot")]
 mod snapshot;
-mod stashes;
+
 mod views;
 mod watcher;
 mod workspace;

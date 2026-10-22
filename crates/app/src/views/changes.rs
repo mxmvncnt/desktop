@@ -1,5 +1,6 @@
 //! Sidebar (tabs + Changes list + commit box) and the Changes main pane.
 
+use crate::features::stashes::StashPanel;
 use crate::shared::relative_time::relative_time;
 use gd_ui::{
     Button, CheckState, Checkbox, Icon, Tabs, Theme, divider, icon, motion, pressable,
@@ -284,7 +285,7 @@ impl Workspace {
             .child(header)
             .child(divider(cx))
             .child(div().key_context(LIST).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list))
-            .children(self.render_stash_panel(repo, cx))
+            .children(StashPanel::new(repo, cx.entity(), cx))
             .children(last_commit.map(|c| undo_strip(c, cx)))
             .child(commit_box)
     }
@@ -297,7 +298,7 @@ impl Workspace {
         let theme = Theme::of(cx).clone();
         let r = repo.read(cx);
         if r.stashes.viewing {
-            return self.render_stash_main(repo, cx);
+            return self.render_stash_detail(repo, cx);
         }
         let Some(change) = r.selected_change.and_then(|ix| r.changes().get(ix)).cloned() else {
             return self.render_no_changes(repo, cx).into_any_element();

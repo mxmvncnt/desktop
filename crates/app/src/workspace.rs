@@ -32,7 +32,7 @@ use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
-use crate::views::stashes::StashUi;
+use crate::features::stashes::{StashDialogView, StashUi};
 use crate::views::merge::MergeUi;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -826,7 +826,7 @@ impl Render for Workspace {
         let hist_menu = self.render_hist_menu(cx);
         let hist_dialog = self.render_hist_dialog(cx);
         
-        let stash_dialog = self.render_stash_dialog(cx);
+        let stash_dialog = StashDialogView::open(self, cx);
         let merge_ui = self.render_merge_ui(window, cx);
         let in_progress = self.render_in_progress_banner(cx);
         let overlay_open = self.history_ui.is_open()

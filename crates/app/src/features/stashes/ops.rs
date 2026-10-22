@@ -1,57 +1,14 @@
-//! Stash model: the list, the selected stash (files + diff), and every stash
-//! operation. All state lives in the single [`StashState`] field
-//! `RepoModel::stashes`; the git work runs on the background executor like the
-//! rest of `RepoModel` (see repo.rs), and stale loads are dropped by a
-//! generation counter.
+//! Stash model operations on `RepoModel`: the git work runs on the background
+//! executor like the rest of `RepoModel` (see repo.rs), and stale loads are
+//! dropped by the generation counter in [`StashState`].
 
 use std::sync::Arc;
 
-use gd_git::{Diff, FileChange, Stash};
-use gpui::{AppContext, Context, Task, UniformListScrollHandle};
+use gd_git::{Diff, Stash};
+use gpui::{AppContext, Context};
 
-use crate::diff_highlight::{DiffHighlight, HighlightCache, highlight_diff};
+use crate::diff_highlight::highlight_diff;
 use crate::repo::RepoModel;
-
-#[derive(Default)]
-pub struct StashState {
-    /// `git stash list`, newest first.
-    pub list: Vec<Stash>,
-    /// Show stashes made on other branches too (default: this branch only).
-    pub all_branches: bool,
-    /// Panel collapsed (kept for the session, per repository).
-    pub collapsed: bool,
-    /// The main pane shows the selected stash instead of the working diff.
-    pub viewing: bool,
-    /// Sha of the selected stash (indices shift, shas don't).
-    pub selected: Option<String>,
-    pub files: Vec<FileChange>,
-    pub selected_file: Option<usize>,
-    pub diff: Option<Arc<Diff>>,
-    pub hl: Option<Arc<DiffHighlight>>,
-    pub files_scroll: UniformListScrollHandle,
-    pub list_scroll: UniformListScrollHandle,
-    gen_: u64,
-    task: Option<Task<()>>,
-    hl_task: Option<Task<()>>,
-    cache: HighlightCache,
-}
-
-impl StashState {
-    /// Indices into `list` visible under the current filter.
-    pub fn visible(&self, current_branch: Option<&str>) -> Vec<usize> {
-        self.list
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| self.all_branches || (s.branch.is_some() && s.branch.as_deref() == current_branch))
-            .map(|(i, _)| i)
-            .collect()
-    }
-
-    pub fn selected_stash(&self) -> Option<&Stash> {
-        let sha = self.selected.as_ref()?;
-        self.list.iter().find(|s| &s.sha == sha)
-    }
-}
 
 impl RepoModel {
     fn current_branch(&self) -> Option<String> {

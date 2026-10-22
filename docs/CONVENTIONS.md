@@ -10,7 +10,7 @@ UI code lives in `crates/app/src/features/<feature>/`, one folder per feature
 ```
 features/stashes/
   mod.rs            // only `mod` lines + `pub use` of the public surface
-  stashes_panel.rs  // container component for the feature
+  stash_panel.rs    // container component for the feature
   stash_row.rs      // small component, one per file
   stash_dialog.rs
   state.rs          // state structs + enums of the feature
@@ -60,3 +60,37 @@ Prefer a well-maintained crate over hand-rolled platform/utility code
 Hand-roll only when a crate is too restrictive, and write down why.
 Exception: git writes and network ops keep shelling out to the `git` CLI
 (hooks, credential helpers, LFS, SSH behave exactly like the CLI).
+
+## Feature folder example: stashes
+
+`crates/app/src/features/stashes/` is the reference. Copy these decisions:
+
+- `mod.rs` only has `mod` lines and `pub use` (panel, dialog view, menu rows,
+  state types). Everything else is private to the folder.
+- `state.rs`: `StashState` (model state, a field of `RepoModel`), `StashDialog`
+  enum, `StashUi` (dialog + input, still a plain `Workspace` field because
+  Esc/Enter routing in workspace.rs/menus.rs reads `stash_ui.dialog`; only
+  promote it to an `Entity` if that routing is reworked).
+- `ops.rs`: `impl RepoModel` (background git work, generation counter).
+- `handlers.rs`: `impl Workspace` handlers (open/close/confirm dialogs, menu
+  actions). `pub(super)` for what sibling components call, `pub` only for what
+  the rest of the app calls.
+- Components are `#[derive(IntoElement)]` + `RenderOnce`, one per file
+  (`stash_panel`, `stash_panel_header`, `stash_list`, `stash_row`,
+  `stash_header`, `stash_file_list`, `stash_file_row`, `stash_dialog`,
+  `option_row`), with a `new(..)` constructor and typed props.
+- Props: data they show (cloned, e.g. `Stash`) plus `Entity<RepoModel>` for
+  model calls and `Entity<Workspace>` (`cx.entity()` at the call site) for UI
+  actions. Handlers call back with
+  `ws.update(cx, |this, cx| this.open_stash_dialog(..))` or
+  `repo.update(cx, |r, cx| r.stash_pop(sha, cx))`; no `cx.listener` inside
+  `RenderOnce`. Callback props are `Box<dyn Fn(&mut Window, &mut App)>`
+  (`OptionRow`).
+- Pieces that need `&mut Workspace` (the diff renderer owns scroll state) stay
+  an `impl Workspace` method (`stash_detail.rs`) that composes the stateless
+  components around it.
+- Panels that may be hidden expose `Component::new(..) -> Option<Self>`.
+- Context menus return `Vec<MenuRow>` (`shared/menu_row.rs`:
+  `MenuRow::{Item(RowItem), Separator}`); `views/menus.rs` renders them.
+- Dialog variants are built by one small method per variant on the
+  `RenderOnce` struct, not one giant match.

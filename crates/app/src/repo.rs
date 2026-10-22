@@ -132,8 +132,8 @@ pub struct RepoModel {
     /// Transient success message ("Committed 3 files").
     pub notice: Option<String>,
 
-    /// Stash list, selection, and panel state (see stashes.rs).
-    pub stashes: crate::stashes::StashState,
+    /// Stash list, selection, and panel state (see features/stashes).
+    pub stashes: crate::features::stashes::StashState,
     /// Merge / rebase / conflict state (see `merge_ops.rs`).
     pub merge: crate::merge_ops::MergeState,
 }
