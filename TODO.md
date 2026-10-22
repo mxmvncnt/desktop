@@ -1,4 +1,5 @@
 # To-do
+
 - settings page
   - manage identities (git account/providers)
   - theme:
@@ -7,7 +8,7 @@
 - make the code cleaner for humans
   - debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
   - add documentations for humans
-- sidebar 
+- sidebar
   - make it resizeable
   - in the commit history view, show author profile picture
   - in the commit history view, show co-authors
@@ -19,7 +20,6 @@
 - select text in the diff view
 - keyboard navigation with arrows: browse through commits, files in commit, stashes, staged files
 - option to create a branch from a certain branch (ex: create branch x from staging)
-- clean up repository to remove old github dekstop and rename project
 - bundle as flatpak
 - bundle for macos
 - bugs/wonky behaviour:

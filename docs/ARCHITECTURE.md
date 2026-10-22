@@ -3,7 +3,7 @@
 ## Workspace layout
 
 ```
-desktop-rs/
+.
 ├── Cargo.toml          workspace; GPUI-CE pinned by git rev
 ├── env.sh              source before cargo: CARGO_HOME/TMPDIR inside the project
 ├── crates/

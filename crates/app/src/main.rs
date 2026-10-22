@@ -1,4 +1,4 @@
-//! GitHub Desktop — Rust + GPUI-CE rewrite (POC). See desktop-rs/docs/.
+//! GitHub Desktop — Rust + GPUI-CE rewrite (POC). See docs/.
 
 mod actions;
 mod frame_debug;

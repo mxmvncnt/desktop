@@ -3,15 +3,16 @@
 ## Hard rules
 
 1. **Never read, create, or modify files outside `/home/maxime/Git/github-desktop`.**
-   - Always `source desktop-rs/env.sh` before cargo. It puts `CARGO_HOME`,
+   - Always `source env.sh` before cargo. It puts `CARGO_HOME`,
      `TMPDIR`, `CARGO_TARGET_DIR`, and `GD_CONFIG_DIR` inside the project.
-   - Scratch repos, screenshots, and logs go in `desktop-rs/.tmp/` (git-ignored).
+   - Scratch repos, screenshots, and logs go in `.tmp/` (git-ignored).
    - Don't run the app without `GD_CONFIG_DIR` set (env.sh sets it). Otherwise
      it writes to `~/.config`.
-   - Don't `git clone` or `curl` into `/tmp` or `~`. Reference repos live in `desktop-rs/.ref/`.
+   - Don't `git clone` or `curl` into `/tmp` or `~`. Reference repos live in `.ref/`.
    - Don't touch the user's global git config, `~/.cargo`, or other repos.
-2. Only touch `desktop-rs/` (and the root `CLAUDE.md`). The Electron app in
-   `app/` is the behavioral reference: read it, don't edit it.
+2. Only touch files inside this repository. The original Electron app (removed
+   from this tree) lives in git history, e.g. `git show development:app/src/...`;
+   read it for behavior, don't try to restore it.
 3. Work on your own branch and commit your own work (see Workflow). Never
    push or force-push, and never rewrite `rust-rewrite` history.
 4. Performance is a primary goal. Follow the rules in ARCHITECTURE.md
@@ -23,10 +24,10 @@
 - Each subagent gets its own git worktree inside the project:
   ```sh
   cd /home/maxime/Git/github-desktop
-  git worktree add desktop-rs/.worktrees/<name> -b rust/<name> rust-rewrite
+  git worktree add .worktrees/<name> -b rust/<name> rust-rewrite
   # Don't copy target/ from another checkout: cargo fingerprints include the
   # absolute path, so it rebuilds everything anyway (~4 min cold, ~7.5 GB).
-  cd desktop-rs/.worktrees/<name>/desktop-rs && source env.sh
+  cd .worktrees/<name> && source env.sh
   ```
 - Commit in small, logical commits with clear messages on `rust/<name>`.
 - Before your final commit: `cargo build` and `cargo build --features snapshot`

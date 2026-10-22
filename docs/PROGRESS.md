@@ -43,7 +43,7 @@
   clipboard, folder dialog, clone, push/pull against a real remote, and horizontal diff scrolling.
   These are the first things to try by hand.
 - Coordinator workflow that worked: build the foundation solo, then launch Sonnet subagents in
-  `desktop-rs/.worktrees/<name>` (branch `rust/<name>`), then merge with `--no-ff`
+  `.worktrees/<name>` (branch `rust/<name>`), then merge with `--no-ff`
   and resolve the predictable conflicts (`repo.rs` fields, `snapshot.rs` view list, docs).
 
 Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
@@ -150,7 +150,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 ## Test repo recipe
 
 ```sh
-cd desktop-rs/.tmp && rm -rf testrepo && mkdir testrepo && cd testrepo && git init -q -b main
+cd .tmp && rm -rf testrepo && mkdir testrepo && cd testrepo && git init -q -b main
 for i in 1 2 3 4 5; do echo "line $i" >> file$i.txt; mkdir -p src/mod$i
   printf 'fn main() {\n    println!("hello %s");\n}\n' $i > src/mod$i/main.rs
   git add -A; git commit -qm "Add module $i with some changes" -m "Body text for commit $i"; done
