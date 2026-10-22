@@ -9,6 +9,17 @@
 - Idle is still zero renders (`GD_DEBUG_FRAMES=1`). RSS is ~67 MB (release, small repo).
 - Still untested by hand: everything interactive in the new menus and dialogs.
 
+## Diff long lines (2026-10-21)
+
+- ✅ Horizontal scrolling in unified and split views (wheel x / shift+wheel). Gutters stay fixed. In split
+  view both columns share one offset, so they always scroll together.
+- ✅ "Wrap long lines" checkbox in the diff options popover (persisted as `diff_wrap`). It wraps both views
+  through a variable-height `list`.
+- Snapshot views: `hscroll`, `split-hscroll` (offset preset to 160px), `wrap`, `split-wrap`. Test repo:
+  `.tmp/longlines` (a single `main.rs` with long changed lines).
+- Not yet tried by hand: real wheel/trackpad horizontal scrolling and the clamp at the right edge
+  (snapshots can't send wheel events).
+
 ## Status at end of session 1 (2026-10-20, overnight autonomous run)
 
 - `rust-rewrite` holds the POC plus three merged feature branches (fs-watcher,
@@ -93,10 +104,13 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
    - Snapshot views: `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `delete-dialog`, `rename-dialog`, `conflict-menu`, and `changes` on a conflicted repo (`cargo run -p gd-git --example merge_smoke -- <dir> --keep-conflict`).
    - Not verified with a real mouse/keyboard. Not done: remote rename, rebase `--autostash`, interactive conflict resolution inside the app, banner for stash-conflicts. Picker ↑/↓ now also capture NavUp/NavDown (the LIST-context bindings never reached a focused input).
 7. ✅ Partial (line/hunk) staging in the diff gutter (Changes tab, unified and split).
-   - Click a line number to (de)select that line; drag along the gutter to apply the same state to a range.
-     Included lines get a blue outlined number gutter (adjacent ones merge into one block).
-   - Whole hunk: the tri-state checkbox in the hunk header's gutter, or the hunk handle (thin strip left of the
-     gutter, unified view only): hovering it highlights the hunk, clicking toggles it.
+   - Desktop layout: split view is `[old text | old no · handle · new no | new text]` (numbers in the middle);
+     unified is `[handle | check · old no · new no | text]` (one selection cell per line). Click a line number to
+     (de)select that line; drag along the numbers to apply the same state to a range. Included lines get a solid blue
+     number cell with a check mark.
+   - Chunks: each run of changed lines between unchanged lines is one handle (`RepoModel::change_block`). It stays blue
+     while any of its lines is included, with one mark on its first row (check = all, dash = some). Hover lights up
+     that chunk only; click (de)selects it. Rows outside chunks show a dark strip.
    - File checkbox shows Mixed for partially selected files; clicking it selects the whole file again. Header select-all
      clears partial selections.
    - Not selectable: history/stash diffs, "Hide whitespace changes" on (selection is kept for later), truncated or

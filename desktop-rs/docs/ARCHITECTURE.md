@@ -87,9 +87,18 @@ guessing APIs. To recreate them:
   `excluded` (whole file off). `set_rows_included` normalizes: all rows off → `excluded`, none off → entry removed, so
   `partial` only holds mixed files. A reloaded diff keeps the selection only if `lines` are identical
   (`reconcile_selection`); `-w` diffs are ignored there. `partial` is cleared after a successful commit/amend.
-- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`; `RowSelect` builds the gutter, hunk handle and hunk
-  checkbox. Pointer state (`hovered_hunk`, `drag` anchor) is `Workspace.diff_select`, reset when the diff key changes;
-  drag ends via `on_mouse_up_all` on the list wrapper and only extends while `pressed_button == Left`.
+- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`. `views/diff.rs` exports `number_cell` (one cell
+  holding 1 or 2 numbers; plain, or clickable/drag-extending with the blue+check included style) and
+  `RowSelect::handle_cell` (one cell of a change block's handle), shared by the unified list and the split list's
+  middle gutter. Handles work on change blocks (`RepoModel::change_block`: the add/delete run around a row), not git
+  hunks. Pointer state (`hovered_handle: (block start, cell)`, `drag` anchor) is `Workspace.diff_select`, reset when
+  the diff key changes. The cell id in `hovered_handle` makes leave/enter order between two cells of one block
+  harmless. Drag ends via `on_mouse_up_all` on the list wrapper and only extends while `pressed_button == Left`.
+- Hover states can be captured headlessly: `GD_SNAPSHOT_MOUSE=x,y` (window px) makes `--snapshot` dispatch a
+  MouseMove there before capturing (`hover_style` and `on_hover` both react).
+- Colors: number cells `gutter_bg()` (ink 2.5%), idle handle strip `handle_bg()` (black 60%, visibly darker),
+  unselected block handle ink 10%; included line cells `line_selected_bg()` (blue-700, hover `accent_strong`),
+  included/partial blocks `accent_strong` (hover `accent`).
 - Gotcha: `on_mouse_up_all` takes 5 args (event, phase, hitbox, window, cx).
 
 ## Threading / state (`crates/app`)
@@ -220,16 +229,15 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   adds take new-side spans, deletes old-side spans). Hunks are stitched with a blank line, so a
   comment/string spanning an unchanged gap may be mis-colored (full-file highlight would fix it).
 - Caps: skip above 20k diff rows or 2 MB text. Per-row runs are built only for visible rows.
-- Gotcha: `uniform_list` measures ONE item (default row 0) for the horizontal extent; use
-  `with_width_from_item(Some(diff.longest_line))`. Gotcha: `StyledText::with_runs` panics if run
+- Gotcha: `StyledText::with_runs` panics if run
   lengths don't sum to the text length / split a char; `runs_for` guards both.
 - Gotcha: `Hsla` here is palette `Alpha<Hsl>`: use `color.color.saturation`, not `.s`.
 - Scroll reset: `Workspace::diff_key` stores the last diff identity; a change resets the list's
-  `base_handle` offset to 0.
+  `base_handle` offset and `DiffView::hscroll` to 0.
 
 ## Diff options and split view (`views/diff_options.rs`, `views/diff_split.rs`)
 
-- Options are app-wide and persisted in `Settings` (`diff_split`, `diff_ignore_whitespace`), stored in a
+- Options are app-wide and persisted in `Settings` (`diff_split`, `diff_ignore_whitespace`, `diff_wrap`), stored in a
   separate `display` file (`key=value`) so old `repositories` files load unchanged.
 - `gd_git::DiffOptions { ignore_whitespace }` is passed to `working_diff`/`commit_diff` (`-w`).
   `RepoModel::diff_options` holds it; `set_diff_options` reloads the visible change/commit diff via the
@@ -239,8 +247,24 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   (keyed by `Arc::ptr_eq` on the diff). `SplitDiff::build` is one linear pass producing
   `SplitRow { left, right }` index pairs into `Diff::lines` (`NONE` = filler): context on both sides, hunk
   headers span both columns (`left == right`), delete/add runs are paired row by row and padded.
-  Rendering is a single `uniform_list` (id `diff-split`); each row has two `w_1_2` clipped halves with own gutters.
-  Syntax spans reuse `DiffHighlight::row(ix)` unchanged. No horizontal scroll in split mode (columns clip).
+  Rendering is a single list (id `diff-split`); each row is `[old text | middle gutter | new text]`.
+  Syntax spans reuse `DiffHighlight::row(ix)` unchanged.
+- Long lines (`views/diff.rs`, `TextFlow`): both modes share `unified_row`/`split_list` row renderers and
+  `rows_list`, which picks the list type.
+  - Scroll (default): a vertical-only `uniform_list`. Horizontal scroll is done by hand: each text cell
+    (`text_cell`) clips and shifts its text by `DiffView::hscroll`. Gutters stay fixed and both split
+    columns always move together. `diff_body`'s `on_scroll_wheel` takes the x delta (shift+wheel already
+    arrives as x from the platform) and calls `Workspace::scroll_diff_x`. That clamps the offset using the
+    shaped width of `diff.longest_line` and `HExtent` (non-text width + column count, set each render).
+    The `uniform_list` gets `restrict_scroll_to_axis` (set via `interactivity().base_style`, since
+    UniformList isn't `StatefulInteractiveElement`); otherwise a y-only scroller turns x deltas into
+    vertical scrolling.
+  - Wrap ("Wrap long lines"): a variable-height `gpui::list` on `DiffView::wrap_list`. `wrap_list_for`
+    resets it when the diff `Arc` or split mode changes, and keeps the top row on same-key reloads. The
+    list re-measures on width change by itself. Rows use `min_h`, and text uses `whitespace_normal`.
+  - Gotcha: no `h_full` on gutter cells. A percentage height can't resolve in an auto-height (wrapped)
+    row and blocks flex stretch. The cells stretch instead, are top-aligned, and keep check marks in a
+    one-line-tall box.
 - The popover is a `deferred` overlay like `ContextMenu` (closes on backdrop click/Esc; counted in `overlay_open`).
 - Gotcha: a `SplitRow` side can be `NONE`; never index `lines[left]` before checking `left == right`.
 - Snapshot views set settings fields directly (no file writes).

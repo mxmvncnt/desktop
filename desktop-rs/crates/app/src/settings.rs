@@ -11,7 +11,7 @@
 //! Display preferences live in a second file, `display` (`key=value` lines,
 //! unknown keys ignored), so the `repositories` format is untouched and files
 //! written by older builds keep loading: `diff_split=true|false`,
-//! `diff_ignore_whitespace=true|false`.
+//! `diff_ignore_whitespace=true|false`, `diff_wrap=true|false`.
 
 use std::path::PathBuf;
 
@@ -30,6 +30,8 @@ pub struct Settings {
     pub diff_split: bool,
     /// Hide whitespace changes in diffs (`git diff -w`).
     pub diff_ignore_whitespace: bool,
+    /// Wrap long diff lines instead of scrolling horizontally.
+    pub diff_wrap: bool,
 }
 
 impl Settings {
@@ -41,6 +43,7 @@ impl Settings {
                 match line.split_once('=').map(|(k, v)| (k.trim(), v.trim() == "true")) {
                     Some(("diff_split", v)) => s.diff_split = v,
                     Some(("diff_ignore_whitespace", v)) => s.diff_ignore_whitespace = v,
+                    Some(("diff_wrap", v)) => s.diff_wrap = v,
                     _ => {}
                 }
             }
@@ -80,8 +83,8 @@ impl Settings {
             log::error!("cannot save settings: {e}");
         }
         let display = format!(
-            "diff_split={}\ndiff_ignore_whitespace={}\n",
-            self.diff_split, self.diff_ignore_whitespace
+            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\n",
+            self.diff_split, self.diff_ignore_whitespace, self.diff_wrap
         );
         if let Err(e) = std::fs::write(dir.join("display"), display) {
             log::error!("cannot save display settings: {e}");

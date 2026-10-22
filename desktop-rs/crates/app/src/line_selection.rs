@@ -113,18 +113,31 @@ impl RepoModel {
         include
     }
 
-    /// Rows `start..end` of hunk `h` in the displayed diff.
-    pub fn hunk_rows(diff: &Diff, h: usize) -> std::ops::Range<usize> {
-        let start = diff.hunks.get(h).map_or(0, |x| x.header_index + 1);
-        let end = diff.hunks.get(h + 1).map_or(diff.lines.len(), |x| x.header_index);
-        start..end
+    /// The change block containing row `ix`: the run of adds/deletes
+    /// around it, bounded by context lines or hunk headers. This is what
+    /// the hunk handle (de)selects. `None` for a non-change row.
+    pub fn change_block(diff: &Diff, ix: usize) -> Option<std::ops::Range<usize>> {
+        use gd_git::DiffLineKind::{Add, Delete, NoNewline};
+        let in_block = |i: usize| matches!(diff.lines[i].kind, Add | Delete | NoNewline);
+        if !gd_git::selectable(diff, ix) {
+            return None;
+        }
+        let mut start = ix;
+        while start > 0 && in_block(start - 1) {
+            start -= 1;
+        }
+        let mut end = ix + 1;
+        while end < diff.lines.len() && in_block(end) {
+            end += 1;
+        }
+        Some(start..end)
     }
 
-    /// Checkbox state of hunk `h` (all / none / some of its lines included).
-    pub fn hunk_state(&self, h: usize) -> CheckState {
+    /// Selection state of a change block (all / none / some lines included).
+    pub fn block_state(&self, rows: std::ops::Range<usize>) -> CheckState {
         let Some(diff) = &self.change_diff else { return CheckState::Unchecked };
         let (mut on, mut off) = (false, false);
-        for ix in Self::hunk_rows(diff, h).filter(|&i| gd_git::selectable(diff, i)) {
+        for ix in rows.filter(|&i| gd_git::selectable(diff, i)) {
             if self.row_included(ix) { on = true } else { off = true }
         }
         match (on, off) {
@@ -134,11 +147,10 @@ impl RepoModel {
         }
     }
 
-    /// Select the whole hunk, or deselect it if it was fully selected.
-    pub fn toggle_hunk(&mut self, h: usize, cx: &mut Context<Self>) {
-        let Some(diff) = self.change_diff.clone() else { return };
-        let include = self.hunk_state(h) != CheckState::Checked;
-        self.set_rows_included(Self::hunk_rows(&diff, h), include, cx);
+    /// Select the whole block, or deselect it if it was fully selected.
+    pub fn toggle_block(&mut self, rows: std::ops::Range<usize>, cx: &mut Context<Self>) {
+        let include = self.block_state(rows.clone()) != CheckState::Checked;
+        self.set_rows_included(rows, include, cx);
     }
 
     /// A freshly loaded diff of `path`: keep its partial selection only if

@@ -1,5 +1,5 @@
 //! Diff display options: the gear button in the diff headers and its popover
-//! (Unified / Split, "Hide whitespace changes"). Both options are app-wide and
+//! (Unified / Split, "Wrap long lines", "Hide whitespace changes"). All options are app-wide and
 //! persisted in `Settings`; the whitespace flag is also pushed into
 //! `RepoModel::diff_options`, which reloads the visible diffs.
 
@@ -8,8 +8,8 @@ use std::sync::Arc;
 use gd_git::{Diff, DiffOptions};
 use gd_ui::{CheckState, Checkbox, Icon, Tabs, Theme, icon, icon_button, motion, pressable};
 use gpui::{
-    Context, InteractiveElement, IntoElement, MouseButton, ParentElement, Pixels, Point,
-    SharedString, Styled, Window, deferred, div, point, prelude::*, px,
+    Context, Entity, InteractiveElement, IntoElement, ListAlignment, ListState, MouseButton,
+    ParentElement, Pixels, Point, SharedString, Styled, Window, deferred, div, point, prelude::*, px,
 };
 
 use super::diff_split::SplitDiff;
@@ -18,13 +18,64 @@ use crate::workspace::Workspace;
 const MENU_W: f32 = 264.0;
 
 /// Workspace-side state for the diff options (one field on `Workspace`).
-#[derive(Default)]
 pub struct DiffView {
     /// Open popover position (window coordinates).
     pub menu: Option<Point<Pixels>>,
     pub menu_gen: usize,
     /// Paired rows of the diff currently shown in split mode.
     split_cache: Option<Arc<SplitDiff>>,
+    /// Horizontal scroll of the diff text (both split columns), see `TextFlow`.
+    pub hscroll: Pixels,
+    /// What `Workspace::scroll_diff_x` needs to clamp `hscroll`.
+    pub extent: Option<HExtent>,
+    /// Variable-height list used while lines wrap, and the diff (and split
+    /// mode) it was last reset for.
+    wrap_list: ListState,
+    wrap_for: Option<(Arc<Diff>, bool)>,
+}
+
+impl Default for DiffView {
+    fn default() -> Self {
+        Self {
+            menu: None,
+            menu_gen: 0,
+            split_cache: None,
+            hscroll: px(0.0),
+            extent: None,
+            wrap_list: ListState::new(0, ListAlignment::Top, px(400.0)),
+            wrap_for: None,
+        }
+    }
+}
+
+/// Horizontal layout of the shown diff: the text columns share the list
+/// width minus `fixed` (gutters, markers) evenly.
+pub struct HExtent {
+    pub diff: Arc<Diff>,
+    pub fixed: Pixels,
+    pub columns: f32,
+}
+
+impl DiffView {
+    pub fn set_extent(&mut self, diff: &Arc<Diff>, fixed: Pixels, columns: f32) {
+        self.extent = Some(HExtent { diff: diff.clone(), fixed, columns });
+    }
+
+    /// The wrapping list's state, reset when the diff or split mode changed.
+    /// A reload of the same file (`!new_key`) stays at the same row.
+    pub fn wrap_list_for(&mut self, diff: &Arc<Diff>, split: bool, n: usize, new_key: bool) -> ListState {
+        let same = self.wrap_for.as_ref().is_some_and(|(d, s)| Arc::ptr_eq(d, diff) && *s == split);
+        if !same || new_key {
+            let top = self.wrap_list.logical_scroll_top();
+            let keep = !new_key && self.wrap_for.as_ref().is_some_and(|(_, s)| *s == split);
+            self.wrap_list.reset(n);
+            if keep && top.item_ix < n {
+                self.wrap_list.scroll_to(top);
+            }
+            self.wrap_for = Some((diff.clone(), split));
+        }
+        self.wrap_list.clone()
+    }
 }
 
 impl Workspace {
@@ -64,6 +115,19 @@ impl Workspace {
         self.settings.save();
         // Row indices mean something else in the other mode.
         self.diff_scroll.0.borrow().base_handle.set_offset(point(px(0.0), px(0.0)));
+        self.diff_view.hscroll = px(0.0);
+        cx.notify();
+    }
+
+    pub fn set_diff_wrap(&mut self, wrap: bool, cx: &mut Context<Self>) {
+        if self.settings.diff_wrap == wrap {
+            return;
+        }
+        self.settings.diff_wrap = wrap;
+        self.settings.save();
+        // The other mode uses another list; start both at the top.
+        self.diff_scroll.0.borrow().base_handle.set_offset(point(px(0.0), px(0.0)));
+        self.diff_view.wrap_for = None;
         cx.notify();
     }
 
@@ -136,10 +200,9 @@ impl Workspace {
         let y = pos.y - inset + px(18.0);
         let split = self.settings.diff_split;
         let ws_hidden = self.settings.diff_ignore_whitespace;
+        let wrap = self.settings.diff_wrap;
         let ws = cx.entity();
         let ws_tabs = ws.clone();
-        let ws_check = ws.clone();
-        let ws_row = ws.clone();
         let ws_dismiss = ws.clone();
 
         let label = |t: &'static str| {
@@ -170,31 +233,14 @@ impl Workspace {
                         }),
                 ),
             )
+            .child(option_row("diff-opt-wrap", "Wrap long lines", wrap, ws.clone(), move |this, cx| {
+                this.set_diff_wrap(!wrap, cx)
+            }, cx))
             .child(div().h(px(1.0)).mx(px(2.0)).my(px(4.0)).bg(theme.border))
             .child(label("Whitespace"))
-            .child(
-                pressable("diff-opt-ws", false, cx)
-                    .flex()
-                    .items_center()
-                    .gap(px(10.0))
-                    .h(px(30.0))
-                    .px(px(8.0))
-                    .rounded(px(6.0))
-                    .text_size(px(13.0))
-                    .child(
-                        Checkbox::new(
-                            "diff-opt-ws-check",
-                            if ws_hidden { CheckState::Checked } else { CheckState::Unchecked },
-                        )
-                        .on_click(move |_, _, cx| {
-                            ws_check.update(cx, |this, cx| this.set_ignore_whitespace(!ws_hidden, cx))
-                        }),
-                    )
-                    .child("Hide whitespace changes")
-                    .on_click(move |_, _, cx| {
-                        ws_row.update(cx, |this, cx| this.set_ignore_whitespace(!ws_hidden, cx))
-                    }),
-            );
+            .child(option_row("diff-opt-ws", "Hide whitespace changes", ws_hidden, ws, move |this, cx| {
+                this.set_ignore_whitespace(!ws_hidden, cx)
+            }, cx));
         let backdrop = div()
             .id("diff-options-backdrop")
             .absolute()
@@ -215,4 +261,33 @@ impl Workspace {
             ),
         ))
     }
+}
+
+/// A checkbox row of the options popover; clicking the box or the row toggles.
+fn option_row(
+    id: &'static str,
+    text: &'static str,
+    checked: bool,
+    ws: Entity<Workspace>,
+    toggle: impl Fn(&mut Workspace, &mut Context<Workspace>) + Clone + 'static,
+    cx: &mut Context<Workspace>,
+) -> gpui::Stateful<gpui::Div> {
+    let (ws_check, toggle_check) = (ws.clone(), toggle.clone());
+    pressable(id, false, cx)
+        .flex()
+        .items_center()
+        .gap(px(10.0))
+        .h(px(30.0))
+        .px(px(8.0))
+        .rounded(px(6.0))
+        .text_size(px(13.0))
+        .child(
+            Checkbox::new(
+                SharedString::from(format!("{id}-check")),
+                if checked { CheckState::Checked } else { CheckState::Unchecked },
+            )
+            .on_click(move |_, _, cx| ws_check.update(cx, |this, cx| toggle_check(this, cx))),
+        )
+        .child(text)
+        .on_click(move |_, _, cx| ws.update(cx, |this, cx| toggle(this, cx)))
 }

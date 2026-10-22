@@ -16,7 +16,7 @@
 //! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
-//! `rename-dialog`, `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
+//! `rename-dialog`, `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
 //! plain `changes` then shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
@@ -102,6 +102,15 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         }
                         if view == "diff-options-menu" {
                             ws.open_diff_options(gpui::point(px(1240.0), px(60.0)), window, cx);
+                        }
+                        cx.notify();
+                    }
+                    // Long-line handling: wrapped, or scrolled 160px right (both columns in split).
+                    "wrap" | "split-wrap" | "hscroll" | "split-hscroll" => {
+                        ws.settings.diff_split = view.starts_with("split");
+                        ws.settings.diff_wrap = view.ends_with("wrap");
+                        if view.ends_with("hscroll") {
+                            ws.diff_view.hscroll = px(160.0);
                         }
                         cx.notify();
                     }
@@ -237,12 +246,12 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         if let Some(&ix) = rows.get(1) {
                             r.toggle_row(ix, cx);
                         }
-                        if diff.hunks.len() > 1 {
-                            r.toggle_hunk(diff.hunks.len() - 1, cx);
+                        // ...and the last change block.
+                        if let Some(b) = rows.last().and_then(|&ix| crate::repo::RepoModel::change_block(&diff, ix)) {
+                            r.toggle_block(b, cx);
                         }
                     });
                 }
-                ws.diff_select.hovered_hunk = Some(0);
                 cx.notify();
             });
         })
@@ -257,6 +266,27 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
         })
         .ok();
         cx.run_until_parked();
+    }
+    // `GD_SNAPSHOT_MOUSE=x,y` (window px): park the pointer there to capture hover states.
+    if let Some((x, y)) = std::env::var("GD_SNAPSHOT_MOUSE")
+        .ok()
+        .and_then(|v| v.split_once(',').and_then(|(x, y)| Some((x.parse::<f32>().ok()?, y.parse::<f32>().ok()?))))
+    {
+        cx.run_until_parked();
+        for _ in 0..2 {
+            cx.update_window(window.into(), |_, window, cx| {
+                window.dispatch_event(
+                    gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                        position: gpui::point(px(x), px(y)),
+                        pressed_button: None,
+                        modifiers: Default::default(),
+                    }),
+                    cx,
+                );
+            })
+            .ok();
+            cx.run_until_parked();
+        }
     }
     // Let loads finish and entrance animations settle.
     for _ in 0..4 {
