@@ -68,6 +68,7 @@ fn main() {
             window
                 .update(cx, |ws, window, cx| {
                     log::info!("window decorations: {:?}", window.window_decorations());
+                    window.activate();
                     ws.focus(window, cx)
                 })
                 .ok();

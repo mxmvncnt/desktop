@@ -1,7 +1,7 @@
 //! Actions and default keybindings (mirrors GitHub Desktop's shortcuts;
 //! `secondary` = ctrl on Linux, cmd on macOS, see `platform::SECONDARY`).
 
-use gpui::{App, KeyBinding, actions};
+use gpui::{App, KeyBinding, Menu, MenuItem, OsAction, SystemMenuType, actions};
 
 actions!(
     desktop,
@@ -63,4 +63,51 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("enter", MenuConfirm, Some(MENU)),
     ]);
     cx.on_action(|_: &Quit, cx| cx.quit());
+    set_menus(cx);
+}
+
+/// Native main menu bar (shown on macOS; a no-op elsewhere).
+fn set_menus(cx: &mut App) {
+    cx.set_menus([
+        Menu::new("GitHub Desktop").items([
+            MenuItem::os_submenu("Services", SystemMenuType::Services),
+            MenuItem::separator(),
+            MenuItem::action("Quit GitHub Desktop", Quit),
+        ]),
+        Menu::new("File").items([
+            MenuItem::action("Add Local Repository…", AddRepository),
+        ]),
+        Menu::new("Edit").items([
+            MenuItem::os_action("Undo", gpui_elements::editable_text::actions::Undo, OsAction::Undo),
+            MenuItem::os_action("Redo", gpui_elements::editable_text::actions::Redo, OsAction::Redo),
+            MenuItem::separator(),
+            MenuItem::os_action("Cut", gpui_elements::editable_text::actions::Cut, OsAction::Cut),
+            MenuItem::os_action("Copy", gpui_elements::editable_text::actions::Copy, OsAction::Copy),
+            MenuItem::os_action("Paste", gpui_elements::editable_text::actions::Paste, OsAction::Paste),
+            MenuItem::os_action("Select All", gpui_elements::editable_text::actions::SelectAll, OsAction::SelectAll),
+        ]),
+        Menu::new("View").items([
+            MenuItem::action("Changes", ShowChanges),
+            MenuItem::action("History", ShowHistory),
+            MenuItem::separator(),
+            MenuItem::action("Repository List", ToggleRepositoryList),
+            MenuItem::action("Branch List", ToggleBranchList),
+            MenuItem::separator(),
+            MenuItem::action("Refresh", Refresh),
+        ]),
+        Menu::new("Repository").items([
+            MenuItem::action("Fetch", Fetch),
+            MenuItem::action("Pull", Pull),
+            MenuItem::action("Push", Push),
+            MenuItem::separator(),
+            MenuItem::action("Stash Changes…", StashChanges),
+        ]),
+        Menu::new("Branch").items([
+            MenuItem::action("New Branch…", NewBranch),
+            MenuItem::action("Merge into Current Branch…", MergeIntoCurrent),
+            MenuItem::separator(),
+            MenuItem::action("Commit", Commit),
+        ]),
+        Menu::new("Window").items([]),
+    ]);
 }
