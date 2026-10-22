@@ -31,7 +31,7 @@ use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged
 use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::features::settings::Settings;
-use crate::views::menus::{ConfirmDialog, OpenMenu};
+use crate::features::menus::{ConfirmDialog, OpenMenu};
 use crate::features::diff::DiffOptionsMenu;
 use crate::features::history::{CommitMenuView, HistoryDialogView, HistoryUi};
 use crate::features::stashes::{StashDialogView, StashUi};
@@ -813,9 +813,9 @@ impl Render for Workspace {
         };
         let banner = self.render_banner(cx);
         let popover = self.render_popover(window, cx);
-        let menu = self.render_menu(window, cx);
+        let menu = crate::features::menus::ContextMenuView::open(self, cx);
         let diff_options = DiffOptionsMenu::new(self, cx.entity());
-        let dialog = self.render_dialog(cx);
+        let dialog = crate::features::menus::DiscardDialogView::open(self, cx);
         let settings = crate::features::settings::SettingsModal::open(self, cx);
         let hist_menu = CommitMenuView::open(self, cx);
         let hist_dialog = HistoryDialogView::open(self, cx);

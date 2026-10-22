@@ -134,7 +134,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     "header-menu" => ws.open_header_menu(gpui::point(px(60.0), px(100.0)), window, cx),
                     "discard-dialog" => {
                         if let Some(c) = ws.repo.as_ref().and_then(|r| r.read(cx).changes().get(1).cloned()) {
-                            ws.dialog = Some(crate::views::menus::ConfirmDialog::DiscardFile(c));
+                            ws.dialog = Some(crate::features::menus::ConfirmDialog::DiscardFile(c));
                             cx.notify();
                         }
                     }

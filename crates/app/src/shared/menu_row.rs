@@ -5,7 +5,7 @@
 
 use gd_ui::Icon;
 
-use crate::views::menus::MenuAction;
+use crate::features::menus::MenuAction;
 
 pub enum MenuRow<A = MenuAction> {
     Item(RowItem<A>),

@@ -7,7 +7,7 @@ use gpui::{ClipboardItem, Context, Focusable, Pixels, Point, Window};
 
 use super::state::StashDialog;
 use crate::repo::RepoModel;
-use crate::views::menus::{MenuAction, MenuTarget};
+use crate::features::menus::{MenuAction, MenuTarget};
 use crate::workspace::Workspace;
 
 impl Workspace {

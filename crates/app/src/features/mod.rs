@@ -4,5 +4,6 @@ pub mod merge;
 pub mod branches;
 pub mod settings;
 pub mod pickers;
+pub mod menus;
 pub mod welcome;
 pub mod diff;
