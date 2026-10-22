@@ -12,12 +12,12 @@
 ## Settings modal + light/dark/system theme (2026-10-21)
 
 - [x] Settings modal (`views/settings.rs`): two panes, a category sidebar (Appearance, Diff) and the selected page
-  (`Workspace::settings_page`). Custom overlay built from `overlay_card` + scrim like `Dialog`, since `Dialog` is single-column.
-  Opens from the toolbar gear, `Ctrl/Cmd+,`, macOS "Settings…"; Esc/close button/backdrop closes. `settings_open` counts as
-  `overlay_open`; Esc is checked first in `Dismiss`. Diff page reuses `diff_options::option_row` and the `set_diff_*` setters.
-  To add a category: extend `SettingsPage` (label/icon) and add a page fn.
+      (`Workspace::settings_page`). Custom overlay built from `overlay_card` + scrim like `Dialog`, since `Dialog` is single-column.
+      Opens from the toolbar gear, `Ctrl/Cmd+,`, macOS "Settings…"; Esc/close button/backdrop closes. `settings_open` counts as
+      `overlay_open`; Esc is checked first in `Dismiss`. Diff page reuses `diff_options::option_row` and the `set_diff_*` setters.
+      To add a category: extend `SettingsPage` (label/icon) and add a page fn.
 - [x] Theme mode `System|Light|Dark` persisted as `theme=` in the `display` file. System follows
-  `window.appearance()` and re-applies live via `observe_window_appearance`.
+      `window.appearance()` and re-applies live via `observe_window_appearance`.
 - Not done: identities/providers, multiple color themes (see TODO.md). Snapshot views: `settings`,
   `settings-light`, `settings-diff`, `changes-light`.
 
@@ -51,12 +51,14 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 ## POC (session 1, 2026-10-20)
 
 ### Foundation
-- ✅ Cargo workspace (`gd-git`, `gd-ui`, `github-desktop`), GPUI-CE pinned.
+
+- ✅ Cargo workspace (`gd-git`, `gd-ui`, `desktop-rs`), GPUI-CE pinned.
 - ✅ zeron theme tokens, motion catalog, Geist fonts, Solar icons.
 - ✅ Components: Button, Checkbox, Tabs, ToolbarButton, pressable rows, overlay card, badge.
 - ✅ Headless `--snapshot` PNG renderer for visual verification.
 
 ### Git operations (`gd-git`, all verified by `examples/smoke.rs`)
+
 - ✅ open / init / clone
 - ✅ status (porcelain v2: branch, upstream, ahead/behind, renames, conflicts, untracked)
 - ✅ working diff (tracked, untracked, unborn HEAD) and commit diff
@@ -67,6 +69,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ paged log, commit file list
 
 ### UI
+
 - ✅ Desktop layout: toolbar (repo ▾, branch ▾, contextual Publish/Pull/Push/Fetch), sidebar tabs, main diff.
 - ✅ Changes list: checkboxes, select-all (mixed state), status glyphs, ↑/↓.
 - ✅ Commit box: summary, description, `Commit to <branch>` (Ctrl+Enter), enabled only when valid.
@@ -80,13 +83,14 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ Persisted repository list and last selection.
 
 ## Live updates (fs-watcher branch)
+
 - ✅ `notify` watcher per open repo (`app/src/watcher.rs`), 300ms trailing debounce (2s max wait), coalesced refresh.
 - ✅ `.git` filtering: only HEAD/index/refs/FETCH_HEAD/MERGE_HEAD/... count; objects, logs, `*.lock` ignored. `target/` (top level) and `node_modules` skipped.
 - ✅ Idle = zero refreshes, ~zero CPU. Verify: `cargo run --features snapshot -- --snapshot x.png <repo> watch` (asserts; mutates and restores files/a branch in the repo).
 - ✅ `gd_git::Repository::{git_dir, common_git_dir, last_fetch_time}`; toolbar caption "Last fetched 5 minutes ago" / "Never fetched".
 - ✅ Background fetch: 10s after open if stale, then every 30 min; silent on failure (logged), skipped if a remote op is running or no remote.
 - ✅ Focus refresh skipped if the watcher refreshed within 1s.
-- Notes: headless test shows ~1s from last write to updated status (300ms debounce + dispatcher wake-up latency); real sleeps + `run_until_parked` polling are required. Debug log: `RUST_LOG=github_desktop=debug` prints one line per refresh, `trace` prints fs events.
+- Notes: headless test shows ~1s from last write to updated status (300ms debounce + dispatcher wake-up latency); real sleeps + `run_until_parked` polling are required. Debug log: `RUST_LOG=desktop_rs=debug` prints one line per refresh, `trace` prints fs events.
 
 ## Next rungs of the ladder (suggested order)
 
@@ -135,11 +139,13 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 8. 🟨 Split diff view and whitespace toggle done (gear button in both diff headers: Unified/Split + Hide whitespace changes, persisted in `display` settings file, `-w` via `gd_git::DiffOptions`). Image diffs still open. Split view clips long lines (no horizontal scroll). Snapshot views: `split`, `split-ws`, `split-history`, `hide-ws`, `diff-options-menu`. Split row build: 0.36 ms for an 18k-line diff (cached per loaded diff), so toggling is instant.
 9. ⬜ Pull requests list (GitHub API); create PR; CI status.
 10. ✅ (branch `rust/history-ops`) History commit actions and push status:
-   - Unpushed commits get an arrow-up icon with tooltip ("hasn't been pushed to the remote repository yet"); tags show as pills. Refreshed on every full refresh (push/fetch/commit/checkout).
-   - Right-click menu: Amend, Undo, Reset to commit (soft/mixed dialog), Checkout commit (detached warning), Move commit up/down (reorder), Revert, Create branch from commit, Create/Delete tag, Cherry-pick (branch picker), Copy SHA/tags, View on GitHub. Multi-select (ctrl/cmd-click, shift-click range) offers Cherry-pick N and Squash N (message dialog).
-   - Amend mode in the commit box ("Amend last commit", Stop amending, force-push warning if pushed).
-   - Verified by `cargo run -p gd-git --example history_ops -- /tmp/desktop-rs/hops` (bare scratch remote). Snapshot views: `history-menu`, `-menu-head`, `-menu-pushed`, `-multiselect`, `-multimenu`, `-squash`, `-reset`, `-cherry`, `-tag`, `-checkout`, `amend-mode`.
-   - Skipped: drag-and-drop reorder (menu Move up/down instead), Delete tag restricted to unpushed tags (needs remote tag knowledge; all tags deletable locally), non-adjacent squash (menu item disabled), own conflict UI (uses the generic in-progress banner via `run_op`). Not exercised with a real mouse.
+
+- Unpushed commits get an arrow-up icon with tooltip ("hasn't been pushed to the remote repository yet"); tags show as pills. Refreshed on every full refresh (push/fetch/commit/checkout).
+- Right-click menu: Amend, Undo, Reset to commit (soft/mixed dialog), Checkout commit (detached warning), Move commit up/down (reorder), Revert, Create branch from commit, Create/Delete tag, Cherry-pick (branch picker), Copy SHA/tags, View on GitHub. Multi-select (ctrl/cmd-click, shift-click range) offers Cherry-pick N and Squash N (message dialog).
+- Amend mode in the commit box ("Amend last commit", Stop amending, force-push warning if pushed).
+- Verified by `cargo run -p gd-git --example history_ops -- /tmp/desktop-rs/hops` (bare scratch remote). Snapshot views: `history-menu`, `-menu-head`, `-menu-pushed`, `-multiselect`, `-multimenu`, `-squash`, `-reset`, `-cherry`, `-tag`, `-checkout`, `amend-mode`.
+- Skipped: drag-and-drop reorder (menu Move up/down instead), Delete tag restricted to unpushed tags (needs remote tag knowledge; all tags deletable locally), non-adjacent squash (menu item disabled), own conflict UI (uses the generic in-progress banner via `run_op`). Not exercised with a real mouse.
+
 11. ⬜ Tags, branch rename/delete UI, compare branches.
 12. ⬜ Settings (theme light/dark, git identity, default editor/shell), "Open in editor/terminal".
 13. ✅ Client-side decorations (`app/src/platform/linux/chrome.rs`): toolbar doubles as titlebar (drag empty space, double-click maximize, right-click window menu), caption buttons per desktop `button-layout`, resize strips on free edges, 10px rounded + shadowed frame when floating, square when tiled/maximized. Preview headlessly with `GD_SNAPSHOT_CSD=1 … --snapshot`.

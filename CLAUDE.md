@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This branch hosts a **Rust + GPUI-CE rewrite** of GitHub Desktop; it is the whole repository.
+This repository is **desktop-rs**, a Rust + GPUI-CE rewrite of GitHub Desktop.
 The original Electron app is only in git history (`development` branch) and is
 the behavioral reference, e.g. `git show development:app/src/...`.
 

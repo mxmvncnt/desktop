@@ -1322,6 +1322,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop-rs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "gd-git",
+ "gd-syntax",
+ "gd-ui",
+ "gpui-ce",
+ "gpui_ce_elements",
+ "gpui_ce_platform",
+ "gpui_ce_wgpu",
+ "log",
+ "notify",
+ "smol",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2064,24 +2082,6 @@ name = "gimli"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
-
-[[package]]
-name = "github-desktop"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "env_logger",
- "gd-git",
- "gd-syntax",
- "gd-ui",
- "gpui-ce",
- "gpui_ce_elements",
- "gpui_ce_platform",
- "gpui_ce_wgpu",
- "log",
- "notify",
- "smol",
-]
 
 [[package]]
 name = "gl_generator"

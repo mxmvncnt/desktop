@@ -9,7 +9,7 @@
 │   ├── git/   (gd-git)  UI-agnostic git layer, shells out to `git`
 │   ├── syntax/ (gd-syntax) UI-agnostic tree-sitter highlighting
 │   ├── ui/    (gd-ui)   zeron-style design system: theme, motion, components, assets
-│   └── app/   (github-desktop)  the binary: models + views
+│   └── app/   (desktop-rs)  the binary: models + views
 ├── docs/
 └── .ref/ target/   (git-ignored; see below)
 ```
@@ -57,7 +57,7 @@ guessing APIs. To recreate them:
 
 ## Diff engine (`crates/git/src/engine.rs`, the `similar` crate)
 
-- git only *fetches* the two versions (`Side::{Empty, Blob{rev,path}, Worktree(path)}` via
+- git only _fetches_ the two versions (`Side::{Empty, Blob{rev,path}, Worktree(path)}` via
   `Repository::read_side`: `cat-file blob rev:path`, or the filesystem). The diff is computed
   in-process (`engine::diff_texts`: Myers via `capture_diff_slices_deadline` with an 800ms deadline,
   `group_diff_ops(…, 3)` for hunks). Working, commit and stash diffs all go through
@@ -316,7 +316,7 @@ Wayland/X11 gpui features are enabled only for Linux targets in `crates/app/Carg
   titlebar, so the toolbar is the titlebar. `Chrome::leading_inset` (78px) clears the traffic
   lights, the empty toolbar space is a `WindowControlArea::Drag`, no caption buttons or CSD
   frame. Shortcuts use cmd (Refresh is cmd-r, Quit cmd-q); config is in
-  `~/Library/Application Support/github-desktop-rs`.
+  `~/Library/Application Support/desktop-rs`.
 
 ## Window chrome / CSD (`app/src/platform/linux/chrome.rs`)
 

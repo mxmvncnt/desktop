@@ -1,17 +1,17 @@
-//! GitHub Desktop — Rust + GPUI-CE rewrite (POC). See docs/.
+//! desktop-rs — Rust + GPUI-CE app (POC). See docs/.
 
 mod actions;
-mod frame_debug;
 mod diff_highlight;
+mod frame_debug;
 mod history_ops;
 mod line_selection;
 mod merge_ops;
 mod platform;
 mod repo;
 mod settings;
-mod stashes;
 #[cfg(feature = "snapshot")]
 mod snapshot;
+mod stashes;
 mod views;
 mod watcher;
 mod workspace;
@@ -21,7 +21,7 @@ use gpui_elements::editable_text::actions::{DEFAULT_INPUT_CONTEXT, default_bindi
 
 fn main() {
     env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("warn,github_desktop=info,gd_git=info"),
+        env_logger::Env::default().default_filter_or("warn,desktop_rs=info,gd_git=info"),
     )
     .init();
 
@@ -29,7 +29,10 @@ fn main() {
     {
         let args: Vec<String> = std::env::args().collect();
         if args.get(1).map(String::as_str) == Some("--snapshot") {
-            let out = args.get(2).map(std::path::PathBuf::from).expect("--snapshot <out.png>");
+            let out = args
+                .get(2)
+                .map(std::path::PathBuf::from)
+                .expect("--snapshot <out.png>");
             let repo = args.get(3).map(std::path::PathBuf::from);
             let view = args.get(4).map(String::as_str).unwrap_or("changes");
             snapshot::run(out, repo, view);
@@ -37,7 +40,7 @@ fn main() {
         }
     }
 
-    // `github-desktop [path]` opens/adds that repository, like `github .`.
+    // `desktop-rs [path]` opens/adds that repository, like `github .`.
     let open_path = std::env::args().nth(1).map(std::path::PathBuf::from);
 
     gpui_platform::application()
@@ -51,19 +54,18 @@ fn main() {
             let mut options = WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 titlebar: Some(TitlebarOptions {
-                    title: Some("GitHub Desktop".into()),
+                    title: Some("desktop-rs".into()),
                     ..Default::default()
                 }),
-                app_id: Some("github-desktop-rs".into()),
+                app_id: Some("desktop-rs".into()),
                 window_min_size: Some(size(px(860.0), px(540.0))),
                 ..Default::default()
             };
             platform::configure_window(&mut options);
             let window = cx
-                .open_window(
-                    options,
-                    |window, cx| cx.new(|cx| workspace::Workspace::new(open_path, window, cx)),
-                )
+                .open_window(options, |window, cx| {
+                    cx.new(|cx| workspace::Workspace::new(open_path, window, cx))
+                })
                 .expect("failed to open window");
             window
                 .update(cx, |ws, window, cx| {

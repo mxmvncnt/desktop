@@ -8,7 +8,7 @@
      screenshots, and logs go there (`mkdir -p` it). Nothing else under `/tmp`
      is allowed.
    - When running the app, set `GD_CONFIG_DIR=/tmp/desktop-rs/config`. Otherwise it
-     writes to the real `~/.config/github-desktop-rs`.
+     writes to the real `~/.config/desktop-rs`.
    - Don't `git clone` or `curl` into `~` or anywhere in `/tmp` except `/tmp/desktop-rs/`. Reference repos live in `.ref/`.
    - Don't touch the user's global git config or other repos.
 2. Only touch files inside this repository. The original Electron app (removed

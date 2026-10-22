@@ -2,7 +2,7 @@
 //!
 //! Stored as plain text in `$GD_CONFIG_DIR` (override, used by dev/test runs so
 //! nothing is written outside the project), else
-//! `github-desktop-rs` under the platform config dir (`platform::config_base_dir`:
+//! `desktop-rs` under the platform config dir (`platform::config_base_dir`:
 //! `$XDG_CONFIG_HOME` or `~/.config` on Linux, `~/Library/Application Support` on macOS).
 //!
 //! Format of `repositories`: one absolute path per line; a line starting with
@@ -20,7 +20,7 @@ pub fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("GD_CONFIG_DIR") {
         return Some(PathBuf::from(dir));
     }
-    Some(crate::platform::config_base_dir()?.join("github-desktop-rs"))
+    Some(crate::platform::config_base_dir()?.join("desktop-rs"))
 }
 
 /// Which theme to use; `System` follows the OS appearance.
@@ -84,11 +84,15 @@ impl Settings {
         let Some(dir) = config_dir() else { return s };
         if let Ok(text) = std::fs::read_to_string(dir.join("display")) {
             for line in text.lines() {
-                if let Some(("theme", v)) = line.split_once('=').map(|(k, v)| (k.trim(), v.trim())) {
+                if let Some(("theme", v)) = line.split_once('=').map(|(k, v)| (k.trim(), v.trim()))
+                {
                     s.theme = ThemeMode::parse(v).unwrap_or_default();
                     continue;
                 }
-                match line.split_once('=').map(|(k, v)| (k.trim(), v.trim() == "true")) {
+                match line
+                    .split_once('=')
+                    .map(|(k, v)| (k.trim(), v.trim() == "true"))
+                {
                     Some(("diff_split", v)) => s.diff_split = v,
                     Some(("diff_ignore_whitespace", v)) => s.diff_ignore_whitespace = v,
                     Some(("diff_wrap", v)) => s.diff_wrap = v,
@@ -132,7 +136,10 @@ impl Settings {
         }
         let display = format!(
             "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n",
-            self.diff_split, self.diff_ignore_whitespace, self.diff_wrap, self.theme.key()
+            self.diff_split,
+            self.diff_ignore_whitespace,
+            self.diff_wrap,
+            self.theme.key()
         );
         if let Err(e) = std::fs::write(dir.join("display"), display) {
             log::error!("cannot save display settings: {e}");

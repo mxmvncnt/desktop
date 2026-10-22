@@ -33,16 +33,19 @@ impl Workspace {
                                     .child("Let's get started!"),
                             )
                             .child(
-                                div()
-                                    .text_color(theme.text_muted)
-                                    .child("Add a repository to GitHub Desktop to start collaborating."),
+                                div().text_color(theme.text_muted).child(
+                                    "Add a repository to desktop-rs to start collaborating.",
+                                ),
                             ),
                     )
                     .child(suggestion_card(
                         "welcome-add",
                         Icon::Folder,
                         "Add an existing repository",
-                        format!("Pick a folder on this computer ({}+O)", crate::platform::SECONDARY_LABEL),
+                        format!(
+                            "Pick a folder on this computer ({}+O)",
+                            crate::platform::SECONDARY_LABEL
+                        ),
                         "Choose…",
                         cx.listener(|this, _, _, cx| this.prompt_add_repository(cx)),
                         cx,

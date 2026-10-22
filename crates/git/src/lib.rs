@@ -1,4 +1,4 @@
-//! `gd-git` — the git layer for the Rust rewrite of GitHub Desktop.
+//! `gd-git` — the git layer for desktop-rs.
 //!
 //! Design (see `docs/ARCHITECTURE.md` §Git layer):
 //! - Shells out to the user's `git` binary, the same strategy as the Electron

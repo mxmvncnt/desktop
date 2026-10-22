@@ -71,24 +71,46 @@ pub fn bind(cx: &mut App) {
 /// Native main menu bar (shown on macOS; a no-op elsewhere).
 fn set_menus(cx: &mut App) {
     cx.set_menus([
-        Menu::new("GitHub Desktop").items([
+        Menu::new("desktop-rs").items([
             MenuItem::action("Settings…", OpenSettings),
             MenuItem::separator(),
             MenuItem::os_submenu("Services", SystemMenuType::Services),
             MenuItem::separator(),
-            MenuItem::action("Quit GitHub Desktop", Quit),
+            MenuItem::action("Quit desktop-rs", Quit),
         ]),
-        Menu::new("File").items([
-            MenuItem::action("Add Local Repository…", AddRepository),
-        ]),
+        Menu::new("File").items([MenuItem::action("Add Local Repository…", AddRepository)]),
         Menu::new("Edit").items([
-            MenuItem::os_action("Undo", gpui_elements::editable_text::actions::Undo, OsAction::Undo),
-            MenuItem::os_action("Redo", gpui_elements::editable_text::actions::Redo, OsAction::Redo),
+            MenuItem::os_action(
+                "Undo",
+                gpui_elements::editable_text::actions::Undo,
+                OsAction::Undo,
+            ),
+            MenuItem::os_action(
+                "Redo",
+                gpui_elements::editable_text::actions::Redo,
+                OsAction::Redo,
+            ),
             MenuItem::separator(),
-            MenuItem::os_action("Cut", gpui_elements::editable_text::actions::Cut, OsAction::Cut),
-            MenuItem::os_action("Copy", gpui_elements::editable_text::actions::Copy, OsAction::Copy),
-            MenuItem::os_action("Paste", gpui_elements::editable_text::actions::Paste, OsAction::Paste),
-            MenuItem::os_action("Select All", gpui_elements::editable_text::actions::SelectAll, OsAction::SelectAll),
+            MenuItem::os_action(
+                "Cut",
+                gpui_elements::editable_text::actions::Cut,
+                OsAction::Cut,
+            ),
+            MenuItem::os_action(
+                "Copy",
+                gpui_elements::editable_text::actions::Copy,
+                OsAction::Copy,
+            ),
+            MenuItem::os_action(
+                "Paste",
+                gpui_elements::editable_text::actions::Paste,
+                OsAction::Paste,
+            ),
+            MenuItem::os_action(
+                "Select All",
+                gpui_elements::editable_text::actions::SelectAll,
+                OsAction::SelectAll,
+            ),
         ]),
         Menu::new("View").items([
             MenuItem::action("Changes", ShowChanges),

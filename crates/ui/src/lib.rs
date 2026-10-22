@@ -1,4 +1,4 @@
-//! `gd-ui` — zeron-style design system for the GitHub Desktop rewrite.
+//! `gd-ui` — zeron-style design system for desktop-rs.
 //!
 //! - [`theme`]: tokens (colors, sizes, fonts) — `Theme::of(cx)`.
 //! - [`motion`]: the zeron animation catalog (fade-in, menu-in, …).

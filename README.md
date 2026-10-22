@@ -1,6 +1,6 @@
-# GitHub Desktop — Rust + GPUI-CE rewrite
+# desktop-rs — Rust + GPUI-CE rewrite
 
-A native rewrite of GitHub Desktop (the original Electron app lives in the `development` branch) in Rust, on
+A native rewrite of [GitHub Desktop](https://github.com/desktop/desktop) (the original Electron app lives in the `development` branch) in Rust, on
 [GPUI Community Edition](https://github.com/gpui-ce/gpui-ce), with the look and
 motion of [zeron](https://github.com/zeronsh/zeron).
 
@@ -21,25 +21,25 @@ Linux needs the usual GPUI deps (xkbcommon, wayland, x11-xcb, fontconfig, vulkan
 The system `git` binary must be on `PATH`.
 
 The app stores its repository list in `$GD_CONFIG_DIR` (if set), otherwise in
-`~/.config/github-desktop-rs/`.
+`~/.config/desktop-rs/`.
 
 ### Keyboard shortcuts
 
-| Keys | Action |
-|---|---|
-| Ctrl+1 / Ctrl+2 | Changes / History tab |
-| Ctrl+T | Repository list |
-| Ctrl+B | Branch list |
-| Ctrl+Shift+N | New branch |
-| Ctrl+O | Add existing repository |
-| Ctrl+Shift+T | Fetch |
-| Ctrl+Shift+P | Pull |
-| Ctrl+P | Push / publish |
-| Ctrl+Enter | Commit |
-| F5 | Refresh |
-| ↑ / ↓ | Move through file, commit or picker lists |
-| Esc | Close popover |
-| Ctrl+Q | Quit |
+| Keys            | Action                                    |
+| --------------- | ----------------------------------------- |
+| Ctrl+1 / Ctrl+2 | Changes / History tab                     |
+| Ctrl+T          | Repository list                           |
+| Ctrl+B          | Branch list                               |
+| Ctrl+Shift+N    | New branch                                |
+| Ctrl+O          | Add existing repository                   |
+| Ctrl+Shift+T    | Fetch                                     |
+| Ctrl+Shift+P    | Pull                                      |
+| Ctrl+P          | Push / publish                            |
+| Ctrl+Enter      | Commit                                    |
+| F5              | Refresh                                   |
+| ↑ / ↓           | Move through file, commit or picker lists |
+| Esc             | Close popover                             |
+| Ctrl+Q          | Quit                                      |
 
 ### Headless screenshots
 
