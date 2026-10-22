@@ -11,7 +11,8 @@
 //! Display preferences live in a second file, `display` (`key=value` lines,
 //! unknown keys ignored), so the `repositories` format is untouched and files
 //! written by older builds keep loading: `diff_split=true|false`,
-//! `diff_ignore_whitespace=true|false`, `diff_wrap=true|false`.
+//! `diff_ignore_whitespace=true|false`, `diff_wrap=true|false`,
+//! `theme=system|light|dark`.
 
 use std::path::PathBuf;
 
@@ -20,6 +21,48 @@ pub fn config_dir() -> Option<PathBuf> {
         return Some(PathBuf::from(dir));
     }
     Some(crate::platform::config_base_dir()?.join("github-desktop-rs"))
+}
+
+/// Which theme to use; `System` follows the OS appearance.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeMode {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl ThemeMode {
+    pub const ALL: [ThemeMode; 3] = [Self::System, Self::Light, Self::Dark];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::System => "System",
+            Self::Light => "Light",
+            Self::Dark => "Dark",
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+
+    fn parse(v: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|m| m.key() == v)
+    }
+
+    /// Whether the light theme applies, given the OS appearance.
+    pub fn is_light(self, system_light: bool) -> bool {
+        match self {
+            Self::System => system_light,
+            Self::Light => true,
+            Self::Dark => false,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -32,6 +75,7 @@ pub struct Settings {
     pub diff_ignore_whitespace: bool,
     /// Wrap long diff lines instead of scrolling horizontally.
     pub diff_wrap: bool,
+    pub theme: ThemeMode,
 }
 
 impl Settings {
@@ -40,6 +84,10 @@ impl Settings {
         let Some(dir) = config_dir() else { return s };
         if let Ok(text) = std::fs::read_to_string(dir.join("display")) {
             for line in text.lines() {
+                if let Some(("theme", v)) = line.split_once('=').map(|(k, v)| (k.trim(), v.trim())) {
+                    s.theme = ThemeMode::parse(v).unwrap_or_default();
+                    continue;
+                }
                 match line.split_once('=').map(|(k, v)| (k.trim(), v.trim() == "true")) {
                     Some(("diff_split", v)) => s.diff_split = v,
                     Some(("diff_ignore_whitespace", v)) => s.diff_ignore_whitespace = v,
@@ -83,8 +131,8 @@ impl Settings {
             log::error!("cannot save settings: {e}");
         }
         let display = format!(
-            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\n",
-            self.diff_split, self.diff_ignore_whitespace, self.diff_wrap
+            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n",
+            self.diff_split, self.diff_ignore_whitespace, self.diff_wrap, self.theme.key()
         );
         if let Err(e) = std::fs::write(dir.join("display"), display) {
             log::error!("cannot save display settings: {e}");

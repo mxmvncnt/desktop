@@ -16,14 +16,14 @@ use std::path::PathBuf;
 
 use gd_git::Repository;
 use gd_ui::{
-    Icon, Theme, ToolbarButton, icon, motion,
+    Icon, Theme, ToolbarButton, icon, icon_button, motion,
     theme::{TOOLBAR_HEIGHT, scrim},
     vdivider,
 };
 use gpui::{
     App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, IntoElement,
     ParentElement, PathPromptOptions, Render, SharedString, Styled, Subscription, Task,
-    ClickEvent, Pixels, Point, UniformListScrollHandle, Window, deferred, div, px,
+    ClickEvent, Pixels, Point, StatefulInteractiveElement, UniformListScrollHandle, Window, deferred, div, px,
 };
 use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged};
 
@@ -44,6 +44,9 @@ pub enum Popover {
 
 pub struct Workspace {
     pub settings: Settings,
+    /// Settings modal (views/settings.rs).
+    pub settings_open: bool,
+    pub settings_page: crate::views::settings::SettingsPage,
     pub repo: Option<Entity<RepoModel>>,
     pub popover: Option<Popover>,
     /// Bumped on every popover open so its entrance animation replays.
@@ -128,9 +131,17 @@ impl Workspace {
             }
         }));
 
+        subs.push(cx.observe_window_appearance(window, |this, window, cx| {
+            if this.settings.theme == crate::settings::ThemeMode::System {
+                this.apply_theme(window, cx);
+            }
+        }));
+
         let history_ui = crate::views::history_menu::HistoryUi::new(cx);
         let mut this = Self {
             settings: Settings::load(),
+            settings_open: false,
+            settings_page: Default::default(),
             repo: None,
             popover: None,
             popover_gen: 0,
@@ -163,12 +174,28 @@ impl Workspace {
             repo_event_sub: None,
             _subs: subs,
         };
+        this.apply_theme(window, cx);
         if let Some(path) = open_path {
             this.add_repository(path, cx);
         } else if let Some(ix) = this.settings.selected {
             this.open_repository(ix, cx);
         }
         this
+    }
+
+    /// Resolve the theme setting (System follows the window appearance) and install it.
+    pub fn apply_theme(&mut self, window: &Window, cx: &mut Context<Self>) {
+        use gpui::WindowAppearance as A;
+        let system_light = matches!(window.appearance(), A::Light | A::VibrantLight);
+        let light = self.settings.theme.is_light(system_light);
+        cx.set_global(Theme::for_mode(light));
+        cx.notify();
+    }
+
+    pub fn set_theme_mode(&mut self, mode: crate::settings::ThemeMode, window: &Window, cx: &mut Context<Self>) {
+        self.settings.theme = mode;
+        self.settings.save();
+        self.apply_theme(window, cx);
     }
 
     pub fn focus(&self, window: &mut Window, cx: &mut App) {
@@ -624,6 +651,15 @@ impl Workspace {
                 div().id("titlebar-drag").flex_1().h_full(),
                 chrome,
             ))
+            .child(
+                div()
+                    .id("toolbar-settings-wrap")
+                    .tooltip(gd_ui::tooltip(format!("Settings ({}+,)", crate::platform::SECONDARY_LABEL)))
+                    .child(
+                        icon_button("toolbar-settings", Icon::Settings)
+                            .on_click(cx.listener(|this, _, _, cx| this.toggle_settings(cx))),
+                    ),
+            )
             .children(captions.and_then(|c| crate::platform::caption_buttons(&c.right, maximized, cx)))
     }
 
@@ -785,6 +821,7 @@ impl Render for Workspace {
         let menu = self.render_menu(window, cx);
         let diff_options = self.render_diff_options_menu(window, cx);
         let dialog = self.render_dialog(cx);
+        let settings = self.render_settings(cx);
         let hist_menu = self.render_hist_menu(cx);
         let hist_dialog = self.render_hist_dialog(cx);
         
@@ -794,6 +831,7 @@ impl Render for Workspace {
         let overlay_open = self.history_ui.is_open()
             || self.menu.is_some()
             || self.dialog.is_some()
+            || self.settings_open
             || self.diff_view.menu.is_some()
             || self.stash_ui.dialog.is_some()
             || self.merge_ui.wants_menu_context();
@@ -821,6 +859,7 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &Fetch, _, cx| this.remote_action(RemoteOp::Fetch, cx)))
             .on_action(cx.listener(|this, _: &Pull, _, cx| this.remote_action(RemoteOp::Pull, cx)))
             .on_action(cx.listener(|this, _: &Push, _, cx| this.remote_action(RemoteOp::Push, cx)))
+            .on_action(cx.listener(|this, _: &OpenSettings, _, cx| this.toggle_settings(cx)))
             .on_action(cx.listener(|this, _: &Refresh, _, cx| this.refresh(cx)))
             .on_action(cx.listener(|this, _: &Commit, w, cx| this.commit(w, cx)))
             .on_action(cx.listener(|this, _: &MenuNext, _, cx| {
@@ -838,7 +877,9 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
             .on_action(cx.listener(|this, _: &StashChanges, w, cx| this.open_stash_create(false, w, cx)))
             .on_action(cx.listener(|this, _: &Dismiss, w, cx| {
-                if this.hist_dismiss(w, cx) {
+                if this.settings_open {
+                    this.toggle_settings(cx)
+                } else if this.hist_dismiss(w, cx) {
                 } else if this.stash_ui.dialog.is_some() {
                     this.close_stash_dialog(cx)
                 } else if this.close_merge_ui(w, cx) {
@@ -869,6 +910,7 @@ impl Render for Workspace {
             .children(menu)
             .children(diff_options)
             .children(dialog)
+            .children(settings)
             .children(stash_dialog)
             .children(hist_menu)
             .children(hist_dialog)

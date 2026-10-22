@@ -9,6 +9,18 @@
 - Idle is still zero renders (`GD_DEBUG_FRAMES=1`). RSS is ~67 MB (release, small repo).
 - Still untested by hand: everything interactive in the new menus and dialogs.
 
+## Settings modal + light/dark/system theme (2026-10-21)
+
+- [x] Settings modal (`views/settings.rs`): two panes, a category sidebar (Appearance, Diff) and the selected page
+  (`Workspace::settings_page`). Custom overlay built from `overlay_card` + scrim like `Dialog`, since `Dialog` is single-column.
+  Opens from the toolbar gear, `Ctrl/Cmd+,`, macOS "Settings…"; Esc/close button/backdrop closes. `settings_open` counts as
+  `overlay_open`; Esc is checked first in `Dismiss`. Diff page reuses `diff_options::option_row` and the `set_diff_*` setters.
+  To add a category: extend `SettingsPage` (label/icon) and add a page fn.
+- [x] Theme mode `System|Light|Dark` persisted as `theme=` in the `display` file. System follows
+  `window.appearance()` and re-applies live via `observe_window_appearance`.
+- Not done: identities/providers, multiple color themes (see TODO.md). Snapshot views: `settings`,
+  `settings-light`, `settings-diff`, `changes-light`.
+
 ## Diff long lines (2026-10-21)
 
 - ✅ Horizontal scrolling in unified and split views (wheel x / shift+wheel). Gutters stay fixed. In split

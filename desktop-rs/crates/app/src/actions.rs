@@ -17,6 +17,7 @@ actions!(
         Pull,
         Push,
         Refresh,
+        OpenSettings,
         Commit,
         StashChanges,
         SelectNext,
@@ -51,6 +52,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new(&format!("{M}-shift-t"), Fetch, ws),
         KeyBinding::new(&format!("{M}-shift-p"), Pull, ws),
         KeyBinding::new(&format!("{M}-p"), Push, ws),
+        KeyBinding::new(&format!("{M}-,"), OpenSettings, ws),
         KeyBinding::new(REFRESH_KEY, Refresh, ws),
         KeyBinding::new(&format!("{M}-enter"), Commit, ws),
         KeyBinding::new(&format!("{M}-shift-s"), StashChanges, ws),
@@ -70,6 +72,8 @@ pub fn bind(cx: &mut App) {
 fn set_menus(cx: &mut App) {
     cx.set_menus([
         Menu::new("GitHub Desktop").items([
+            MenuItem::action("Settings…", OpenSettings),
+            MenuItem::separator(),
             MenuItem::os_submenu("Services", SystemMenuType::Services),
             MenuItem::separator(),
             MenuItem::action("Quit GitHub Desktop", Quit),

@@ -264,7 +264,7 @@ impl Workspace {
 }
 
 /// A checkbox row of the options popover; clicking the box or the row toggles.
-fn option_row(
+pub(super) fn option_row(
     id: &'static str,
     text: &'static str,
     checked: bool,

@@ -287,6 +287,10 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 
 - `theme.rs`: zeron's dark tokens, verbatim (oklch → sRGB helper included).
   Use `Theme::of(cx)`, `ink(a)` for translucent white washes, and `hairline(a)` for lines.
+- Themes: `Theme::dark()` / `Theme::light()`; `Workspace::apply_theme` resolves the setting and does
+  `cx.set_global(Theme::for_mode(light))`. `ink()`/`hairline()` are free functions (no `cx`), so they read a
+  global flag set by `for_mode` (white washes on dark, black on light). Never hardcode `white()`/`black()`;
+  use theme tokens or `ink()`, and check new UI with both `changes` and `changes-light` snapshots.
 - `motion.rs`: the zeron motion catalog (`fade_in` 500ms expo-out with 4px rise,
   `fade_quick`, `menu_in`, `dialog_in`, plus an exact `CubicBezier`).
 - `components.rs`: `pressable` (row/ghost base with transitioned hover wash), `Button`

@@ -129,6 +129,60 @@ impl Theme {
         }
     }
 
+    /// Light variant: same elevation ladder inverted (white plane, off-white shell),
+    /// translucent black washes, and darker accent/syntax tones for contrast on white.
+    pub fn light() -> Self {
+        let blue = oklch(0.546, 0.245, 262.881); // blue-600
+        let green = oklch(0.596, 0.145, 163.225); // emerald-600
+        let red = oklch(0.577, 0.245, 27.325); // red-600
+        Self {
+            bg: grey(255),
+            surface: grey(0xf6),
+            surface_raised: neutral(0.94),
+            surface_raised_hover: neutral(0.90),
+            surface_card: grey(0xfa),
+            surface_overlay: grey(255),
+            element_hover: hsla(0.0, 0.0, 0.0, 0.05),
+            element_active: hsla(0.0, 0.0, 0.0, 0.09),
+            border: hsla(0.0, 0.0, 0.0, 0.10),
+            border_strong: hsla(0.0, 0.0, 0.0, 0.18),
+            text: neutral(0.205),
+            text_muted: neutral(0.40),
+            text_faint: neutral(0.52),
+            text_dim: grey(0x6b),
+            solid: neutral(0.205),
+            on_solid: grey(0xfa),
+            accent: blue,
+            accent_strong: oklch(0.488, 0.243, 264.376), // blue-700
+            accent_wash: blue.opacity(0.10),
+            on_accent: neutral(0.985),
+            danger: red,
+            danger_strong: oklch(0.505, 0.213, 27.518), // red-700
+            warning: oklch(0.666, 0.179, 58.318), // amber-600
+            success: green,
+            input_bg: hsla(0.0, 0.0, 0.0, 0.03),
+            selection: blue.opacity(0.25),
+            caret: blue,
+            diff_add: green,
+            diff_del: red,
+            diff_add_bg: green.opacity(0.12),
+            diff_del_bg: red.opacity(0.10),
+            diff_add_emph: green.opacity(0.28),
+            diff_del_emph: red.opacity(0.26),
+            diff_hunk_bg: hsla(0.6, 0.45, 0.45, 0.07),
+            diff_gutter: neutral(0.62),
+            syntax: SyntaxPalette::light(neutral(0.205), neutral(0.58), red),
+            font_sans: "Geist".into(),
+            font_mono: "Geist Mono".into(),
+        }
+    }
+
+    /// Theme for the resolved appearance (also flips `ink`/`hairline`).
+    pub fn for_mode(light: bool) -> Self {
+        set_light(light);
+        if light { Self::light() } else { Self::dark() }
+    }
+
     pub fn of(cx: &App) -> &Theme {
         cx.global::<Theme>()
     }
@@ -209,10 +263,33 @@ impl SyntaxPalette {
 
     pub fn dark(text: Hsla, comment: Hsla, danger: Hsla) -> Self {
         // Same sources and 72% saturation treatment as history::graph_color.
-        let indigo = git_graph_tone(oklch(0.673, 0.182, 276.935));
-        let pink = git_graph_tone(oklch(0.718, 0.202, 349.761));
-        let emerald = git_graph_tone(oklch(0.765, 0.177, 163.223));
-        let amber = git_graph_tone(oklch(0.828, 0.189, 84.429));
+        Self::build(
+            text,
+            comment,
+            danger,
+            oklch(0.673, 0.182, 276.935),
+            oklch(0.718, 0.202, 349.761),
+            oklch(0.765, 0.177, 163.223),
+            oklch(0.828, 0.189, 84.429),
+        )
+    }
+
+    /// Same hues one or two steps darker so they read on a white plane.
+    pub fn light(text: Hsla, comment: Hsla, danger: Hsla) -> Self {
+        Self::build(
+            text,
+            comment,
+            danger,
+            oklch(0.511, 0.262, 276.966),
+            oklch(0.592, 0.249, 0.584),
+            oklch(0.508, 0.118, 165.612),
+            oklch(0.555, 0.163, 48.998),
+        )
+    }
+
+    fn build(text: Hsla, comment: Hsla, danger: Hsla, indigo: Hsla, pink: Hsla, emerald: Hsla, amber: Hsla) -> Self {
+        let (indigo, pink, emerald, amber) =
+            (git_graph_tone(indigo), git_graph_tone(pink), git_graph_tone(emerald), git_graph_tone(amber));
         let red = git_graph_tone(danger);
         Self {
             comment,
@@ -255,14 +332,27 @@ fn git_graph_tone(mut color: Hsla) -> Hsla {
     color
 }
 
-/// Translucent white fill (hover/active plates). Alpha in dark-mode terms.
-pub fn ink(alpha: f32) -> Hsla {
-    hsla(0.0, 0.0, 1.0, alpha)
+static LIGHT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Switch `ink`/`hairline` between white (dark theme) and black (light theme) washes.
+/// `Theme::for_mode` calls this; they are free functions so call sites need no `cx`.
+pub fn set_light(light: bool) {
+    LIGHT.store(light, std::sync::atomic::Ordering::Relaxed);
 }
 
-/// Translucent white hairline for borders/dividers.
+pub fn is_light() -> bool {
+    LIGHT.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Translucent fill for hover/active plates: white on dark, black on light.
+pub fn ink(alpha: f32) -> Hsla {
+    let alpha = if is_light() { alpha * 0.8 } else { alpha };
+    hsla(0.0, 0.0, if is_light() { 0.0 } else { 1.0 }, alpha)
+}
+
+/// Translucent hairline for borders/dividers.
 pub fn hairline(alpha: f32) -> Hsla {
-    hsla(0.0, 0.0, 1.0, alpha)
+    ink(alpha)
 }
 
 /// Modal backdrop.

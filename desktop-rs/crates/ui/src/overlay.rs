@@ -201,6 +201,7 @@ pub struct Dialog {
     content: Option<gpui::AnyElement>,
     confirm_label: SharedString,
     cancel_label: SharedString,
+    show_cancel: bool,
     danger: bool,
     confirm_disabled: bool,
     width: f32,
@@ -218,6 +219,7 @@ impl Dialog {
             content: None,
             confirm_label: "OK".into(),
             cancel_label: "Cancel".into(),
+            show_cancel: true,
             danger: false,
             confirm_disabled: false,
             width: 440.0,
@@ -254,6 +256,11 @@ impl Dialog {
     }
     pub fn cancel_label(mut self, l: impl Into<SharedString>) -> Self {
         self.cancel_label = l.into();
+        self
+    }
+    /// Informational dialogs: only the confirm button (Esc/backdrop still call `on_cancel`).
+    pub fn hide_cancel(mut self) -> Self {
+        self.show_cancel = false;
         self
     }
     pub fn danger(mut self) -> Self {
@@ -327,7 +334,7 @@ impl RenderOnce for Dialog {
                     .border_t_1()
                     .border_color(theme.border)
                     .bg(ink(0.02))
-                    .child(cancel_btn)
+                    .when(self.show_cancel, |d| d.child(cancel_btn))
                     .child(confirm_btn),
             );
 

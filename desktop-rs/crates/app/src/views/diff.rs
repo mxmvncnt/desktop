@@ -53,7 +53,7 @@ fn gutter_bg() -> Hsla {
 
 /// Background of the idle handle column: clearly darker than the numbers.
 fn handle_bg() -> Hsla {
-    gpui::ColorExt::opacity(&gpui::black(), 0.6)
+    if gd_ui::theme::is_light() { ink(0.2) } else { gpui::ColorExt::opacity(&gpui::black(), 0.6) }
 }
 
 /// Background of an included line's number cell (blue-700).

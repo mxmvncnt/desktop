@@ -136,7 +136,7 @@ impl RenderOnce for Button {
             ButtonStyle::Danger => (theme.danger_strong, theme.danger, theme.on_accent),
         };
         let hover = if self.style == ButtonStyle::Primary {
-            gpui::hsla(0.0, 0.0, 1.0, 1.0)
+            gpui::hsla(0.0, 0.0, if crate::theme::is_light() { 0.0 } else { 1.0 }, 1.0)
         } else {
             hover
         };

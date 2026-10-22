@@ -11,6 +11,7 @@ mod in_progress_banner;
 pub mod menus;
 pub mod merge;
 mod pickers;
+pub mod settings;
 pub mod stashes;
 mod welcome;
 
