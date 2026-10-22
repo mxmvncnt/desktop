@@ -221,10 +221,20 @@ impl Repository {
     }
 
     pub fn fetch(&self) -> Result<()> {
+        // Fetch the default remote strictly, then the others best-effort, so
+        // a broken secondary remote (e.g. a mistyped `upstream` URL) doesn't
+        // fail the whole fetch like `git fetch --all` would.
+        let default = self.default_remote()?;
+        let Some(default) = default else { return Ok(()) };
         self.git()
-            .args(["fetch", "--prune", "--all"])
+            .args(["fetch", "--prune", &default])
             .network()
             .run()?;
+        for (name, _) in self.remotes()?.into_iter().filter(|(n, _)| *n != default) {
+            if let Err(e) = self.git().args(["fetch", "--prune", &name]).network().run() {
+                eprintln!("fetch of remote '{name}' failed: {e}");
+            }
+        }
         Ok(())
     }
 
