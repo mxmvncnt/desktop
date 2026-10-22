@@ -5,7 +5,7 @@ use gd_git::{Branch, BranchKind};
 use gpui::Context;
 
 use super::state::RemoteBranch;
-use crate::repo::RepoModel;
+use crate::repo::{RepoEvent, RepoModel};
 
 impl RepoModel {
     pub fn rename_branch(&mut self, old: String, new: String, cx: &mut Context<Self>) {
@@ -54,5 +54,31 @@ impl RepoModel {
             },
             cx,
         );
+    }
+
+    /// Switch branch. With uncommitted changes the workspace first asks
+    /// whether to stash them (Desktop's dialog).
+    pub fn checkout(&mut self, branch: Branch, cx: &mut Context<Self>) {
+        if !self.changes().is_empty() {
+            cx.emit(RepoEvent::SwitchBranchWithChanges(branch));
+            return;
+        }
+        self.checkout_now(branch, cx);
+    }
+
+    pub fn checkout_now(&mut self, branch: Branch, cx: &mut Context<Self>) {
+        self.run(
+            move |r| r.checkout(&branch),
+            |this, _, _| {
+                this.commits.clear();
+                this.selected_commit = None;
+                this.last_commit = None;
+            },
+            cx,
+        );
+    }
+
+    pub fn create_branch(&mut self, name: String, cx: &mut Context<Self>) {
+        self.run(move |r| r.create_branch(&name), |_, _, _| {}, cx);
     }
 }

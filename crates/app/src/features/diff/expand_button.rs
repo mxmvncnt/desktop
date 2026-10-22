@@ -36,7 +36,7 @@ impl ExpandButton {
 impl RenderOnce for ExpandButton {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx);
-        let (repo, commit, e) = (self.repo, self.target == ExpandTarget::Commit, self.expansion);
+        let (repo, target, e) = (self.repo, self.target, self.expansion);
         let group = SharedString::from(format!("expand-{}", self.id));
         let hover_fg = theme.on_accent;
         let hover_bg = theme.accent_strong;
@@ -59,7 +59,7 @@ impl RenderOnce for ExpandButton {
             )
             .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                 cx.stop_propagation();
-                repo.update(cx, |r, cx| r.expand_diff(commit, e, cx));
+                repo.update(cx, |r, cx| r.expand_diff(target, e, cx));
             })
     }
 }

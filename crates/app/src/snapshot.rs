@@ -287,8 +287,8 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                 if let Some(r) = &ws.repo {
                     r.update(cx, |r, cx| {
                         let last = r.change_diff.as_ref().map_or(0, |d| d.hunks.len().saturating_sub(1));
-                        r.expand_diff(false, gd_git::Expansion::Down(0), cx);
-                        r.expand_diff(false, gd_git::Expansion::All(last), cx);
+                        r.expand_diff(crate::features::diff::ExpandTarget::Changes, gd_git::Expansion::Down(0), cx);
+                        r.expand_diff(crate::features::diff::ExpandTarget::Changes, gd_git::Expansion::All(last), cx);
                     });
                 }
             });
