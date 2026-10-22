@@ -1,4 +1,4 @@
-//! Rows of the stash right-click menu (rendered by `views/menus.rs`).
+//! Rows of the stash right-click menu (rendered by `features/menus`).
 
 use gd_ui::Icon;
 

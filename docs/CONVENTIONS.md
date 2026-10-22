@@ -91,7 +91,7 @@ Exception: git writes and network ops keep shelling out to the `git` CLI
   components around it.
 - Panels that may be hidden expose `Component::new(..) -> Option<Self>`.
 - Context menus return `Vec<MenuRow>` (`shared/menu_row.rs`:
-  `MenuRow::{Item(RowItem), Separator}`); `views/menus.rs` renders them.
+  `MenuRow::{Item(RowItem), Separator}`); `features/menus` renders them.
 - Dialog variants are built by one small method per variant on the
   `RenderOnce` struct, not one giant match.
 - Feature-owned menus reuse `MenuRow<A>` with their own action enum
@@ -126,3 +126,31 @@ and gutter pointer state, `handlers.rs` = `impl Workspace` setters,
   h-scroll in `rows_list`/`text_flow`, and no `h_full` on gutter cells.
 - Typed replacements: `ExpandTarget` (not `commit: bool`), `BlockRow::{First,
   Rest}`, `HoveredHandle`/`GutterDrag` (not tuples).
+
+## Feature folders: changes, pickers, settings, menus, welcome
+
+- `features/changes`: `Sidebar` (tabs + `ChangesPanel` or `CommitList`),
+  `ChangesPanel` composes `ChangesHeader`, `ChangesList`, `StashPanel`,
+  `UndoStrip`, `CommitBox` (+ `AmendNotice`). `Sidebar::new(ws, repo, cx)` and
+  `ChangesPanel::new` read the workspace once and hand typed props down;
+  derived values live in `state.rs` (`SelectionSummary`, `CommitButton`, instead
+  of a dozen locals). The main pane (`render_changes_main`) stays an
+  `impl Workspace` method (diff renderer needs `&mut Workspace`). Hot row:
+  `change_row` is a plain fn. Changes-specific `RepoModel` ops (include/exclude,
+  commit, ignore, discard, undo) are in `ops.rs`; `select_change` stays in
+  `repo.rs` because it drives the private diff loader.
+- `features/pickers`: `PickerShell` owns filter input, empty state and
+  Enter/up/down capture; `RepoPicker`/`BranchPicker` pass an `on_enter` callback.
+  `Workspace::repo_picker()/branch_picker()/new_branch_form()/clone_form()`
+  (handlers.rs) clamp the cursor and build the components; popover state stays
+  on `Workspace`. Hot rows `repo_row`/`branch_row` are plain fns.
+- `features/settings`: also owns the persisted `Settings` model (`model.rs`).
+  `SettingsModal::open(ws, cx)` -> `Option`, one `RenderOnce` per page.
+- `features/menus`: the generic context menu (`ContextMenuView`), discard
+  dialog (`DiscardDialogView`), `MenuAction`/`MenuTarget`, and the cross-feature
+  arrow/Enter routing (`key_routing.rs`).
+- `shared/`: `file_status_color`, `split_path`, `branch_name`
+  (`sanitize_branch_name`), `suggestion_card` (`SuggestionCard`).
+- Closure-heavy `RenderOnce` components call back through `Entity<Workspace>`
+  (`ws.update(cx, |this, cx| ..)`), never `cx.listener`.
+- Return types that borrow `&self` need `+ use<>` (edition 2024).

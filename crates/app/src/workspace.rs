@@ -48,7 +48,7 @@ pub enum Popover {
 
 pub struct Workspace {
     pub settings: Settings,
-    /// Settings modal (views/settings.rs).
+    /// Settings modal (features/settings/).
     pub settings_open: bool,
     pub settings_page: crate::features::settings::SettingsPage,
     pub repo: Option<Entity<RepoModel>>,
@@ -90,7 +90,7 @@ pub struct Workspace {
     pub diff_scroll: UniformListScrollHandle,
     /// Identity of the diff shown last; scroll resets when it changes.
     pub diff_key: Option<SharedString>,
-    /// Diff options popover + split-row cache (see `views/diff_options.rs`).
+    /// Diff options popover + split-row cache (see `features/diff`).
     pub diff_view: crate::features::diff::DiffView,
     pub diff_select: crate::features::diff::DiffSelectUi,
     pub commit_files_scroll: UniformListScrollHandle,

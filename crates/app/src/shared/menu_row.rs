@@ -1,4 +1,4 @@
-//! Typed rows of an app context menu (`views/menus.rs` renders them with
+//! Typed rows of an app context menu (`features/menus` renders them with
 //! `gd_ui::ContextMenu`). Features build `Vec<MenuRow>` for their menus.
 //! `A` is the action type: `MenuAction` for the generic menu, a feature's own
 //! enum for feature-owned menus (history).

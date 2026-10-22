@@ -127,10 +127,11 @@ guessing APIs. To recreate them:
   sets `error`, then refreshes status and branches.
 - Refresh triggers: file watcher, window activation (skipped if the watcher
   refreshed <1s ago), after every op, F5. See §File watcher.
-- Views live in `views/*.rs` as `impl Workspace` blocks. Rows in lists hold
+- UI lives in `features/<feature>/` (see CONVENTIONS.md): `RenderOnce` components, with
+  `impl Workspace` only where `&mut Workspace` is needed. Rows in lists hold
   `Entity<RepoModel>` clones and call `update` in click handlers.
 
-### Menus, dialogs, undo (`views/menus.rs`)
+### Menus, dialogs, undo (`features/menus`)
 
 - `Workspace.menu` / `Workspace.dialog` hold the open state. While either is open the root gets key
   context `"Workspace Menu"` and focus, so `MenuNext/MenuPrevious/MenuConfirm` (↑/↓/Enter) and
@@ -310,7 +311,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 OS-specific code lives in `platform/linux/` and `platform/macos/`; `platform/mod.rs`
 re-exports the one for the target. Both expose the same surface: `Chrome`,
 `caption_buttons`, `titlebar_drag`, `frame`, `configure_window`,
-The config dir comes from the `dirs` crate (`dirs::config_dir()`) in `settings.rs`.
+The config dir comes from the `dirs` crate (`dirs::config_dir()`) in `features/settings/model.rs`.
 and the shortcut constants `SECONDARY` (ctrl/cmd), `SECONDARY_LABEL`, `REFRESH_KEY`,
 `QUIT_KEY`. Keep OS `cfg`s out of the rest of the app; add to both modules instead.
 Wayland/X11 gpui features are enabled only for Linux targets in `crates/app/Cargo.toml`.
