@@ -2,7 +2,6 @@
 - settings page
   - manage identities (git account/providers)
   - theme:
-    - light/dark/system toggle
     - multiple color themes
 - overscroll bounce
 - make the code cleaner for humans
@@ -20,6 +19,7 @@
 - select text in the diff view
 - keyboard navigation with arrows: browse through commits, files in commit, stashes, staged files
 - option to create a branch from a certain branch (ex: create branch x from staging)
+- clean up repository to remove old github dekstop and rename project
 - bundle as flatpak
 - bundle for macos
 - bugs/wonky behaviour:
