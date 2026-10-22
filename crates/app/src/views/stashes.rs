@@ -5,6 +5,7 @@
 //! All state is `RepoModel::stashes` (model) and `Workspace::stash_ui`
 //! (dialog). Dialogs use `gd_ui::Dialog::content` for their inputs/options.
 
+use crate::shared::relative_time::relative_time;
 use gd_git::{Branch, Stash};
 use gd_ui::{Button, Dialog, Icon, Theme, badge, icon, pressable, vdivider};
 use gpui::{
@@ -14,7 +15,7 @@ use gpui::{
 use gpui_elements::editable_text::{EditableTextState, StringStorage, actions::Enter};
 
 use super::menus::{MenuAction, MenuTarget};
-use super::{relative_time, split_path, status_color};
+use super::{split_path, status_color};
 use crate::actions::LIST;
 use crate::repo::RepoModel;
 use crate::workspace::{Workspace, plural, text_field};

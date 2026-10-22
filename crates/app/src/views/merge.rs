@@ -2,6 +2,7 @@
 //! menus, and the rename / delete / create-from dialogs. All state lives in
 //! the single `Workspace.merge_ui` field; nothing here runs git on the UI thread.
 
+use crate::shared::relative_time::relative_time;
 use gd_git::{Branch, BranchKind, FileChange, MergePreview};
 use gd_ui::{
     Checkbox, CheckState, ContextMenu, Dialog, Icon, MenuEntry, MenuItem, Tabs, Theme, icon, pressable,
@@ -646,7 +647,7 @@ impl Workspace {
                                         .flex_none()
                                         .text_size(px(11.0))
                                         .text_color(theme.text_faint)
-                                        .child(super::relative_time(b.tip_time)),
+                                        .child(relative_time(b.tip_time)),
                                 )
                                 .on_click(move |_, _, cx| ws.update(cx, |this, cx| this.merge_select(i, cx))),
                         )

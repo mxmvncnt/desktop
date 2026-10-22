@@ -1,5 +1,6 @@
 //! Sidebar (tabs + Changes list + commit box) and the Changes main pane.
 
+use crate::shared::relative_time::relative_time;
 use gd_ui::{
     Button, CheckState, Checkbox, Icon, Tabs, Theme, divider, icon, motion, pressable,
     theme::{ROW_HEIGHT, SIDEBAR_WIDTH},
@@ -497,7 +498,7 @@ fn undo_strip(c: crate::repo::LastCommit, cx: &mut Context<Workspace>) -> impl I
                         div()
                             .text_size(px(11.5))
                             .text_color(theme.text_faint)
-                            .child(format!("Committed {}", super::relative_time(c.time))),
+                            .child(format!("Committed {}", relative_time(c.time))),
                     )
                     .child(div().text_size(px(12.5)).truncate().child(c.summary)),
             )

@@ -38,21 +38,3 @@ pub fn split_path(path: &str) -> (&str, &str) {
         None => ("", path),
     }
 }
-
-/// "3 minutes ago"-style relative time from unix seconds.
-pub fn relative_time(unix: i64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    let d = (now - unix).max(0);
-    let (n, unit) = match d {
-        0..=59 => return "just now".into(),
-        60..=3599 => (d / 60, "minute"),
-        3600..=86_399 => (d / 3600, "hour"),
-        86_400..=2_591_999 => (d / 86_400, "day"),
-        2_592_000..=31_535_999 => (d / 2_592_000, "month"),
-        _ => (d / 31_536_000, "year"),
-    };
-    format!("{n} {unit}{} ago", if n == 1 { "" } else { "s" })
-}

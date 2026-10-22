@@ -1,5 +1,6 @@
 //! History tab: paged commit list (sidebar) + commit details/files/diff (main).
 
+use crate::shared::relative_time::relative_time;
 use gd_ui::{Icon, Theme, icon, pressable, vdivider};
 use gpui::{InteractiveElement, StatefulInteractiveElement};
 use gpui::{
@@ -7,7 +8,7 @@ use gpui::{
     uniform_list,
 };
 
-use super::{relative_time, split_path, status_color};
+use super::{split_path, status_color};
 use crate::actions::LIST;
 use crate::repo::RepoModel;
 use crate::workspace::Workspace;

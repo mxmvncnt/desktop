@@ -9,6 +9,7 @@ mod merge_ops;
 mod platform;
 mod repo;
 mod settings;
+mod shared;
 #[cfg(feature = "snapshot")]
 mod snapshot;
 mod stashes;

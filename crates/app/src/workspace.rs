@@ -12,6 +12,7 @@
 //! Painted in zeron's visual language (gd-ui). Popovers are rendered as
 //! `deferred` overlays with a click-catching backdrop.
 
+use crate::shared::relative_time::{Coarsest, relative_time_since};
 use std::path::PathBuf;
 
 use gd_git::Repository;
@@ -954,13 +955,6 @@ pub fn last_fetched_caption(last: Option<std::time::SystemTime>) -> String {
     let Some(last) = last else {
         return "Never fetched".into();
     };
-    let secs = last.elapsed().map(|d| d.as_secs()).unwrap_or(0);
-    let n = |v: u64, unit: &str| format!("{v} {unit}{} ago", if v == 1 { "" } else { "s" });
-    let ago = match secs {
-        0..=59 => "just now".to_string(),
-        60..=3599 => n(secs / 60, "minute"),
-        3600..=86399 => n(secs / 3600, "hour"),
-        _ => n(secs / 86400, "day"),
-    };
+    let ago = relative_time_since(last, Coarsest::Day);
     format!("Last fetched {ago}")
 }

@@ -1,6 +1,7 @@
 //! Toolbar popovers: repository list, branch list, new branch, clone.
 //! Filter input on top, virtualized list, footer actions. ↑/↓ + Enter work.
 
+use crate::shared::relative_time::relative_time;
 use gd_git::BranchKind;
 use gd_ui::{Button, Icon, Theme, divider, icon, icon_button, pressable};
 use gpui::{
@@ -286,7 +287,7 @@ impl Workspace {
                                     .flex_none()
                                     .text_size(px(11.0))
                                     .text_color(theme.text_faint)
-                                    .child(super::relative_time(b.tip_time)),
+                                    .child(relative_time(b.tip_time)),
                             )
                             .on_click(move |_, w, cx| {
                                 if !b.is_head {
