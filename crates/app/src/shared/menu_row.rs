@@ -1,25 +1,27 @@
 //! Typed rows of an app context menu (`views/menus.rs` renders them with
 //! `gd_ui::ContextMenu`). Features build `Vec<MenuRow>` for their menus.
+//! `A` is the action type: `MenuAction` for the generic menu, a feature's own
+//! enum for feature-owned menus (history).
 
 use gd_ui::Icon;
 
 use crate::views::menus::MenuAction;
 
-pub enum MenuRow {
-    Item(RowItem),
+pub enum MenuRow<A = MenuAction> {
+    Item(RowItem<A>),
     Separator,
 }
 
-pub struct RowItem {
-    pub action: MenuAction,
+pub struct RowItem<A = MenuAction> {
+    pub action: A,
     pub label: String,
     pub icon: Icon,
     pub danger: bool,
     pub disabled: bool,
 }
 
-impl RowItem {
-    pub fn new(action: MenuAction, label: impl Into<String>, icon: Icon) -> Self {
+impl<A> RowItem<A> {
+    pub fn new(action: A, label: impl Into<String>, icon: Icon) -> Self {
         Self { action, label: label.into(), icon, danger: false, disabled: false }
     }
 
@@ -34,8 +36,8 @@ impl RowItem {
     }
 }
 
-impl MenuRow {
-    pub fn item(action: MenuAction, label: impl Into<String>, icon: Icon) -> Self {
+impl<A: Clone> MenuRow<A> {
+    pub fn item(action: A, label: impl Into<String>, icon: Icon) -> Self {
         Self::Item(RowItem::new(action, label, icon))
     }
 
@@ -45,9 +47,9 @@ impl MenuRow {
     }
 
     /// The action Enter would run on this row.
-    pub fn action(&self) -> Option<MenuAction> {
+    pub fn action(&self) -> Option<A> {
         match self {
-            Self::Item(i) if !i.disabled => Some(i.action),
+            Self::Item(i) if !i.disabled => Some(i.action.clone()),
             _ => None,
         }
     }

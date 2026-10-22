@@ -1,33 +1,40 @@
-//! One file of the selected stash: directory, name and status badge.
+//! One changed file of a commit or stash: directory, name and status badge.
 
 use gd_git::FileChange;
 use gd_ui::{Theme, pressable};
-use gpui::{App, Entity, IntoElement, RenderOnce, Window, div, prelude::*, px};
+use gpui::{App, IntoElement, RenderOnce, Window, div, prelude::*, px};
 
-use crate::repo::RepoModel;
 use crate::views::{split_path, status_color};
 
 #[derive(IntoElement)]
-pub struct StashFileRow {
+pub struct FileChangeRow {
     ix: usize,
     change: FileChange,
     selected: bool,
-    repo: Entity<RepoModel>,
+    /// Element id namespace, so lists on screen together never collide.
+    id: &'static str,
+    on_select: Box<dyn Fn(&mut Window, &mut App)>,
 }
 
-impl StashFileRow {
-    pub fn new(ix: usize, change: FileChange, selected: bool, repo: Entity<RepoModel>) -> Self {
-        Self { ix, change, selected, repo }
+impl FileChangeRow {
+    pub fn new(
+        id: &'static str,
+        ix: usize,
+        change: FileChange,
+        selected: bool,
+        on_select: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        Self { ix, change, selected, id, on_select: Box::new(on_select) }
     }
 }
 
-impl RenderOnce for StashFileRow {
+impl RenderOnce for FileChangeRow {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
-        let (ix, repo) = (self.ix, self.repo);
+        let (ix, on_select) = (self.ix, self.on_select);
         let f = &self.change;
         let (dir, name) = split_path(&f.path);
-        pressable(("stash-file", ix), self.selected, cx)
+        pressable((self.id, ix), self.selected, cx)
             .flex()
             .items_center()
             .gap(px(8.0))
@@ -59,6 +66,6 @@ impl RenderOnce for StashFileRow {
                     .text_color(status_color(f.status, cx))
                     .child(f.status.badge()),
             )
-            .on_click(move |_, _, cx| repo.update(cx, |r, cx| r.select_stash_file(ix, cx)))
+            .on_click(move |_, w, cx| on_select(w, cx))
     }
 }

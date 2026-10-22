@@ -2,8 +2,8 @@
 
 use gpui::{App, Entity, IntoElement, RenderOnce, Window, prelude::*, px, uniform_list};
 
-use super::stash_file_row::StashFileRow;
 use crate::repo::RepoModel;
+use crate::shared::file_change_row::FileChangeRow;
 
 #[derive(IntoElement)]
 pub struct StashFileList {
@@ -26,7 +26,9 @@ impl RenderOnce for StashFileList {
             range
                 .filter_map(|ix| {
                     let change = st.files.get(ix)?.clone();
-                    Some(StashFileRow::new(ix, change, st.selected_file == Some(ix), repo.clone()))
+                    let repo = repo.clone();
+                    let on_select = move |_: &mut Window, cx: &mut App| repo.update(cx, |r, cx| r.select_stash_file(ix, cx));
+                    Some(FileChangeRow::new("stash-file", ix, change, st.selected_file == Some(ix), on_select))
                 })
                 .collect()
         })
