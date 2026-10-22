@@ -5,7 +5,6 @@ mod diff_highlight;
 mod features;
 mod frame_debug;
 mod line_selection;
-mod merge_ops;
 mod platform;
 mod repo;
 mod settings;

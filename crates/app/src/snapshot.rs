@@ -186,12 +186,12 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             ws.open_switch_dialog(b, cx);
                         }
                     }
-                    // ---- merge / conflicts (see views/merge.rs) ----
+                    // ---- merge / conflicts (see features/merge, features/branches) ----
                     "merge-dialog" | "squash-dialog" | "rebase-dialog" => {
                         let mode = match view {
-                            "squash-dialog" => crate::merge_ops::MergeMode::Squash,
-                            "rebase-dialog" => crate::merge_ops::MergeMode::Rebase,
-                            _ => crate::merge_ops::MergeMode::Merge,
+                            "squash-dialog" => crate::features::merge::MergeMode::Squash,
+                            "rebase-dialog" => crate::features::merge::MergeMode::Rebase,
+                            _ => crate::features::merge::MergeMode::Merge,
                         };
                         ws.open_merge_dialog(mode, None, window, cx);
                     }

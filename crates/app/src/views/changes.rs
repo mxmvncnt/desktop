@@ -1,6 +1,7 @@
 //! Sidebar (tabs + Changes list + commit box) and the Changes main pane.
 
 use crate::features::history::CommitList;
+use crate::features::merge::ConflictHint;
 use crate::features::stashes::StashPanel;
 use crate::shared::relative_time::relative_time;
 use gd_ui::{
@@ -307,7 +308,7 @@ impl Workspace {
         let diff = r.change_diff.clone();
         let hl = r.change_hl.clone();
         let hint = (change.status == FileStatus::Conflicted)
-            .then(|| self.render_conflict_hint(&change, diff.as_ref(), cx));
+            .then(|| ConflictHint::new(&change, diff.as_ref(), repo.clone(), cx));
         div()
             .flex()
             .flex_col()

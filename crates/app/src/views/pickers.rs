@@ -324,7 +324,7 @@ impl Workspace {
                     .label("Merge into current branch…")
                     .compact()
                     .on_click(cx.listener(|this, _, w, cx| {
-                        this.open_merge_dialog(crate::merge_ops::MergeMode::Merge, None, w, cx)
+                        this.open_merge_dialog(crate::features::merge::MergeMode::Merge, None, w, cx)
                     })),
             );
 

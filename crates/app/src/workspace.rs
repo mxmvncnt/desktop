@@ -34,7 +34,8 @@ use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
 use crate::features::history::{CommitMenuView, HistoryDialogView, HistoryUi};
 use crate::features::stashes::{StashDialogView, StashUi};
-use crate::views::merge::MergeUi;
+use crate::features::branches::{BranchDialogView, BranchMenuView, BranchUi};
+use crate::features::merge::{ConflictMenuView, InProgressBanner, MergeDialogView, MergeUi};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Popover {
@@ -69,6 +70,8 @@ pub struct Workspace {
     pub stash_ui: StashUi,
     /// Merge dialog, branch/conflict menus and branch dialogs (views/merge.rs).
     pub merge_ui: MergeUi,
+    /// Branch context menu and rename / delete / create dialogs (features/branches).
+    pub branch_ui: BranchUi,
     /// Window corner radius for this frame (0 unless floating under CSD);
     /// layers touching a window corner round their own background with it.
     pub corner_radius: f32,
@@ -155,6 +158,7 @@ impl Workspace {
             history_ui,
             stash_ui: StashUi::new(cx),
             merge_ui: MergeUi::new(cx),
+            branch_ui: BranchUi::new(cx),
             startup_error: None,
             corner_radius: 0.0,
             summary,
@@ -827,15 +831,22 @@ impl Render for Workspace {
         let hist_menu = CommitMenuView::open(self, cx);
         let hist_dialog = HistoryDialogView::open(self, cx);
         let stash_dialog = StashDialogView::open(self, cx);
-        let merge_ui = self.render_merge_ui(window, cx);
-        let in_progress = self.render_in_progress_banner(cx);
+        let merge_overlays = div()
+            .absolute()
+            .inset_0()
+            .children(BranchMenuView::open(self, cx))
+            .children(ConflictMenuView::open(self, cx))
+            .children(MergeDialogView::open(self, cx))
+            .children(BranchDialogView::open(self, cx));
+        let in_progress = InProgressBanner::open(self, cx);
         let overlay_open = self.history_ui.is_open()
             || self.menu.is_some()
             || self.dialog.is_some()
             || self.settings_open
             || self.diff_view.menu.is_some()
             || self.stash_ui.dialog.is_some()
-            || self.merge_ui.wants_menu_context();
+            || self.merge_ui.wants_menu_context()
+            || self.branch_ui.wants_menu_context();
 
         let root = div()
             .id("workspace")
@@ -854,7 +865,7 @@ impl Render for Workspace {
                 this.toggle_popover(Popover::NewBranch, w, cx)
             }))
             .on_action(cx.listener(|this, _: &MergeIntoCurrent, w, cx| {
-                this.open_merge_dialog(crate::merge_ops::MergeMode::Merge, None, w, cx)
+                this.open_merge_dialog(crate::features::merge::MergeMode::Merge, None, w, cx)
             }))
             .on_action(cx.listener(|this, _: &AddRepository, _, cx| this.prompt_add_repository(cx)))
             .on_action(cx.listener(|this, _: &Fetch, _, cx| this.remote_action(RemoteOp::Fetch, cx)))
@@ -883,7 +894,7 @@ impl Render for Workspace {
                 } else if this.hist_dismiss(w, cx) {
                 } else if this.stash_ui.dialog.is_some() {
                     this.close_stash_dialog(cx)
-                } else if this.close_merge_ui(w, cx) {
+                } else if this.close_merge_ui(w, cx) || this.close_branch_ui(w, cx) {
                 } else if this.dialog.is_some() {
                     this.close_dialog(cx)
                 } else if this.diff_view.menu.is_some() {
@@ -915,7 +926,7 @@ impl Render for Workspace {
             .children(stash_dialog)
             .children(hist_menu)
             .children(hist_dialog)
-            .child(merge_ui);
+            .child(merge_overlays);
         crate::platform::frame(root.into_any_element(), chrome, window, cx)
     }
 }

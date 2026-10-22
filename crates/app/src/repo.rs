@@ -134,8 +134,8 @@ pub struct RepoModel {
 
     /// Stash list, selection, and panel state (see features/stashes).
     pub stashes: crate::features::stashes::StashState,
-    /// Merge / rebase / conflict state (see `merge_ops.rs`).
-    pub merge: crate::merge_ops::MergeState,
+    /// Merge / rebase / conflict state (see `features/merge/`).
+    pub merge: crate::features::merge::MergeState,
 }
 
 impl RepoModel {
@@ -388,7 +388,7 @@ impl RepoModel {
             && self.merge.in_progress.as_ref().map(std::mem::discriminant) != new.as_ref().map(std::mem::discriminant);
         self.merge.in_progress = new;
         if let (true, Some((summary, description))) = (newly, msg) {
-            cx.emit(crate::merge_ops::message_event(summary, description));
+            cx.emit(crate::features::merge::message_event(summary, description));
         }
     }
 

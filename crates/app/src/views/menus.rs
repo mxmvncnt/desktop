@@ -146,7 +146,10 @@ impl Workspace {
 
     pub fn menu_step(&mut self, delta: isize, cx: &mut Context<Self>) {
         if self.merge_ui.menu.is_some() {
-            return self.merge_menu_step(delta, cx);
+            return self.conflict_menu_step(delta, cx);
+        }
+        if self.branch_ui.menu.is_some() {
+            return self.branch_menu_step(delta, cx);
         }
         let Some(menu) = &mut self.menu else { return };
         let rows = rows(&menu.target);
@@ -168,7 +171,7 @@ impl Workspace {
             self.stash_confirm(cx);
             return;
         }
-        if self.merge_ui_confirm(window, cx) {
+        if self.conflict_menu_confirm(window, cx) || self.branch_ui_confirm(window, cx) {
             return;
         }
         if self.dialog.is_some() {
