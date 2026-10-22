@@ -2,7 +2,7 @@
 //!
 //! Stored as plain text in `$GD_CONFIG_DIR` (override, used by dev/test runs so
 //! nothing is written outside the project), else
-//! `desktop-rs` under the platform config dir (`platform::config_base_dir`:
+//! `desktop-rs` under the platform config dir (`dirs::config_dir`:
 //! `$XDG_CONFIG_HOME` or `~/.config` on Linux, `~/Library/Application Support` on macOS).
 //!
 //! Format of `repositories`: one absolute path per line; a line starting with
@@ -20,7 +20,7 @@ pub fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("GD_CONFIG_DIR") {
         return Some(PathBuf::from(dir));
     }
-    Some(crate::platform::config_base_dir()?.join("desktop-rs"))
+    Some(dirs::config_dir()?.join("desktop-rs"))
 }
 
 /// Which theme to use; `System` follows the OS appearance.

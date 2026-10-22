@@ -307,7 +307,8 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 
 OS-specific code lives in `platform/linux/` and `platform/macos/`; `platform/mod.rs`
 re-exports the one for the target. Both expose the same surface: `Chrome`,
-`caption_buttons`, `titlebar_drag`, `frame`, `config_base_dir`, `configure_window`,
+`caption_buttons`, `titlebar_drag`, `frame`, `configure_window`,
+The config dir comes from the `dirs` crate (`dirs::config_dir()`) in `settings.rs`.
 and the shortcut constants `SECONDARY` (ctrl/cmd), `SECONDARY_LABEL`, `REFRESH_KEY`,
 `QUIT_KEY`. Keep OS `cfg`s out of the rest of the app; add to both modules instead.
 Wayland/X11 gpui features are enabled only for Linux targets in `crates/app/Cargo.toml`.
