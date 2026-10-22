@@ -116,9 +116,9 @@ guessing APIs. To recreate them:
 
 ## Threading / state (`crates/app`)
 
-- `Workspace` (`workspace.rs`) is the root view. It owns settings, popover state,
+- `Workspace` (`workspace/`: `state.rs` struct, `init.rs`, `render.rs` root template, `actions.rs` key routing + Esc order, `repos.rs` open/add/clone, `repo_commands.rs`, `navigation.rs`) is the root view. It owns settings, popover state,
   text-input entities, scroll handles, and an `Option<Entity<RepoModel>>`.
-- `RepoModel` (`repo.rs`) owns all repository state: status, selection, diff,
+- `RepoModel` (`repo/`: `state.rs`, `refresh.rs` (RefreshScope, watcher, pending_refresh), `background_fetch.rs`, `change_diff.rs`/`commit_diff.rs` (generation counters), `diff_highlight.rs`, `expand.rs`, `history_log.rs`, `run.rs`) owns all repository state: status, selection, diff,
   history pages, commit details, branches, and in-flight ops.
   Every git call goes through `cx.background_spawn`, and results are applied with `this.update`.
 - **Stale results are dropped** with generation counters (`change_diff_gen`,
@@ -179,7 +179,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - **Gotcha:** inotify reports `Access(Open)` for reads, and our own `git status`
   opens every file and `.git/index`. Only Create/Modify/Remove/Any events count,
   otherwise refresh retriggers itself forever. `GIT_OPTIONAL_LOCKS=0` keeps status from writing the index.
-- `RepoModel::request_refresh(full, cx)` is the only refresh path: if one is in
+- `RepoModel::request_refresh(scope, cx)` (`RefreshScope::{Status, Full}`) is the only refresh path: if one is in
   flight it records `pending_refresh` and exactly one follow-up runs afterwards
   (`full` is OR-ed). Status-only refreshes (worktree edits) skip branches/history.
   `refresh_count` + a debug log line per refresh make loops visible.
@@ -197,7 +197,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - State: `RepoModel.history` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
   multi-selection as shas) reloaded in the background by `reload_push_state` on every full refresh.
   UI state: `Workspace.history_ui` (menu, dialogs, amend, dialog text inputs). Own menu/dialog types so the
-  Changes menu code is untouched; `workspace.rs` routes Esc/Enter/arrows to it first.
+  Changes menu code is untouched; `workspace/actions.rs` routes Esc/Enter/arrows to it first.
 - Every op goes through `RepoModel::hist_run`, a thin wrapper over the merge branch's `run_op` (one at a time, then `refresh`). Menu items are
   disabled while an op, remote op, commit, or stopped merge/rebase/cherry-pick/revert is active.
 - Unpushed: `rev-list @{upstream}..HEAD`, or `HEAD --not --remotes` without upstream; empty with no remotes.
@@ -219,7 +219,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - `gd-git`: `progress.rs` (`Repository::in_progress() -> Option<InProgress>`: Merge/Squash/Rebase/CherryPick/Revert, read from MERGE_HEAD, `rebase-merge/`, `rebase-apply/`, CHERRY_PICK_HEAD, REVERT_HEAD, SQUASH_MSG+unmerged; `continue_operation`, `abort_operation`, `prepared_message`) and `merge.rs` (`merge`, `merge_squash`, `rebase`, `merge_preview`, `commit_merge`, `resolve_with`, `mark_resolved`, branch rename/delete-remote/create-from). Operations return `OpOutcome::{Done, UpToDate, Conflicts}`; a pause is not an error. `Git::no_editor()` sets GIT_EDITOR=true for `--continue`.
 - The watcher already covers `rebase-*` (git dir top level) and MERGE_HEAD etc.
 - App: `RepoModel.merge: MergeState` (`features/merge/state.rs`, ops in `features/merge/ops.rs`), loaded in every refresh in the background. `RepoModel::run_op` is the busy-flag write helper. A newly paused merge-like op emits `RepoEvent::PreparedMessage` (fills the commit box if empty). While merge-like ops are paused, `commit` uses `commit_merge` (no index reset).
-- Views: `features/merge/` (`MergeUi` = `Workspace.merge_ui`: `merge_dialog` + `merge_candidate_list` + `merge_preview`, `in_progress_banner`, `conflict_hint` above the diff, `conflict_menu`/`conflict_menu_rows`, `handlers`/`conflict_handlers`) and `features/branches/` (`BranchUi` = `Workspace.branch_ui`: `branch_menu`/`branch_menu_rows`, `branch_dialog` for rename/delete/create-from, `ops`, `handlers`). Esc/Enter/arrows are routed in workspace.rs/menus.rs to both. Conflicted file rows route to the conflict menu in `open_file_menu`.
+- Views: `features/merge/` (`MergeUi` = `Workspace.merge_ui`: `merge_dialog` + `merge_candidate_list` + `merge_preview`, `in_progress_banner`, `conflict_hint` above the diff, `conflict_menu`/`conflict_menu_rows`, `handlers`/`conflict_handlers`) and `features/branches/` (`BranchUi` = `Workspace.branch_ui`: `branch_menu`/`branch_menu_rows`, `branch_dialog` for rename/delete/create-from, `ops`, `handlers`). Esc/Enter/arrows are routed in workspace/actions.rs and menus to both. Conflicted file rows route to the conflict menu in `open_file_menu`.
 - **Hooking another op (revert, cherry-pick, squash) in:** run the git command inside `RepoModel::run_op`, map a pause with `Repository::outcome_of`, and use `notice_for_outcome`. Banner, conflict list and Continue/Abort work automatically.
 - Gotchas: absolute overlays must themselves be `.absolute().inset_0()` (GPUI lays absolute children out against their direct parent); a focused text input turns ↑/↓/Esc into `NavUp/NavDown/Escape` actions, so dialogs use `capture_action` for those; `gen` is a reserved word in edition 2024.
 

@@ -161,3 +161,19 @@ for i in 1 2 3 4 5; do echo "line $i" >> file$i.txt; mkdir -p src/mod$i
   git add -A; git commit -qm "Add module $i with some changes" -m "Body text for commit $i"; done
 echo changed >> file1.txt; sed -i 's/hello/goodbye/' src/mod2/main.rs; echo new > untracked.md; git rm -q file5.txt
 ```
+
+## Feature-folder refactor complete (branch `refactor/feature-folders`)
+
+- [x] All UI and model code is in `features/<x>/`, `shared/`, `workspace/` and `repo/`; no file in `crates/app/src`
+      is over ~490 lines. `workspace.rs` became `workspace/` (state, init, render, actions, repos, repo_commands,
+      navigation) with the toolbar (`features/toolbar`), banner (`features/notices`) and popover host
+      (`features/pickers/popover_layer.rs`) extracted as components. `repo.rs` became `repo/` (see ARCHITECTURE).
+- Verified pixel-identical: ~175 snapshots (all views, CSD, hover, `watch`) before/after.
+- Next steps (candidates, not done, behavior-changing):
+  - Split `Workspace` into child entities so typing in the commit box does not re-render the diff:
+    `CommitBoxState` (summary/description inputs), `PickerState` (popover, filter, name/url inputs, selection),
+    `SettingsModal` (settings_open/page), `DiffView`+`diff_select`+`diff_scroll` as a `DiffPane` entity.
+    Esc/Enter routing in `workspace/actions.rs` reads many of these fields and must be reworked first.
+  - Move `select_change` and the other `RepoModel` selection methods into `features/changes/ops.rs` / `features/history`
+    by widening the diff loader's visibility.
+  - `RepoModel::new` still lists every field; group them into sub-structs (`DiffState`, `HistoryLog`, `RefreshState`).

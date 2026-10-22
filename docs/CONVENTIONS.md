@@ -69,7 +69,7 @@ Exception: git writes and network ops keep shelling out to the `git` CLI
   state types). Everything else is private to the folder.
 - `state.rs`: `StashState` (model state, a field of `RepoModel`), `StashDialog`
   enum, `StashUi` (dialog + input, still a plain `Workspace` field because
-  Esc/Enter routing in workspace.rs/menus.rs reads `stash_ui.dialog`; only
+  Esc/Enter routing in workspace/actions.rs and menus reads `stash_ui.dialog`; only
   promote it to an `Entity` if that routing is reworked).
 - `ops.rs`: `impl RepoModel` (background git work, generation counter).
 - `handlers.rs`: `impl Workspace` handlers (open/close/confirm dialogs, menu
@@ -102,7 +102,7 @@ Exception: git writes and network ops keep shelling out to the `git` CLI
 - Replace `(bool, bool)` click flags with an enum (`ClickKind`).
 - Two related features can share one overlay area without sharing state:
   `merge` (`merge_ui`) and `branches` (`branch_ui`) each own their menu/dialog;
-  workspace.rs / menus.rs route Esc/Enter/arrows with `a() || b()`. Typed structs
+  workspace/actions.rs / menus route Esc/Enter/arrows with `a() || b()`. Typed structs
   replace tuples (`branches::RemoteBranch`, not `(String, String)`).
 
 ## Feature folder example: diff (hot rows)
@@ -138,7 +138,7 @@ and gutter pointer state, `handlers.rs` = `impl Workspace` setters,
   `impl Workspace` method (diff renderer needs `&mut Workspace`). Hot row:
   `change_row` is a plain fn. Changes-specific `RepoModel` ops (include/exclude,
   commit, ignore, discard, undo) are in `ops.rs`; `select_change` stays in
-  `repo.rs` because it drives the private diff loader.
+  `repo/change_diff.rs` because it drives the private diff loader.
 - `features/pickers`: `PickerShell` owns filter input, empty state and
   Enter/up/down capture; `RepoPicker`/`BranchPicker` pass an `on_enter` callback.
   `Workspace::repo_picker()/branch_picker()/new_branch_form()/clone_form()`
