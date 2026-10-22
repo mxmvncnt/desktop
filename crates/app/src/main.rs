@@ -9,7 +9,6 @@ mod shared;
 #[cfg(feature = "snapshot")]
 mod snapshot;
 
-mod views;
 mod watcher;
 mod workspace;
 

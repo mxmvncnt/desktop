@@ -802,7 +802,7 @@ impl Render for Workspace {
                     .flex()
                     .flex_1()
                     .min_h_0()
-                    .child(self.render_sidebar(&repo, window, cx))
+                    .child(crate::features::changes::Sidebar::new(self, &repo, cx))
                     .child(match tab {
                         Tab::Changes => self.render_changes_main(&repo, cx).into_any_element(),
                         Tab::History => self.render_history_main(&repo, cx).into_any_element(),
