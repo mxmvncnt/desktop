@@ -8,7 +8,7 @@ use gpui_elements::editable_text::{EditableTextState, actions::Enter};
 
 use super::cherry_pick_branch_row::CherryPickBranchRow;
 use super::state::{CherryPickTarget, HistoryAction, HistoryDialog};
-use crate::views::sanitize_branch_name;
+use crate::shared::branch_name::sanitize_branch_name;
 use crate::workspace::{Workspace, plural, text_field};
 
 const BRANCH_ROW_HEIGHT: f32 = 30.0;

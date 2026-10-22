@@ -4,7 +4,7 @@ use gpui::{Context, Entity, Window};
 
 use super::menu_actions::reset_dialog;
 use super::state::{HistoryAction, HistoryDialog};
-use crate::views::sanitize_branch_name;
+use crate::shared::branch_name::sanitize_branch_name;
 use crate::repo::RepoModel;
 use crate::workspace::Workspace;
 

@@ -4,7 +4,8 @@ use gd_git::FileChange;
 use gd_ui::{Theme, pressable};
 use gpui::{App, IntoElement, RenderOnce, Window, div, prelude::*, px};
 
-use crate::views::{split_path, status_color};
+use super::file_status_color::status_color;
+use super::split_path::split_path;
 
 #[derive(IntoElement)]
 pub struct FileChangeRow {

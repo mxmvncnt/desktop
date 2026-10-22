@@ -7,7 +7,7 @@ use gpui::{ClipboardItem, Context, Focusable, Pixels, Point, Window};
 use super::branch_menu_rows::branch_menu_rows;
 use super::state::{BranchAction, BranchDialog, BranchMenu, RemoteBranch};
 use crate::features::merge::MergeMode;
-use crate::views::sanitize_branch_name;
+use crate::shared::branch_name::sanitize_branch_name;
 use crate::workspace::Workspace;
 
 impl Workspace {

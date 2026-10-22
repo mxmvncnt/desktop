@@ -5,7 +5,6 @@ mod features;
 mod frame_debug;
 mod platform;
 mod repo;
-mod settings;
 mod shared;
 #[cfg(feature = "snapshot")]
 mod snapshot;

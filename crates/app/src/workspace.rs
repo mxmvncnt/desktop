@@ -30,7 +30,7 @@ use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged
 
 use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
-use crate::settings::Settings;
+use crate::features::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
 use crate::features::diff::DiffOptionsMenu;
 use crate::features::history::{CommitMenuView, HistoryDialogView, HistoryUi};
@@ -50,7 +50,7 @@ pub struct Workspace {
     pub settings: Settings,
     /// Settings modal (views/settings.rs).
     pub settings_open: bool,
-    pub settings_page: crate::views::settings::SettingsPage,
+    pub settings_page: crate::features::settings::SettingsPage,
     pub repo: Option<Entity<RepoModel>>,
     pub popover: Option<Popover>,
     /// Bumped on every popover open so its entrance animation replays.
@@ -138,7 +138,7 @@ impl Workspace {
         }));
 
         subs.push(cx.observe_window_appearance(window, |this, window, cx| {
-            if this.settings.theme == crate::settings::ThemeMode::System {
+            if this.settings.theme == crate::features::settings::ThemeMode::System {
                 this.apply_theme(window, cx);
             }
         }));
@@ -188,21 +188,6 @@ impl Workspace {
             this.open_repository(ix, cx);
         }
         this
-    }
-
-    /// Resolve the theme setting (System follows the window appearance) and install it.
-    pub fn apply_theme(&mut self, window: &Window, cx: &mut Context<Self>) {
-        use gpui::WindowAppearance as A;
-        let system_light = matches!(window.appearance(), A::Light | A::VibrantLight);
-        let light = self.settings.theme.is_light(system_light);
-        cx.set_global(Theme::for_mode(light));
-        cx.notify();
-    }
-
-    pub fn set_theme_mode(&mut self, mode: crate::settings::ThemeMode, window: &Window, cx: &mut Context<Self>) {
-        self.settings.theme = mode;
-        self.settings.save();
-        self.apply_theme(window, cx);
     }
 
     pub fn focus(&self, window: &mut Window, cx: &mut App) {
@@ -727,17 +712,20 @@ impl Workspace {
         )
     }
 
-    fn render_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
+    fn render_popover(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
         let p = self.popover?;
         let (left, width) = match p {
             Popover::Repositories | Popover::Clone => (8.0, 380.0),
             Popover::Branches | Popover::NewBranch => (296.0, 380.0),
         };
         let content = match p {
-            Popover::Repositories => self.render_repo_list(window, cx).into_any_element(),
-            Popover::Branches => self.render_branch_list(window, cx).into_any_element(),
-            Popover::NewBranch => self.render_new_branch(cx).into_any_element(),
-            Popover::Clone => self.render_clone(cx).into_any_element(),
+            Popover::Repositories => self.repo_picker(cx).into_any_element(),
+            Popover::Branches => match self.branch_picker(cx) {
+                Some(picker) => picker.into_any_element(),
+                None => div().into_any_element(),
+            },
+            Popover::NewBranch => self.new_branch_form(cx).into_any_element(),
+            Popover::Clone => self.clone_form(cx).into_any_element(),
         };
         Some(deferred(
             div()
@@ -821,14 +809,14 @@ impl Render for Workspace {
                     })
                     .into_any_element()
             }
-            None => self.render_welcome(cx).into_any_element(),
+            None => crate::features::welcome::WelcomeScreen::new(cx.entity()).into_any_element(),
         };
         let banner = self.render_banner(cx);
         let popover = self.render_popover(window, cx);
         let menu = self.render_menu(window, cx);
         let diff_options = DiffOptionsMenu::new(self, cx.entity());
         let dialog = self.render_dialog(cx);
-        let settings = self.render_settings(cx);
+        let settings = crate::features::settings::SettingsModal::open(self, cx);
         let hist_menu = CommitMenuView::open(self, cx);
         let hist_dialog = HistoryDialogView::open(self, cx);
         let stash_dialog = StashDialogView::open(self, cx);

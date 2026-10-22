@@ -116,14 +116,14 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     // Theme/settings page, set directly (no settings file is written).
                     "settings" | "settings-light" | "settings-diff" | "changes-light" => {
                         ws.settings.theme = if view.ends_with("light") {
-                            crate::settings::ThemeMode::Light
+                            crate::features::settings::ThemeMode::Light
                         } else {
-                            crate::settings::ThemeMode::Dark
+                            crate::features::settings::ThemeMode::Dark
                         };
                         ws.apply_theme(window, cx);
                         ws.settings_open = view.starts_with("settings");
                         if view == "settings-diff" {
-                            ws.settings_page = crate::views::settings::SettingsPage::Diff;
+                            ws.settings_page = crate::features::settings::SettingsPage::Diff;
                         }
                     }
                     "repos" => ws.toggle_popover(Popover::Repositories, window, cx),
