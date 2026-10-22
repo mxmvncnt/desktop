@@ -32,6 +32,24 @@ pub enum ThemeMode {
     Dark,
 }
 
+impl std::fmt::Display for ThemeMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::System => "system",
+            Self::Light => "light",
+            Self::Dark => "dark",
+        })
+    }
+}
+
+impl std::str::FromStr for ThemeMode {
+    type Err = ();
+
+    fn from_str(v: &str) -> Result<Self, ()> {
+        Self::ALL.into_iter().find(|m| m.to_string() == v).ok_or(())
+    }
+}
+
 impl ThemeMode {
     pub const ALL: [ThemeMode; 3] = [Self::System, Self::Light, Self::Dark];
 
@@ -41,18 +59,6 @@ impl ThemeMode {
             Self::Light => "Light",
             Self::Dark => "Dark",
         }
-    }
-
-    fn key(self) -> &'static str {
-        match self {
-            Self::System => "system",
-            Self::Light => "light",
-            Self::Dark => "dark",
-        }
-    }
-
-    fn parse(v: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|m| m.key() == v)
     }
 
     /// Whether the light theme applies, given the OS appearance.
@@ -83,37 +89,55 @@ impl Settings {
         let mut s = Self::default();
         let Some(dir) = config_dir() else { return s };
         if let Ok(text) = std::fs::read_to_string(dir.join("display")) {
-            for line in text.lines() {
-                if let Some(("theme", v)) = line.split_once('=').map(|(k, v)| (k.trim(), v.trim()))
-                {
-                    s.theme = ThemeMode::parse(v).unwrap_or_default();
-                    continue;
-                }
-                match line
-                    .split_once('=')
-                    .map(|(k, v)| (k.trim(), v.trim() == "true"))
-                {
-                    Some(("diff_split", v)) => s.diff_split = v,
-                    Some(("diff_ignore_whitespace", v)) => s.diff_ignore_whitespace = v,
-                    Some(("diff_wrap", v)) => s.diff_wrap = v,
-                    _ => {}
-                }
+            s.apply_display(&text);
+        }
+        if let Ok(text) = std::fs::read_to_string(dir.join("repositories")) {
+            s.apply_repositories(&text);
+        }
+        s
+    }
+
+    /// `display` file: `key=value` lines, unknown keys and bad values ignored
+    /// (booleans: anything but `true` is false).
+    fn apply_display(&mut self, text: &str) {
+        for (key, v) in text.lines().filter_map(|l| l.split_once('=')) {
+            let flag = v.trim() == "true";
+            match key.trim() {
+                "theme" => self.theme = v.trim().parse().unwrap_or_default(),
+                "diff_split" => self.diff_split = flag,
+                "diff_ignore_whitespace" => self.diff_ignore_whitespace = flag,
+                "diff_wrap" => self.diff_wrap = flag,
+                _ => {}
             }
         }
-        let Ok(text) = std::fs::read_to_string(dir.join("repositories")) else {
-            return s;
-        };
+    }
+
+    /// `repositories` file: one path per line, `*` prefix marks the selection.
+    fn apply_repositories(&mut self, text: &str) {
         for line in text.lines().filter(|l| !l.trim().is_empty()) {
-            let (sel, path) = match line.strip_prefix('*') {
+            let (selected, path) = match line.strip_prefix('*') {
                 Some(p) => (true, p),
                 None => (false, line),
             };
-            if sel {
-                s.selected = Some(s.repositories.len());
+            if selected {
+                self.selected = Some(self.repositories.len());
             }
-            s.repositories.push(PathBuf::from(path));
+            self.repositories.push(PathBuf::from(path));
         }
-        s
+    }
+
+    fn display_text(&self) -> String {
+        format!(
+            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n",
+            self.diff_split, self.diff_ignore_whitespace, self.diff_wrap, self.theme
+        )
+    }
+
+    fn repositories_text(&self) -> String {
+        let marked = |i| if Some(i) == self.selected { "*" } else { "" };
+        (self.repositories.iter().enumerate())
+            .map(|(i, p)| format!("{}{}\n", marked(i), p.display()))
+            .collect()
     }
 
     pub fn save(&self) {
@@ -122,27 +146,35 @@ impl Settings {
             log::error!("cannot create config dir: {e}");
             return;
         }
-        let text: String = self
-            .repositories
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let mark = if Some(i) == self.selected { "*" } else { "" };
-                format!("{mark}{}\n", p.display())
-            })
-            .collect();
-        if let Err(e) = std::fs::write(dir.join("repositories"), text) {
-            log::error!("cannot save settings: {e}");
+        for (name, text) in [
+            ("repositories", self.repositories_text()),
+            ("display", self.display_text()),
+        ] {
+            if let Err(e) = std::fs::write(dir.join(name), text) {
+                log::error!("cannot save {name}: {e}");
+            }
         }
-        let display = format!(
-            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n",
-            self.diff_split,
-            self.diff_ignore_whitespace,
-            self.diff_wrap,
-            self.theme.key()
-        );
-        if let Err(e) = std::fs::write(dir.join("display"), display) {
-            log::error!("cannot save display settings: {e}");
-        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loads_old_files_and_round_trips() {
+        let mut s = Settings::default();
+        s.apply_display("diff_split=true\nfuture=1\ntheme=dark\n");
+        s.apply_repositories("/a\n*/b c\n\n");
+        assert!(s.diff_split && !s.diff_wrap);
+        assert_eq!(s.theme, ThemeMode::Dark);
+        assert_eq!(s.selected, Some(1));
+        assert_eq!(s.repositories_text(), "/a\n*/b c\n");
+        let mut t = Settings::default();
+        t.apply_display(&s.display_text());
+        assert_eq!((t.diff_split, t.theme), (true, ThemeMode::Dark));
+        let mut u = Settings::default();
+        u.apply_display("theme=bogus");
+        assert_eq!(u.theme, ThemeMode::System);
     }
 }
