@@ -32,6 +32,7 @@ use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
+use crate::features::history::{CommitMenuView, HistoryDialogView, HistoryUi};
 use crate::features::stashes::{StashDialogView, StashUi};
 use crate::views::merge::MergeUi;
 
@@ -62,8 +63,8 @@ pub struct Workspace {
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,
     pub dialog: Option<ConfirmDialog>,
-    /// History tab: commit menu, dialogs, amend mode (views/history_menu.rs).
-    pub history_ui: crate::views::history_menu::HistoryUi,
+    /// History tab: commit menu, dialogs, amend mode (features/history).
+    pub history_ui: HistoryUi,
     /// Stash dialogs (create / rename / drop / switch branch) and their input.
     pub stash_ui: StashUi,
     /// Merge dialog, branch/conflict menus and branch dialogs (views/merge.rs).
@@ -138,7 +139,7 @@ impl Workspace {
             }
         }));
 
-        let history_ui = crate::views::history_menu::HistoryUi::new(cx);
+        let history_ui = HistoryUi::new(cx);
         let mut this = Self {
             settings: Settings::load(),
             settings_open: false,
@@ -823,9 +824,8 @@ impl Render for Workspace {
         let diff_options = self.render_diff_options_menu(window, cx);
         let dialog = self.render_dialog(cx);
         let settings = self.render_settings(cx);
-        let hist_menu = self.render_hist_menu(cx);
-        let hist_dialog = self.render_hist_dialog(cx);
-        
+        let hist_menu = CommitMenuView::open(self, cx);
+        let hist_dialog = HistoryDialogView::open(self, cx);
         let stash_dialog = StashDialogView::open(self, cx);
         let merge_ui = self.render_merge_ui(window, cx);
         let in_progress = self.render_in_progress_banner(cx);

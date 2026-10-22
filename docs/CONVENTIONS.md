@@ -94,3 +94,9 @@ Exception: git writes and network ops keep shelling out to the `git` CLI
   `MenuRow::{Item(RowItem), Separator}`); `views/menus.rs` renders them.
 - Dialog variants are built by one small method per variant on the
   `RenderOnce` struct, not one giant match.
+- Feature-owned menus reuse `MenuRow<A>` with their own action enum
+  (`features/history`: `MenuRow<HistoryAction>`); rows are built in one small fn
+  per group (`commit_menu_rows.rs`).
+- Identical rows across features live in `shared/` (`file_change_row.rs`, with an
+  id namespace and an `on_select` callback prop).
+- Replace `(bool, bool)` click flags with an enum (`ClickKind`).

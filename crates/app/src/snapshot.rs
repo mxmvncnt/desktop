@@ -349,13 +349,13 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
 /// `history-squash`, `history-reset`, `history-cherry`, `history-tag`,
 /// `history-checkout`, `amend-mode`.
 fn history_phase2(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx: &mut gpui::Context<Workspace>) {
-    use crate::views::history_menu::HAction;
+    use crate::features::history::{ClickKind, HistoryAction as HAction};
     let Some(repo) = ws.repo.clone() else { return };
     let at = gpui::point(px(150.0), px(190.0));
     let multi = |cx: &mut gpui::Context<Workspace>| {
         repo.update(cx, |r, cx| {
-            r.click_commit(1, false, false, cx);
-            r.click_commit(3, false, true, cx);
+            r.click_commit(1, ClickKind::Plain, cx);
+            r.click_commit(3, ClickKind::Range, cx);
         })
     };
     match view {

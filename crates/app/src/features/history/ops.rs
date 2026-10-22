@@ -1,48 +1,26 @@
-//! History-tab state and operations on `RepoModel`: push status, tags,
-//! multi-select, and the commit context-menu actions (reset, checkout,
-//! revert, cherry-pick, squash, reorder, amend, tags, undo).
+//! History operations on `RepoModel`: push status, tags, and the commit
+//! context-menu actions (reset, checkout, revert, cherry-pick, squash,
+//! reorder, amend, tags, undo).
 //!
 //! All git work goes through [`RepoModel::hist_run`], which runs off-thread,
 //! reports errors via `RepoModel::error`, and refreshes status + history +
 //! push state afterwards. Operations that stop on conflicts leave the git
 //! operation in progress (see `Repository::history_op_in_progress`).
 
-use std::collections::{HashMap, HashSet};
-
 use gd_git::{Repository, ResetMode};
-use gpui::{AppContext, Context, Task};
+use gpui::{AppContext, Context};
 
 use crate::repo::{LastCommit, RepoModel};
-
-/// Everything the History tab needs beyond the commit list itself.
-#[derive(Default)]
-pub struct HistoryOpsState {
-    /// Commits reachable from HEAD that are not on the remote yet.
-    pub unpushed: HashSet<String>,
-    /// The repository has no remote at all: every commit is local, so
-    /// `unpushed` (empty in that case) must not be read as "all pushed".
-    pub all_local: bool,
-    /// Whether `unpushed` has been computed at least once.
-    pub push_state_loaded: bool,
-    /// Tags by commit sha.
-    pub tags: HashMap<String, Vec<String>>,
-    /// `https://github.com/owner/repo` when the remote is GitHub.
-    pub web_url: Option<String>,
-    /// Multi-selection (shas). Empty means "just `selected_commit`".
-    pub multi: HashSet<String>,
-    load_gen: u64,
-    _task: Option<Task<()>>,
-}
 
 impl RepoModel {
     /// Recompute unpushed commits, tags, web URL and the in-progress state in
     /// the background. Called from every full refresh (so after push, fetch,
     /// commit, checkout...).
     pub fn reload_push_state(&mut self, cx: &mut Context<Self>) {
-        self.history_ops.load_gen += 1;
-        let generation = self.history_ops.load_gen;
+        self.history.load_gen += 1;
+        let generation = self.history.load_gen;
         let repo = self.repo.clone();
-        self.history_ops._task = Some(cx.spawn(async move |this, cx| {
+        self.history.task = Some(cx.spawn(async move |this, cx| {
             let (unpushed, tags, url, no_remote) = cx
                 .background_spawn(async move {
                     (
@@ -54,7 +32,7 @@ impl RepoModel {
                 })
                 .await;
             this.update(cx, |this, cx| {
-                let h = &mut this.history_ops;
+                let h = &mut this.history;
                 if h.load_gen != generation {
                     return;
                 }
@@ -79,66 +57,7 @@ impl RepoModel {
     }
 
     pub fn is_unpushed(&self, sha: &str) -> bool {
-        self.history_ops.all_local || self.history_ops.unpushed.contains(sha)
-    }
-
-    /// Indices of the multi-selected commits (ascending = newest first).
-    pub fn multi_indices(&self) -> Vec<usize> {
-        if self.history_ops.multi.len() < 2 {
-            return Vec::new();
-        }
-        self.commits
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| self.history_ops.multi.contains(&c.sha))
-            .map(|(i, _)| i)
-            .collect()
-    }
-
-    pub fn commit_selected(&self, ix: usize) -> bool {
-        let multi = self.history_ops.multi.len() >= 2;
-        match self.commits.get(ix) {
-            Some(c) if multi => self.history_ops.multi.contains(&c.sha),
-            Some(_) => self.selected_commit == Some(ix),
-            None => false,
-        }
-    }
-
-    /// Click on a history row: plain = select one, ctrl/cmd = toggle,
-    /// shift = range from the primary selection.
-    pub fn click_commit(&mut self, ix: usize, toggle: bool, range: bool, cx: &mut Context<Self>) {
-        let Some(sha) = self.commits.get(ix).map(|c| c.sha.clone()) else { return };
-        if range {
-            let anchor = self.selected_commit.unwrap_or(ix);
-            let (lo, hi) = (anchor.min(ix), anchor.max(ix));
-            if self.selected_commit.is_none() {
-                self.select_commit(ix, cx);
-            }
-            self.history_ops.multi = self.commits[lo..=hi].iter().map(|c| c.sha.clone()).collect();
-        } else if toggle {
-            if self.history_ops.multi.len() < 2 {
-                // Seed with the primary selection.
-                self.history_ops.multi = self
-                    .selected_commit
-                    .and_then(|i| self.commits.get(i))
-                    .map(|c| c.sha.clone())
-                    .into_iter()
-                    .collect();
-            }
-            if !self.history_ops.multi.remove(&sha) {
-                self.history_ops.multi.insert(sha);
-            }
-            if self.history_ops.multi.len() < 2 {
-                let only = self.history_ops.multi.drain().next();
-                if let Some(ix) = only.and_then(|s| self.commits.iter().position(|c| c.sha == s)) {
-                    self.select_commit(ix, cx);
-                }
-            }
-        } else {
-            self.history_ops.multi.clear();
-            self.select_commit(ix, cx);
-        }
-        cx.notify();
+        self.history.all_local || self.history.unpushed.contains(sha)
     }
 
     /// Run a history operation through the shared `run_op` (one at a time,
@@ -150,7 +69,7 @@ impl RepoModel {
         on_ok: impl FnOnce(&mut Self, R, &mut Context<Self>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        self.history_ops.multi.clear();
+        self.history.multi.clear();
         self.run_op(label, op, on_ok, cx);
     }
 

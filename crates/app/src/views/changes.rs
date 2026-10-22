@@ -1,5 +1,6 @@
 //! Sidebar (tabs + Changes list + commit box) and the Changes main pane.
 
+use crate::features::history::CommitList;
 use crate::features::stashes::StashPanel;
 use crate::shared::relative_time::relative_time;
 use gd_ui::{
@@ -56,7 +57,7 @@ impl Workspace {
             .child(divider(cx))
             .child(match tab {
                 Tab::Changes => self.render_changes_list(repo, window, cx).into_any_element(),
-                Tab::History => self.render_history_list(repo, cx).into_any_element(),
+                Tab::History => CommitList::new(repo.clone(), cx.entity(), self.history_scroll.clone()).into_any_element(),
             })
     }
 
@@ -87,7 +88,7 @@ impl Workspace {
             && !committing
             && conflicts == 0
             && r.merge.busy.is_none();
-        let head_pushed = r.history_ops.push_state_loaded
+        let head_pushed = r.history.push_state_loaded
             && r.commits.first().is_some_and(|c| !r.is_unpushed(&c.sha));
         let repo_h = repo.clone();
         let ws = cx.entity();

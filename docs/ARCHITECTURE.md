@@ -189,9 +189,11 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Headless test (`--snapshot ... watch`): the watcher debounces in wall-clock
   time, so use real sleeps and poll `run_until_parked`.
 
-## History operations (`gd_git::history_ops`, `app/src/history_ops.rs`, `views/history_menu.rs`)
+## History (`gd_git::history_ops`, `app/src/features/history/`)
 
-- State: `RepoModel.history_ops` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
+- Layout: `state.rs` (`HistoryState` on `RepoModel.history`, `HistoryUi`, `HistoryDialog`, `HistoryAction`), `ops.rs` + `selection.rs` (`impl RepoModel`), `handlers.rs`/`menu_actions.rs`/`confirm.rs`/`amend.rs` (`impl Workspace`), `commit_detail.rs` (`impl Workspace`, composes `CommitHeader`/`CommitFileList`/diff), and one `RenderOnce` per file (`CommitList`, `CommitRow`, `CommitMenuView` + `commit_menu_rows`, `HistoryDialogView`, `MultiSelectPane`, ...). Commit file rows are the shared `shared/file_change_row.rs`.
+
+- State: `RepoModel.history` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
   multi-selection as shas) reloaded in the background by `reload_push_state` on every full refresh.
   UI state: `Workspace.history_ui` (menu, dialogs, amend, dialog text inputs). Own menu/dialog types so the
   Changes menu code is untouched; `workspace.rs` routes Esc/Enter/arrows to it first.

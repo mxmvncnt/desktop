@@ -119,8 +119,8 @@ pub struct RepoModel {
     _commit_task: Option<Task<()>>,
     _commit_hl_task: Option<Task<()>>,
     hl_cache: HighlightCache,
-    /// Push status, tags, multi-select (see `history_ops.rs`).
-    pub history_ops: crate::history_ops::HistoryOpsState,
+    /// Push status, tags, multi-select (see `features/history`).
+    pub history: crate::features::history::HistoryState,
 
     // ---- branches / remote ----
     pub branches: Vec<Branch>,
@@ -175,7 +175,7 @@ impl RepoModel {
             _commit_task: None,
             _commit_hl_task: None,
             hl_cache: HighlightCache::default(),
-            history_ops: Default::default(),
+            history: Default::default(),
             branches: Vec::new(),
             remote_op: None,
             committing: false,
@@ -572,7 +572,7 @@ impl RepoModel {
     }
 
     pub fn select_commit(&mut self, ix: usize, cx: &mut Context<Self>) {
-        self.history_ops.multi.clear();
+        self.history.multi.clear();
         if self.selected_commit == Some(ix) {
             return;
         }
