@@ -5,6 +5,7 @@
     - light/dark/system toggle
     - multiple color themes
 - overscroll bounce
+- debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
 - sidebar 
   - make it resizeable
   - in the commit history view, show author profile picture
