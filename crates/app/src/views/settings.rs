@@ -12,7 +12,7 @@ use gpui::{
     deferred, div, px,
 };
 
-use super::diff_options::option_row;
+use crate::features::diff::CheckOptionRow;
 use crate::settings::ThemeMode;
 use crate::workspace::Workspace;
 
@@ -198,12 +198,12 @@ impl Workspace {
                         }),
                 ),
             )
-            .child(option_row("settings-diff-wrap", "Wrap long lines", wrap, ws.clone(), move |this, cx| {
+            .child(CheckOptionRow::new("settings-diff-wrap", "Wrap long lines", wrap, ws.clone(), move |this, cx| {
                 this.set_diff_wrap(!wrap, cx)
-            }, cx))
-            .child(option_row("settings-diff-ws", "Hide whitespace changes", hide_ws, ws, move |this, cx| {
+            }))
+            .child(CheckOptionRow::new("settings-diff-ws", "Hide whitespace changes", hide_ws, ws, move |this, cx| {
                 this.set_ignore_whitespace(!hide_ws, cx)
-            }, cx))
+            }))
             .child(
                 div()
                     .pt(px(6.0))

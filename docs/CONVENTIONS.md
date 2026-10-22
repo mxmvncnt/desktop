@@ -104,3 +104,25 @@ Exception: git writes and network ops keep shelling out to the `git` CLI
   `merge` (`merge_ui`) and `branches` (`branch_ui`) each own their menu/dialog;
   workspace.rs / menus.rs route Esc/Enter/arrows with `a() || b()`. Typed structs
   replace tuples (`branches::RemoteBranch`, not `(String, String)`).
+
+## Feature folder example: diff (hot rows)
+
+`crates/app/src/features/diff/` follows the same layout (`state.rs` = `DiffView`
+and gutter pointer state, `handlers.rs` = `impl Workspace` setters,
+`render_diff.rs` = the entry point, pure logic in `split_diff.rs`,
+`highlight.rs`, `line_selection.rs`). Decisions:
+
+- **Allowed exception: hot rows stay plain fns/methods.** Virtualized rows are
+  rebuilt for every visible row every frame, so `UnifiedRows::row`,
+  `SplitRows::row`, `number_cell` and `RowSelect::handle_cell` are not
+  `RenderOnce` structs (no per-row props struct, no extra boxing). Per-list and
+  per-frame pieces are components (`UnifiedList`, `SplitList`, `DiffFrame`,
+  `DiffOptionsMenu`, `DiffOptionsButton`, `WhitespaceNote`, `CheckOptionRow`,
+  and `ExpandButton`, which only appears on hunk headers).
+- Row renderers borrow their shared inputs in one small struct
+  (`UnifiedRows { diff, hl, sel, exp, .. }`) instead of 8 positional args.
+- Keep the perf tricks when touching this folder: `Arc::ptr_eq` caches
+  (`split_for`, `wrap_list_for`), `restrict_scroll_to_axis` and the manual
+  h-scroll in `rows_list`/`text_flow`, and no `h_full` on gutter cells.
+- Typed replacements: `ExpandTarget` (not `commit: bool`), `BlockRow::{First,
+  Rest}`, `HoveredHandle`/`GutterDrag` (not tuples).

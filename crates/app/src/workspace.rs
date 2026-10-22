@@ -32,6 +32,7 @@ use crate::actions::*;
 use crate::repo::{RemoteOp, RepoEvent, RepoModel, Tab};
 use crate::settings::Settings;
 use crate::views::menus::{ConfirmDialog, OpenMenu};
+use crate::features::diff::DiffOptionsMenu;
 use crate::features::history::{CommitMenuView, HistoryDialogView, HistoryUi};
 use crate::features::stashes::{StashDialogView, StashUi};
 use crate::features::branches::{BranchDialogView, BranchMenuView, BranchUi};
@@ -90,8 +91,8 @@ pub struct Workspace {
     /// Identity of the diff shown last; scroll resets when it changes.
     pub diff_key: Option<SharedString>,
     /// Diff options popover + split-row cache (see `views/diff_options.rs`).
-    pub diff_view: crate::views::diff_options::DiffView,
-    pub diff_select: crate::views::diff::DiffSelectUi,
+    pub diff_view: crate::features::diff::DiffView,
+    pub diff_select: crate::features::diff::DiffSelectUi,
     pub commit_files_scroll: UniformListScrollHandle,
     pub popover_scroll: UniformListScrollHandle,
 
@@ -825,7 +826,7 @@ impl Render for Workspace {
         let banner = self.render_banner(cx);
         let popover = self.render_popover(window, cx);
         let menu = self.render_menu(window, cx);
-        let diff_options = self.render_diff_options_menu(window, cx);
+        let diff_options = DiffOptionsMenu::new(self, cx.entity());
         let dialog = self.render_dialog(cx);
         let settings = self.render_settings(cx);
         let hist_menu = CommitMenuView::open(self, cx);

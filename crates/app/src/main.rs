@@ -1,10 +1,8 @@
 //! desktop-rs — Rust + GPUI-CE app (POC). See docs/.
 
 mod actions;
-mod diff_highlight;
 mod features;
 mod frame_debug;
-mod line_selection;
 mod platform;
 mod repo;
 mod settings;

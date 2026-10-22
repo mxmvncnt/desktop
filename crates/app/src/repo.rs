@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
-use crate::diff_highlight::{DiffHighlight, HighlightCache, highlight_diff};
+use crate::features::diff::{DiffHighlight, HighlightCache, highlight_diff};
 use gd_git::{Branch, Commit, Diff, DiffOptions, FileChange, Repository, WorkingStatus};
 use gpui::{AppContext, Context, Task};
 
@@ -77,7 +77,7 @@ pub struct RepoModel {
     /// store the *excluded* set so new files default to included.
     pub excluded: HashSet<String>,
     /// Files with only some lines selected (see `line_selection.rs`).
-    pub partial: HashMap<String, crate::line_selection::LineSelection>,
+    pub partial: HashMap<String, crate::features::diff::LineSelection>,
     pub selected_change: Option<usize>,
     pub change_diff: Option<Arc<Diff>>,
     change_diff_gen: u64,

@@ -1,5 +1,6 @@
 //! Sidebar (tabs + Changes list + commit box) and the Changes main pane.
 
+use crate::features::diff::DiffOptionsButton;
 use crate::features::history::CommitList;
 use crate::features::merge::ConflictHint;
 use crate::features::stashes::StashPanel;
@@ -348,14 +349,14 @@ impl Workspace {
                                 .child(div().text_color(theme.diff_del).child(format!("−{}", diff.deleted))),
                         )
                     })
-                    .child(self.diff_options_button(cx)),
+                    .child(DiffOptionsButton::new(cx.entity())),
             )
             .children(hint)
             .child(self.render_diff(
                 diff,
                 hl,
                 SharedString::from(format!("change-diff-{}", change.path)),
-                crate::views::diff::DiffPane::Changes(repo.clone()),
+                crate::features::diff::DiffPane::Changes(repo.clone()),
                 cx,
             ))
             .into_any_element()

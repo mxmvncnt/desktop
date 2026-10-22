@@ -7,7 +7,7 @@ use super::stash_file_list::StashFileList;
 use super::stash_header::StashHeader;
 use crate::actions::LIST;
 use crate::repo::RepoModel;
-use crate::views::diff::DiffPane;
+use crate::features::diff::DiffPane;
 use crate::workspace::Workspace;
 
 impl Workspace {

@@ -14,7 +14,7 @@
 - [x] Settings modal (`views/settings.rs`): two panes, a category sidebar (Appearance, Diff) and the selected page
       (`Workspace::settings_page`). Custom overlay built from `overlay_card` + scrim like `Dialog`, since `Dialog` is single-column.
       Opens from the toolbar gear, `Ctrl/Cmd+,`, macOS "Settings…"; Esc/close button/backdrop closes. `settings_open` counts as
-      `overlay_open`; Esc is checked first in `Dismiss`. Diff page reuses `diff_options::option_row` and the `set_diff_*` setters.
+      `overlay_open`; Esc is checked first in `Dismiss`. Diff page reuses `CheckOptionRow` and the `set_diff_*` setters.
       To add a category: extend `SettingsPage` (label/icon) and add a page fn.
 - [x] Theme mode `System|Light|Dark` persisted as `theme=` in the `display` file. System follows
       `window.appearance()` and re-applies live via `observe_window_appearance`.

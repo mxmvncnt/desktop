@@ -7,7 +7,7 @@ use gd_git::{Branch, Diff, FileChange, Stash};
 use gpui::{App, AppContext, Entity, Task, UniformListScrollHandle};
 use gpui_elements::editable_text::{EditableTextState, StringStorage};
 
-use crate::diff_highlight::{DiffHighlight, HighlightCache};
+use crate::features::diff::{DiffHighlight, HighlightCache};
 
 #[derive(Default)]
 pub struct StashState {

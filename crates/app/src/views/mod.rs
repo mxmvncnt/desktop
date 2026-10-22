@@ -2,9 +2,6 @@
 //! root entity's state. Heavy lists are always `uniform_list` (virtualized).
 
 mod changes;
-pub mod diff;
-pub mod diff_options;
-mod diff_split;
 pub mod menus;
 mod pickers;
 pub use pickers::sanitize_branch_name;

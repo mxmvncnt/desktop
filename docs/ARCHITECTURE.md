@@ -67,7 +67,7 @@ guessing APIs. To recreate them:
 - Word emphasis: in each replace block the i-th deleted row pairs with the i-th added row.
   Lines are tokenized into word/space/punct tokens and diffed again, and changed byte ranges go to
   `DiffLine::emphasis`. It's skipped above 1000 chars or when more than 60% of both lines changed. It's
-  rendered as a background wash by `diff_highlight::line_text` (merged with the syntax runs).
+  rendered as a background wash by `features/diff/highlight.rs` `line_text` (merged with the syntax runs).
 - `Diff::source` keeps the exact old/new texts (for partial staging). It's `None` when either side
   isn't valid UTF-8, so staging never writes back lossily decoded bytes. Binary = NUL in the first 8000
   bytes, like git. `too_large` above 8 MB per side.
@@ -75,7 +75,7 @@ guessing APIs. To recreate them:
   On this repo's last 150 commits, 468/472 files had identical +/- counts. The rest differ where git's
   Myers heuristics are non-minimal (e.g. yarn.lock, where ours is smaller).
 
-## Partial staging (`gd-git/src/partial.rs`, `app/src/line_selection.rs`, `views/diff.rs`)
+## Partial staging (`gd-git/src/partial.rs`, `app/src/features/diff/line_selection.rs`, `number_cell.rs`, `row_select.rs`)
 
 - No `git apply`: `staged_text(diff, include)` replays the diff over `DiffSource::old` (raw lines via
   `split_inclusive`, so CRLF and a missing final newline survive) keeping only included adds/deletes.
@@ -86,9 +86,9 @@ guessing APIs. To recreate them:
   `excluded` (whole file off). `set_rows_included` normalizes: all rows off → `excluded`, none off → entry removed, so
   `partial` only holds mixed files. A reloaded diff keeps the selection only if `lines` are identical
   (`reconcile_selection`); `-w` diffs are ignored there. `partial` is cleared after a successful commit/amend.
-- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`. `views/diff.rs` exports `number_cell` (one cell
+- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`. `features/diff/number_cell.rs` has `number_cell` (one cell
   holding 1 or 2 numbers; plain, or clickable/drag-extending with the blue+check included style) and
-  `RowSelect::handle_cell` (one cell of a change block's handle), shared by the unified list and the split list's
+  `RowSelect::handle_cell` in `row_select.rs` (one cell of a change block's handle), shared by the unified list and the split list's
   middle gutter. Handles work on change blocks (`RepoModel::change_block`: the add/delete run around a row), not git
   hunks. Pointer state (`hovered_handle: (block start, cell)`, `drag` anchor) is `Workspace.diff_select`, reset when
   the diff key changes. The cell id in `hovered_handle` makes leave/enter order between two cells of one block
@@ -100,7 +100,7 @@ guessing APIs. To recreate them:
   included/partial blocks `accent_strong` (hover `accent`).
 - Gotcha: `on_mouse_up_all` takes 5 args (event, phase, hitbox, window, cx).
 
-## Hunk expansion (`gd-git/src/expand.rs`, `views/diff.rs` `Expander`)
+## Hunk expansion (`gd-git/src/expand.rs`, `features/diff/expander.rs`, `expand_button.rs`)
 
 - `DiffHunk` carries 0-based `old_start/old_len/new_start/new_len`. `expand(diff, Up(h)|Down(h)|All(h))` is pure: it
   splits the flat rows into hunks, pulls context rows from `source.new` into the gap (20 = `EXPANSION_STEP`), merges
@@ -110,7 +110,7 @@ guessing APIs. To recreate them:
   `change_diff_key` (path + options) lets `load_change_diff` keep the expanded diff when a reload returns the same
   source texts. Line selection is keyed by `LineKey = (is_add, line number)` instead of row index, so it survives
   row shifts; `reconcile_selection` drops it only when the source texts change.
-- `render_diff(.., pane: DiffPane, ..)`: `Changes` (select + expand), `History` (expand), `ReadOnly` (stashes).
+- `render_diff(.., pane: DiffPane, ..)` (`render_diff.rs`): `Changes` (select + expand), `History` (expand), `ReadOnly` (stashes).
   Header rows render `Expander::gutter` instead of number cells; an extra trailing list row (index == rows) holds
   the last Expand Down. Buttons use `group` + `group_hover_style` so the svg icon recolors on hover.
 
@@ -222,7 +222,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - **Hooking another op (revert, cherry-pick, squash) in:** run the git command inside `RepoModel::run_op`, map a pause with `Repository::outcome_of`, and use `notice_for_outcome`. Banner, conflict list and Continue/Abort work automatically.
 - Gotchas: absolute overlays must themselves be `.absolute().inset_0()` (GPUI lays absolute children out against their direct parent); a focused text input turns ↑/↓/Esc into `NavUp/NavDown/Escape` actions, so dialogs use `capture_action` for those; `gen` is a reserved word in edition 2024.
 
-## Syntax highlighting (`crates/syntax`, `app/src/diff_highlight.rs`)
+## Syntax highlighting (`crates/syntax`, `app/src/features/diff/highlight.rs`)
 
 - `gd-syntax` is ported from zeron's `zeron-syntax`, trimmed to Rust, JS/JSX/TS/TSX, Python,
   Go, JSON, Bash, TOML, Markdown, HTML (+JS/CSS injection), CSS, YAML, C, C++.
@@ -250,7 +250,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Scroll reset: `Workspace::diff_key` stores the last diff identity; a change resets the list's
   `base_handle` offset and `DiffView::hscroll` to 0.
 
-## Diff options and split view (`views/diff_options.rs`, `views/diff_split.rs`)
+## Diff options and split view (`features/diff/`: `diff_options_menu.rs`, `split_diff.rs`, `split_row.rs`)
 
 - Options are app-wide and persisted in `Settings` (`diff_split`, `diff_ignore_whitespace`, `diff_wrap`), stored in a
   separate `display` file (`key=value`) so old `repositories` files load unchanged.
@@ -264,8 +264,8 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   headers span both columns (`left == right`), delete/add runs are paired row by row and padded.
   Rendering is a single list (id `diff-split`); each row is `[old text | middle gutter | new text]`.
   Syntax spans reuse `DiffHighlight::row(ix)` unchanged.
-- Long lines (`views/diff.rs`, `TextFlow`): both modes share `unified_row`/`split_list` row renderers and
-  `rows_list`, which picks the list type.
+- Long lines (`text_flow.rs`, `TextFlow`): both modes share the `UnifiedRows`/`SplitRows` row renderers and
+  `rows_list` (`rows_list.rs`), which picks the list type.
   - Scroll (default): a vertical-only `uniform_list`. Horizontal scroll is done by hand: each text cell
     (`text_cell`) clips and shifts its text by `DiffView::hscroll`. Gutters stay fixed and both split
     columns always move together. `diff_body`'s `on_scroll_wheel` takes the x delta (shift+wheel already

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use gd_git::{Diff, Stash};
 use gpui::{AppContext, Context};
 
-use crate::diff_highlight::highlight_diff;
+use crate::features::diff::highlight_diff;
 use crate::repo::RepoModel;
 
 impl RepoModel {

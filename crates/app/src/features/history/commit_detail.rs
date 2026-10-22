@@ -7,8 +7,8 @@ use super::commit_file_list::CommitFileList;
 use super::commit_header::CommitHeader;
 use super::multi_select::MultiSelectPane;
 use crate::actions::LIST;
+use crate::features::diff::{DiffOptionsButton, DiffPane};
 use crate::repo::RepoModel;
-use crate::views::diff::DiffPane;
 use crate::workspace::Workspace;
 
 impl Workspace {
@@ -29,7 +29,7 @@ impl Workspace {
             .unwrap_or_default();
         let (diff, hl, n_files) = (r.commit_diff.clone(), r.commit_hl.clone(), r.commit_files.len());
         let diff_key = SharedString::from(format!("commit-diff-{}-{file_key}", commit.sha));
-        let header = CommitHeader::new(commit, n_files, self.diff_options_button(cx));
+        let header = CommitHeader::new(commit, n_files, DiffOptionsButton::new(cx.entity()));
         let file_list = div()
             .key_context(LIST)
             .flex()
