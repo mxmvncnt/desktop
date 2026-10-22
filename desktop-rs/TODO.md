@@ -5,11 +5,16 @@
     - light/dark/system toggle
     - multiple color themes
 - overscroll bounce
-- debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
+- make the code cleaner for humans
+  - debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
+  - add documentations for humans
 - sidebar 
   - make it resizeable
   - in the commit history view, show author profile picture
   - in the commit history view, show co-authors
+  - default commit name on single file changes: {Create,Delete,Update} <file_name>
+    - have nothing in the actual input box, but allow creating the commit with that name anyways.
+    - Display this pre-made default name as the commit name hint
 - commit view
   - it should be possible to resize the commit message height, and to scroll it
 - select text in the diff view
@@ -17,3 +22,8 @@
 - option to create a branch from a certain branch (ex: create branch x from staging)
 - bundle as flatpak
 - bundle for macos
+- bugs/wonky behaviour:
+  - When creating a partial commit (single file with other files also updated), the main screen flashes before showing the diff of the next file in staging
+  - when clicking on sub-menus (like in the submenu for creating a branch), we can see the menu closing and the new one appearing, causing a quick flash
+  - When the merge into modal is open, the rest of the app is still clickable
+  - When amending a commit, and looking at the ammended commit, we need to click on another commit and back on the amended commit to see the changes reflected
