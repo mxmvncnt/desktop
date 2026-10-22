@@ -381,7 +381,13 @@ impl Workspace {
         }
         self.popover = Some(p);
         self.popover_gen += 1;
-        self.popover_selected = 0;
+        // The filter starts empty, so a settings index is also a list row.
+        self.popover_selected = match p {
+            Popover::Repositories => self.settings.selected.unwrap_or(0),
+            _ => 0,
+        };
+        self.popover_scroll
+            .scroll_to_item(self.popover_selected, gpui::ScrollStrategy::Nearest);
         for input in [&self.filter, &self.name_input, &self.url_input] {
             input.update(cx, |s, cx| s.emplace("", cx));
         }

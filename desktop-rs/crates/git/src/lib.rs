@@ -12,6 +12,7 @@
 mod diff;
 pub mod engine;
 mod exec;
+mod expand;
 mod history_ops;
 mod log;
 mod merge;
@@ -23,6 +24,7 @@ mod status;
 
 pub use diff::{Side, Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
+pub use expand::{EXPANSION_STEP, Expansion, expand, expandable, gap_above, gap_below};
 pub use history_ops::{ResetMode, github_web_url};
 pub use log::{Commit, CommitFile};
 pub use merge::MergePreview;

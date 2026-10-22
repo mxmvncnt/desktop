@@ -81,6 +81,9 @@ pub struct RepoModel {
     pub selected_change: Option<usize>,
     pub change_diff: Option<Arc<Diff>>,
     change_diff_gen: u64,
+    /// What `change_diff` was loaded for, so a reload of the same unchanged
+    /// file keeps the (possibly expanded) diff on screen.
+    change_diff_key: Option<(String, DiffOptions)>,
     _change_diff_task: Option<Task<()>>,
 
     // ---- refresh coalescing / live updates ----
@@ -147,6 +150,7 @@ impl RepoModel {
             selected_change: None,
             change_diff: None,
             change_diff_gen: 0,
+            change_diff_key: None,
             _change_diff_task: None,
             refreshing: false,
             pending_refresh: None,
@@ -447,8 +451,16 @@ impl RepoModel {
                 }
                 match diff {
                     Ok(d) => {
+                        let key = (path.clone(), opts);
+                        let unchanged = this.change_diff_key.as_ref() == Some(&key)
+                            && this.change_diff.as_ref().is_some_and(|c| c.source.is_some() && c.source == d.source);
+                        if unchanged {
+                            // Same file, same contents: keep the expansion and highlight.
+                            return;
+                        }
                         let d = Arc::new(d);
                         this.reconcile_selection(&path, &d);
+                        this.change_diff_key = Some(key);
                         this.change_diff = Some(d.clone());
                         this.change_hl = None;
                         this._change_hl_task = Some(this.spawn_highlight(d, path, false, cx));
@@ -614,6 +626,31 @@ impl RepoModel {
             }
             None => self.commit_diff = None,
         }
+    }
+
+    /// Reveal more unchanged lines around a hunk of the displayed working
+    /// (`commit == false`) or commit diff. Pure and cheap (the diff holds
+    /// both texts), so it runs inline; highlighting is redone in the background.
+    pub fn expand_diff(&mut self, commit: bool, e: gd_git::Expansion, cx: &mut Context<Self>) {
+        let (current, path) = if commit {
+            let path = self.selected_commit_file.and_then(|i| self.commit_files.get(i)).map(|f| f.path.clone());
+            (self.commit_diff.clone(), path)
+        } else {
+            (self.change_diff.clone(), self.selected_path())
+        };
+        let (Some(current), Some(path)) = (current, path) else { return };
+        let Some(expanded) = gd_git::expand(&current, e) else { return };
+        let d = Arc::new(expanded);
+        if commit {
+            self.commit_diff = Some(d.clone());
+            self.commit_hl = None;
+            self._commit_hl_task = Some(self.spawn_highlight(d, path, true, cx));
+        } else {
+            self.change_diff = Some(d.clone());
+            self.change_hl = None;
+            self._change_hl_task = Some(self.spawn_highlight(d, path, false, cx));
+        }
+        cx.notify();
     }
 
     /// Highlight `diff` on the background executor. The result is applied only

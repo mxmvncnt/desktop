@@ -42,6 +42,12 @@ pub struct DiffLine {
 pub struct DiffHunk {
     /// Index into [`Diff::lines`] of the hunk header.
     pub header_index: usize,
+    /// 0-based first line and line count on each side (what the header
+    /// shows, 0-based). Used to compute the unchanged gaps for expansion.
+    pub old_start: usize,
+    pub old_len: usize,
+    pub new_start: usize,
+    pub new_len: usize,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

@@ -43,13 +43,13 @@ pub struct DiffSource {
 }
 
 /// One logical line of a text, without its terminator.
-struct Line<'a> {
-    text: &'a str,
+pub(crate) struct Line<'a> {
+    pub(crate) text: &'a str,
     /// Whether a `\n` followed it (false only for a final unterminated line).
-    terminated: bool,
+    pub(crate) terminated: bool,
 }
 
-fn split_lines(s: &str) -> Vec<Line<'_>> {
+pub(crate) fn split_lines(s: &str) -> Vec<Line<'_>> {
     let mut out = Vec::new();
     let mut rest = s;
     while !rest.is_empty() {
@@ -114,7 +114,13 @@ pub fn diff_texts(old: &str, new: &str, opts: DiffOptions) -> Diff {
         let new_start = first.new_range().start;
         let old_len = last.old_range().end - old_start;
         let new_len = last.new_range().end - new_start;
-        diff.hunks.push(DiffHunk { header_index: diff.lines.len() });
+        diff.hunks.push(DiffHunk {
+            header_index: diff.lines.len(),
+            old_start,
+            old_len,
+            new_start,
+            new_len,
+        });
         diff.lines.push(DiffLine {
             kind: DiffLineKind::Hunk,
             old_line: None,
@@ -167,7 +173,7 @@ pub fn diff_texts(old: &str, new: &str, opts: DiffOptions) -> Diff {
     diff
 }
 
-fn hunk_header(old_start: usize, old_len: usize, new_start: usize, new_len: usize) -> String {
+pub(crate) fn hunk_header(old_start: usize, old_len: usize, new_start: usize, new_len: usize) -> String {
     // Same numbering as git: 1-based start, and a 0-length side starts at
     // the line *before* the change.
     let side = |start: usize, len: usize| {

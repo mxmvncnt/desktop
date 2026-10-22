@@ -8,7 +8,9 @@
 //!   the diff the selection was made on. That diff (with its full texts) is
 //!   kept, so the staged blob is built from exactly what the user saw.
 //!
-//! Rows are indices into `Diff::lines`; only adds and deletes are selectable.
+//! Lines are stored as [`LineKey`]s (add/delete + line number), not row
+//! indices, so a selection survives hunk expansion (which shifts rows) and
+//! reloads of an unchanged file. Only adds and deletes are selectable.
 //! Updates normalize back to "fully included" or "excluded" when every row is
 //! (de)selected, so `partial` only holds genuinely mixed files.
 
@@ -21,10 +23,23 @@ use gpui::Context;
 
 use crate::repo::{RepoModel, Tab};
 
+/// Identity of a selectable line: `(is_add, line number on its side)`.
+pub type LineKey = (bool, u32);
+
+/// Key of row `ix`, `None` for rows that can't be selected.
+pub fn line_key(diff: &Diff, ix: usize) -> Option<LineKey> {
+    let l = diff.lines.get(ix)?;
+    match l.kind {
+        gd_git::DiffLineKind::Add => Some((true, l.new_line?)),
+        gd_git::DiffLineKind::Delete => Some((false, l.old_line?)),
+        _ => None,
+    }
+}
+
 pub struct LineSelection {
     pub diff: Arc<Diff>,
-    /// Deselected selectable rows. Never empty, never all rows.
-    pub excluded: HashSet<usize>,
+    /// Deselected lines. Never empty, never all lines.
+    pub excluded: HashSet<LineKey>,
 }
 
 impl RepoModel {
@@ -56,7 +71,7 @@ impl RepoModel {
             && self.merge.in_progress.as_ref().is_none_or(|p| !p.commit_finishes())
     }
 
-    fn selected_path(&self) -> Option<String> {
+    pub(crate) fn selected_path(&self) -> Option<String> {
         self.selected_change.and_then(|ix| self.changes().get(ix)).map(|c| c.path.clone())
     }
 
@@ -68,7 +83,9 @@ impl RepoModel {
         if self.excluded.contains(path) {
             return false;
         }
-        self.partial.get(path).is_none_or(|s| !s.excluded.contains(&ix))
+        let Some(sel) = self.partial.get(path) else { return true };
+        let key = self.change_diff.as_ref().and_then(|d| line_key(d, ix));
+        key.is_none_or(|k| !sel.excluded.contains(&k))
     }
 
     /// Include or exclude `rows` of the displayed diff. Returns whether
@@ -83,15 +100,16 @@ impl RepoModel {
             return false;
         }
         let (Some(path), Some(diff)) = (self.selected_path(), self.change_diff.clone()) else { return false };
-        let all: Vec<usize> = (0..diff.lines.len()).filter(|&i| gd_git::selectable(&diff, i)).collect();
-        let mut excluded: HashSet<usize> = if self.excluded.contains(&path) {
+        // Every changed line is in the diff (expansion only adds context).
+        let all: Vec<LineKey> = (0..diff.lines.len()).filter_map(|i| line_key(&diff, i)).collect();
+        let mut excluded: HashSet<LineKey> = if self.excluded.contains(&path) {
             all.iter().copied().collect()
         } else {
             self.partial.get(&path).map(|s| s.excluded.clone()).unwrap_or_default()
         };
         let mut changed = false;
-        for ix in rows.into_iter().filter(|&i| gd_git::selectable(&diff, i)) {
-            changed |= if include { excluded.remove(&ix) } else { excluded.insert(ix) };
+        for key in rows.into_iter().filter_map(|i| line_key(&diff, i)) {
+            changed |= if include { excluded.remove(&key) } else { excluded.insert(key) };
         }
         if !changed {
             return false;
@@ -154,16 +172,14 @@ impl RepoModel {
     }
 
     /// A freshly loaded diff of `path`: keep its partial selection only if
-    /// the diff is unchanged, since row indices refer to the old one.
+    /// the file contents are unchanged (line keys refer to them).
     pub(crate) fn reconcile_selection(&mut self, path: &str, diff: &Arc<Diff>) {
         if self.diff_options.ignore_whitespace {
             // A `-w` diff has different rows; keep the selection for later.
             return;
         }
         if let Some(sel) = self.partial.get_mut(path) {
-            if sel.diff.lines == diff.lines {
-                sel.diff = diff.clone();
-            } else {
+            if sel.diff.source != diff.source {
                 self.partial.remove(path);
             }
         }
@@ -176,7 +192,9 @@ impl RepoModel {
             .filter(|c| !self.excluded.contains(&c.path))
             .filter_map(|c| {
                 let sel = self.partial.get(&c.path)?;
-                let content = gd_git::staged_text(&sel.diff, |ix| !sel.excluded.contains(&ix))?;
+                let content = gd_git::staged_text(&sel.diff, |ix| {
+                    line_key(&sel.diff, ix).is_none_or(|k| !sel.excluded.contains(&k))
+                })?;
                 Some(PartialFile {
                     path: c.path.clone(),
                     old_path: c.old_path.clone(),
