@@ -7,7 +7,8 @@ use gpui::{App, Entity, IntoElement, RenderOnce, Window, div, prelude::*, px};
 use super::state::StashDialog;
 use crate::repo::RepoModel;
 use crate::shared::relative_time::relative_time;
-use crate::workspace::{Workspace, plural};
+use crate::shared::plural::plural;
+use crate::workspace::Workspace;
 
 #[derive(IntoElement)]
 pub struct StashHeader {

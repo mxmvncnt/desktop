@@ -5,7 +5,7 @@ use gpui::{App, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px}
 
 use crate::repo::RepoModel;
 use crate::shared::suggestion_card::SuggestionCard;
-use crate::workspace::plural;
+use crate::shared::plural::plural;
 
 #[derive(IntoElement)]
 pub struct NoChanges {

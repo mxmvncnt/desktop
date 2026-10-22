@@ -10,3 +10,7 @@ mod handlers;
 mod new_branch_form;
 mod picker_shell;
 mod repo_picker;
+mod popover_handlers;
+mod popover_layer;
+
+pub use popover_layer::PopoverLayer;

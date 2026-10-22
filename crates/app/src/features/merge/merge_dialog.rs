@@ -16,7 +16,8 @@ use gpui_elements::editable_text::{
 use super::merge_candidate_list::{MergeCandidateList, ROW_HEIGHT};
 use super::merge_preview::MergePreviewLine;
 use super::state::MergeMode;
-use crate::workspace::{Workspace, text_field};
+use crate::shared::text_field::text_field;
+use crate::workspace::Workspace;
 
 const LIST_ROWS: usize = 7;
 

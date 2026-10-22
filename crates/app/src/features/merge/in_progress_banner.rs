@@ -6,7 +6,8 @@ use gd_ui::{Button, Icon, Theme, icon, motion};
 use gpui::{App, ColorExt as _, Context, Entity, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window, div, px};
 
 use crate::repo::RepoModel;
-use crate::workspace::{Workspace, plural};
+use crate::shared::plural::plural;
+use crate::workspace::Workspace;
 
 #[derive(IntoElement)]
 pub struct InProgressBanner {

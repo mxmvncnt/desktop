@@ -5,7 +5,7 @@ use gd_ui::{Icon, Theme, icon};
 use gpui::{AnyElement, App, FontWeight, IntoElement, RenderOnce, Window, div, prelude::*, px};
 
 use crate::shared::relative_time::relative_time;
-use crate::workspace::plural;
+use crate::shared::plural::plural;
 
 #[derive(IntoElement)]
 pub struct CommitHeader {

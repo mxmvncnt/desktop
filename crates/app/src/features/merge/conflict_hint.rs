@@ -10,7 +10,7 @@ use gpui::{App, ColorExt as _, Entity, IntoElement, ParentElement, RenderOnce, S
 use super::state::Resolve;
 use crate::repo::RepoModel;
 use crate::shared::file_url::file_url;
-use crate::workspace::plural;
+use crate::shared::plural::plural;
 
 #[derive(IntoElement)]
 pub struct ConflictHint {

@@ -8,3 +8,5 @@ pub mod changes;
 pub mod menus;
 pub mod welcome;
 pub mod diff;
+pub mod toolbar;
+pub mod notices;

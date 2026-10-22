@@ -5,7 +5,7 @@ use gd_ui::CheckState;
 use gpui::SharedString;
 
 use crate::repo::RepoModel;
-use crate::workspace::plural;
+use crate::shared::plural::plural;
 
 /// State of the "select all" checkbox and the count above the list.
 #[derive(Clone, Copy)]

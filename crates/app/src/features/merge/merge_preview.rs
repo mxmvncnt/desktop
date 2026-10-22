@@ -6,7 +6,7 @@ use gd_ui::{Icon, Theme, icon};
 use gpui::{App, Hsla, IntoElement, ParentElement, RenderOnce, Styled, Window, div, prelude::*, px};
 
 use super::state::MergeMode;
-use crate::workspace::plural;
+use crate::shared::plural::plural;
 
 #[derive(IntoElement)]
 pub struct MergePreviewLine {

@@ -6,7 +6,8 @@ use gpui::{
 };
 use gpui_elements::editable_text::{EditableTextState, actions::Enter};
 
-use crate::workspace::{Workspace, text_field};
+use crate::shared::text_field::text_field;
+use crate::workspace::Workspace;
 
 #[derive(IntoElement)]
 pub struct NewBranchForm {

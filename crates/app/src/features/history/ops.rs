@@ -141,7 +141,7 @@ impl RepoModel {
             move |r| r.cherry_pick(&shas, &target),
             move |this, o, _| {
                 this.last_commit = None;
-                let done = format!("Cherry-picked {n} commit{}", crate::workspace::plural(n as u32));
+                let done = format!("Cherry-picked {n} commit{}", crate::shared::plural::plural(n as u32));
                 this.notice_for_outcome(o, done, "Nothing to cherry-pick".into())
             },
             cx,

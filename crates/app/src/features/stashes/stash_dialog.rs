@@ -8,7 +8,9 @@ use gpui_elements::editable_text::{EditableTextState, actions::Enter};
 use super::option_row::OptionRow;
 use super::state::StashDialog;
 use crate::repo::RepoModel;
-use crate::workspace::{Workspace, plural, text_field};
+use crate::shared::plural::plural;
+use crate::shared::text_field::text_field;
+use crate::workspace::Workspace;
 
 #[derive(IntoElement)]
 pub struct StashDialogView {
