@@ -68,7 +68,7 @@ pub struct Workspace {
     pub history_ui: HistoryUi,
     /// Stash dialogs (create / rename / drop / switch branch) and their input.
     pub stash_ui: StashUi,
-    /// Merge dialog, branch/conflict menus and branch dialogs (views/merge.rs).
+    /// Merge dialog, branch/conflict menus and branch dialogs (features/merge).
     pub merge_ui: MergeUi,
     /// Branch context menu and rename / delete / create dialogs (features/branches).
     pub branch_ui: BranchUi,

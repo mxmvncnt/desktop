@@ -100,3 +100,7 @@ Exception: git writes and network ops keep shelling out to the `git` CLI
 - Identical rows across features live in `shared/` (`file_change_row.rs`, with an
   id namespace and an `on_select` callback prop).
 - Replace `(bool, bool)` click flags with an enum (`ClickKind`).
+- Two related features can share one overlay area without sharing state:
+  `merge` (`merge_ui`) and `branches` (`branch_ui`) each own their menu/dialog;
+  workspace.rs / menus.rs route Esc/Enter/arrows with `a() || b()`. Typed structs
+  replace tuples (`branches::RemoteBranch`, not `(String, String)`).
