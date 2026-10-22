@@ -109,7 +109,7 @@ impl Workspace {
         // Re-render when inputs change (commit button enablement, filtering).
         for input in [&summary, &filter, &name_input, &url_input] {
             subs.push(cx.subscribe(input, |this: &mut Self, _, _: &TextChanged, cx| {
-                this.popover_selected = 0;
+                this.reset_popover_selection(cx);
                 cx.notify()
             }));
         }
@@ -381,13 +381,7 @@ impl Workspace {
         }
         self.popover = Some(p);
         self.popover_gen += 1;
-        // The filter starts empty, so a settings index is also a list row.
-        self.popover_selected = match p {
-            Popover::Repositories => self.settings.selected.unwrap_or(0),
-            _ => 0,
-        };
-        self.popover_scroll
-            .scroll_to_item(self.popover_selected, gpui::ScrollStrategy::Nearest);
+        self.reset_popover_selection(cx);
         for input in [&self.filter, &self.name_input, &self.url_input] {
             input.update(cx, |s, cx| s.emplace("", cx));
         }
@@ -398,6 +392,19 @@ impl Workspace {
         };
         window.focus(&target.focus_handle(cx), cx);
         cx.notify();
+    }
+
+    /// Put the picker cursor on the open repository while the repo filter is
+    /// empty (a settings index is then also a list row), else on the first row.
+    /// Runs on open and on every input change, including the clear on open.
+    fn reset_popover_selection(&mut self, cx: &mut Context<Self>) {
+        let unfiltered = self.filter.read(cx).as_str().trim().is_empty();
+        self.popover_selected = match self.popover {
+            Some(Popover::Repositories) if unfiltered => self.settings.selected.unwrap_or(0),
+            _ => 0,
+        };
+        self.popover_scroll
+            .scroll_to_item(self.popover_selected, gpui::ScrollStrategy::Nearest);
     }
 
     pub fn close_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {

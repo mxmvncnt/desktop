@@ -351,7 +351,7 @@ impl Workspace {
                 diff,
                 hl,
                 SharedString::from(format!("change-diff-{}", change.path)),
-                Some(repo.clone()),
+                crate::views::diff::DiffPane::Changes(repo.clone()),
                 cx,
             ))
             .into_any_element()

@@ -64,6 +64,7 @@ icons! {
     Restart => "restart",
     Settings => "settings",
     Sort => "sort",
+    SortVertical => "sort-vertical",
     Tag => "tag",
     Terminal => "terminal",
     Trash => "trash-bin-minimalistic",

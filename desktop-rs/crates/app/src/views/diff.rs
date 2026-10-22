@@ -211,6 +211,109 @@ impl RowSelect {
     }
 }
 
+/// Which pane a diff is shown in: decides line selection and expansion.
+pub enum DiffPane {
+    /// Working-tree diff: lines can be selected and hunks expanded.
+    Changes(Entity<RepoModel>),
+    /// Commit diff: hunks can be expanded.
+    History(Entity<RepoModel>),
+    /// Stash diff: view only.
+    ReadOnly,
+}
+
+/// Hunk expansion buttons (Desktop's expand arrows in the hunk header gutter).
+#[derive(Clone)]
+pub struct Expander {
+    pub repo: Entity<RepoModel>,
+    /// Expands `RepoModel::commit_diff` instead of `change_diff`.
+    pub commit: bool,
+}
+
+impl Expander {
+    /// Whether a trailing "expand down" row follows the last hunk.
+    pub fn has_trailing(diff: &Diff) -> bool {
+        diff.hunks.len().checked_sub(1).is_some_and(|last| gd_git::gap_below(diff, last) > 0)
+    }
+
+    /// Buttons for hunk header `h`, or for the trailing row (`h == hunks.len()`):
+    /// first hunk: up; between hunks: "expand all" when the gap is at most one
+    /// step, else down (previous hunk) + up; trailing row: down.
+    fn buttons(&self, diff: &Diff, h: usize, theme: &Theme) -> Vec<AnyElement> {
+        use gd_git::Expansion::{All, Down, Up};
+        let n = diff.hunks.len();
+        let mut out = Vec::new();
+        let mut add = |k: usize, ic: Icon, tip: &'static str, e| out.push(self.button(h * 2 + k, ic, tip, e, theme));
+        if h == n {
+            if Self::has_trailing(diff) {
+                add(0, Icon::ArrowDown, "Expand Down", Down(n - 1));
+            }
+        } else if gd_git::gap_above(diff, h) == 0 {
+        } else if h == 0 {
+            add(0, Icon::ArrowUp, "Expand Up", Up(0));
+        } else if gd_git::gap_above(diff, h) <= gd_git::EXPANSION_STEP {
+            add(0, Icon::SortVertical, "Expand All", All(h));
+        } else {
+            add(0, Icon::ArrowDown, "Expand Down", Down(h - 1));
+            add(1, Icon::ArrowUp, "Expand Up", Up(h));
+        }
+        out
+    }
+
+    fn button(&self, id: usize, ic: Icon, tip: &'static str, e: gd_git::Expansion, theme: &Theme) -> AnyElement {
+        let (repo, commit) = (self.repo.clone(), self.commit);
+        let group = SharedString::from(format!("expand-{id}"));
+        let hover_fg = theme.on_accent;
+        let hover_bg = theme.accent_strong;
+        div()
+            .id(("expand", id))
+            .group(group.clone())
+            .flex()
+            .flex_1()
+            .h(px(DIFF_ROW_HEIGHT))
+            .items_center()
+            .justify_center()
+            .cursor_pointer()
+            .hover_style(move |s| s.bg(hover_bg))
+            .tooltip(gd_ui::tooltip(tip))
+            .child(
+                icon(ic)
+                    .size(px(12.0))
+                    .text_color(theme.text_faint)
+                    .group_hover_style(group, move |s| s.text_color(hover_fg)),
+            )
+            .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                cx.stop_propagation();
+                repo.update(cx, |r, cx| r.expand_diff(commit, e, cx));
+            })
+            .into_any_element()
+    }
+
+    /// The gutter of a hunk header (or trailing) row, `width` wide.
+    pub fn gutter(exp: Option<&Self>, diff: &Diff, h: usize, width: Pixels, theme: &Theme) -> Div {
+        div()
+            .flex()
+            .flex_none()
+            .w(width)
+            .bg(handle_bg())
+            .children(exp.map(|e| e.buttons(diff, h, theme)).unwrap_or_default())
+    }
+}
+
+/// The trailing row after the last hunk: an "expand down" gutter.
+pub fn trailing_row(exp: Option<&Expander>, diff: &Diff, width: Pixels, flow: TextFlow, theme: &Theme) -> AnyElement {
+    row_box(flow)
+        .bg(theme.diff_hunk_bg)
+        .border_t_1()
+        .border_color(theme.border)
+        .child(Expander::gutter(exp, diff, diff.hunks.len(), width, theme).border_r_1().border_color(theme.border))
+        .into_any_element()
+}
+
+/// Hunk index of header row `ix`.
+pub fn header_hunk(diff: &Diff, ix: usize) -> Option<usize> {
+    diff.hunks.binary_search_by_key(&ix, |h| h.header_index).ok()
+}
+
 /// How row text is laid out. `Scroll` clips each text cell and shifts it
 /// left by the shared horizontal offset (the same value for both split
 /// columns, so they always move together); `Wrap` breaks long lines.
@@ -282,15 +385,21 @@ pub fn rows_list(
 }
 
 /// One row of the unified diff: `[handle][check · old · new][marker][text]`.
+#[allow(clippy::too_many_arguments)]
 fn unified_row(
     diff: &Diff,
     hl: Option<&DiffHighlight>,
     sel: Option<(&RowSelect, &RepoModel)>,
+    exp: Option<&Expander>,
     ix: usize,
     num_w: Pixels,
     flow: TextFlow,
     theme: &Theme,
 ) -> AnyElement {
+    let gutter_w = number_cell_w(num_w, 2.0, sel.is_some()) + if sel.is_some() { px(HANDLE_W) } else { px(0.0) };
+    if ix == diff.lines.len() {
+        return trailing_row(exp, diff, gutter_w, flow, theme);
+    }
     let line = &diff.lines[ix];
     let (bg, fg, marker) = match line.kind {
         DiffLineKind::Add => (theme.diff_add_bg, theme.text, "+"),
@@ -309,12 +418,20 @@ fn unified_row(
     let spans = hl.map(|h| h.row(ix)).unwrap_or(&[]);
     let text = line_text(&line.text, spans, &line.emphasis, fg, emph_bg, &font, &theme.syntax);
     let hunk = line.kind == DiffLineKind::Hunk;
-    // Hunk headers have no numbers; their gutter stays blank.
-    let line_row = (!hunk).then_some(ix);
-    row_box(flow)
+    let row = row_box(flow)
         .bg(bg)
         .when(hunk && ix > 0, |d| d.border_t_1().border_color(theme.border))
-        .when(hunk, |d| d.text_color(theme.text_faint).italic())
+        .when(hunk, |d| d.text_color(theme.text_faint).italic());
+    if let Some(h) = header_hunk(diff, ix) {
+        // Hunk headers carry the expand buttons in their gutter.
+        return row
+            .child(Expander::gutter(exp, diff, h, gutter_w, theme).border_r_1().border_color(theme.border))
+            .child(marker_cell("", marker_color))
+            .child(text_cell(text, flow))
+            .into_any_element();
+    }
+    let line_row = Some(ix);
+    row
         // One selection cell per line, like Desktop's unified view.
         .when_some(sel, |d, (s, r)| {
             let block = RepoModel::change_block(diff, ix);
@@ -346,7 +463,7 @@ impl Workspace {
         diff: Option<Arc<Diff>>,
         highlight: Option<Arc<DiffHighlight>>,
         key: SharedString,
-        select: Option<Entity<RepoModel>>,
+        pane: DiffPane,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let theme = Theme::of(cx).clone();
@@ -385,6 +502,14 @@ impl Workspace {
                 .into_any_element();
         }
         let note = self.whitespace_note(cx);
+        let (select, exp) = match pane {
+            DiffPane::Changes(repo) => (Some(repo.clone()), Some(Expander { repo, commit: false })),
+            DiffPane::History(repo) => (None, Some(Expander { repo, commit: true })),
+            DiffPane::ReadOnly => (None, None),
+        };
+        let exp = exp.filter(|_| gd_git::expandable(&diff));
+        // One extra row after the last hunk for "expand down".
+        let trailing = usize::from(exp.is_some() && Expander::has_trailing(&diff));
         let select = select.filter(|r| r.read(cx).can_select_lines()).map(|repo| RowSelect {
             repo,
             ws: cx.entity(),
@@ -394,7 +519,7 @@ impl Workspace {
         let wrap = self.settings.diff_wrap;
         let flow = if wrap { TextFlow::Wrap } else { TextFlow::Scroll(self.diff_view.hscroll) };
         let split = self.settings.diff_split.then(|| self.split_for(&diff));
-        let n = split.as_ref().map_or(diff.lines.len(), |s| s.rows.len());
+        let n = split.as_ref().map_or(diff.lines.len(), |s| s.rows.len()) + trailing;
         let wrap_list = wrap.then(|| self.diff_view.wrap_list_for(&diff, split.is_some(), n, new_key));
         let truncated = diff.truncated;
         let mono = theme.font_mono.clone();
@@ -405,7 +530,7 @@ impl Workspace {
                 + if has_select { px(HANDLE_W) } else { px(0.0) }
                 + px(2.0 + 2.0 * MARKER_W);
             self.diff_view.set_extent(&diff, fixed, 2.0);
-            super::diff_split::split_list(split, highlight, select, &self.diff_scroll, wrap_list, flow, mono)
+            super::diff_split::split_list(split, highlight, select, exp, trailing == 1, &self.diff_scroll, wrap_list, flow, mono)
         } else {
             let gutter_digits = diff
                 .lines
@@ -424,7 +549,7 @@ impl Workspace {
             rows_list("diff-lines", n, wrap_list, &self.diff_scroll, mono, move |ix, theme, cx| {
                 let r = select.as_ref().map(|s| s.repo.read(cx));
                 let sel = select.as_ref().zip(r);
-                unified_row(&diff, highlight.as_deref(), sel, ix, num_w, flow, theme)
+                unified_row(&diff, highlight.as_deref(), sel, exp.as_ref(), ix, num_w, flow, theme)
             })
         };
         self.diff_body(key, list, truncated, wrap, note, &theme, cx.entity())

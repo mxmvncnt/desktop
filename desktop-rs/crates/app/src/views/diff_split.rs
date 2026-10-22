@@ -27,7 +27,10 @@ use gpui::{AnyElement, Div, IntoElement, ListState, ParentElement, Styled, div, 
 
 use crate::diff_highlight::{DiffHighlight, line_text};
 use crate::repo::RepoModel;
-use crate::views::diff::{RowSelect, TextFlow, marker_cell, number_cell, row_box, rows_list, text_cell};
+use crate::views::diff::{
+    Expander, MARKER_W, RowSelect, TextFlow, header_hunk, marker_cell, number_cell, number_cell_w, row_box, rows_list,
+    text_cell, trailing_row,
+};
 
 /// "No line on this side" (filler cell).
 pub const NONE: u32 = u32::MAX;
@@ -124,32 +127,42 @@ fn side(diff: &Diff, hl: Option<&DiffHighlight>, ix: u32, flow: TextFlow, theme:
 /// The virtualized list for a split diff: `[old text | old no · hunk
 /// handle · new no | new text]`, like Desktop. Only the number of the side
 /// that owns a change (deletes left, adds right) is clickable.
+#[allow(clippy::too_many_arguments)]
 pub fn split_list(
     split: Arc<SplitDiff>,
     hl: Option<Arc<DiffHighlight>>,
     select: Option<RowSelect>,
+    exp: Option<Expander>,
+    trailing: bool,
     scroll: &gpui::UniformListScrollHandle,
     wrap: Option<ListState>,
     flow: TextFlow,
     mono: gpui::SharedString,
 ) -> AnyElement {
-    let n = split.rows.len();
+    let n = split.rows.len() + usize::from(trailing);
     let num_w = px(split.gutter_digits as f32 * 7.5 + 16.0);
+    // Header/trailing rows put the expand buttons where the middle gutter is
+    // narrowest to reach: at the left edge, one gutter column wide.
+    let exp_w = number_cell_w(num_w, 1.0, select.is_some()) + px(MARKER_W);
     rows_list("diff-split", n, wrap, scroll, mono, move |ix, theme, cx| {
         let diff = &split.diff;
         let r = select.as_ref().map(|s| s.repo.read(cx));
         let sel = select.as_ref().zip(r);
+        if ix == split.rows.len() {
+            return trailing_row(exp.as_ref(), diff, exp_w, flow, theme);
+        }
         let row = split.rows[ix];
         let base = row_box(flow);
         if row.left == row.right && diff.lines[row.left as usize].kind == DiffLineKind::Hunk {
             let line = &diff.lines[row.left as usize];
+            let h = header_hunk(diff, row.left as usize).unwrap_or(0);
             return base
                 .bg(theme.diff_hunk_bg)
-                .pl(px(20.0))
                 .italic()
                 .text_color(theme.text_faint)
                 .when(ix > 0, |d| d.border_t_1().border_color(theme.border))
-                .child(line.text.clone())
+                .child(Expander::gutter(exp.as_ref(), diff, h, exp_w, theme).border_r_1().border_color(theme.border))
+                .child(div().pl(px(8.0)).child(line.text.clone()))
                 .into_any_element();
         }
         let hl = hl.as_deref();

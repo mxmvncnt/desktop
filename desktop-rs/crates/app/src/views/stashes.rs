@@ -657,7 +657,7 @@ impl Workspace {
                         diff,
                         hl,
                         SharedString::from(format!("stash-diff-{}-{file_key}", stash.sha)),
-                        None,
+                        crate::views::diff::DiffPane::ReadOnly,
                         cx,
                     )),
             )
