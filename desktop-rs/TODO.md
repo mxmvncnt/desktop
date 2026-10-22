@@ -1,0 +1,13 @@
+# To-do
+- settings page
+  - manage identities (git account/providers)
+  - theme:
+    - light/dark/system toggle
+    - multiple color themes
+- sidebar 
+  - make it resizeable
+  - in the commit history view, show author profile picture
+  - in the commit history view, show co-authors
+- commit view
+  - it should be possible to resize the commit message height, and to scroll it
+- select text in the diff view
