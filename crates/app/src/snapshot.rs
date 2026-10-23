@@ -145,6 +145,22 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         }
                     }
                     "stash-list" => {}
+                    "nav-history" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| r.set_tab(Tab::History, cx));
+                        }
+                    }
+                    "nav-stash" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                r.stashes.all_branches = true;
+                                if let Some(s) = r.stashes.list.first().cloned() {
+                                    r.select_stash(s.sha, cx);
+                                }
+                            });
+                        }
+                    }
+                    "nav-changes" => {}
                     "stash-detail" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| {
@@ -300,6 +316,42 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
             });
         })
         .ok();
+    }
+    // `nav-*`: drive the real key actions (↑/↓ handlers) like a keyboard would.
+    if view.starts_with("nav-") {
+        use crate::actions::{SelectNext, SelectPageDown};
+        use crate::workspace::NavList;
+        let press = |cx: &mut gpui::HeadlessAppContext, list: Option<NavList>, page: bool| {
+            cx.update_window(window.into(), |_, window, cx| {
+                let ws = window.root::<Workspace>().flatten().expect("workspace root");
+                ws.update(cx, |ws, cx| {
+                    ws.nav_list = list;
+                    ws.focus(window, cx);
+                });
+                let action: Box<dyn gpui::Action> =
+                    if page { Box::new(SelectPageDown) } else { Box::new(SelectNext) };
+                window.dispatch_action(action, cx);
+            })
+            .ok();
+            for _ in 0..3 {
+                std::thread::sleep(Duration::from_millis(250));
+                cx.run_until_parked();
+            }
+        };
+        match view {
+            "nav-history" => {
+                press(&mut cx, Some(NavList::Commits), false);
+                press(&mut cx, Some(NavList::Commits), false);
+                press(&mut cx, Some(NavList::Commits), false);
+                press(&mut cx, Some(NavList::CommitFiles), false);
+            }
+            "nav-stash" => press(&mut cx, Some(NavList::StashFiles), false),
+            _ => {
+                press(&mut cx, None, false);
+                press(&mut cx, None, false);
+                press(&mut cx, None, false);
+            }
+        }
     }
     // Phase 2: views that need the history list loaded first.
     if view.starts_with("history-") || view == "amend-mode" {

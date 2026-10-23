@@ -2,6 +2,7 @@
 
 use gpui::{Context, InteractiveElement, Stateful, Div, Window};
 
+use super::navigation::{Move, PAGE};
 use super::state::{Popover, Workspace};
 use crate::actions::*;
 use crate::features::merge::MergeMode;
@@ -44,8 +45,12 @@ fn bind_menu_keys(root: Stateful<Div>, cx: &mut Context<Workspace>) -> Stateful<
                 this.menu_confirm(w, cx)
             }
         }))
-        .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.select_step(1, cx)))
-        .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.select_step(-1, cx)))
+        .on_action(cx.listener(|this, _: &SelectNext, w, cx| this.select_move(Move::By(1), w, cx)))
+        .on_action(cx.listener(|this, _: &SelectPrevious, w, cx| this.select_move(Move::By(-1), w, cx)))
+        .on_action(cx.listener(|this, _: &SelectFirst, w, cx| this.select_move(Move::First, w, cx)))
+        .on_action(cx.listener(|this, _: &SelectLast, w, cx| this.select_move(Move::Last, w, cx)))
+        .on_action(cx.listener(|this, _: &SelectPageUp, w, cx| this.select_move(Move::By(-PAGE), w, cx)))
+        .on_action(cx.listener(|this, _: &SelectPageDown, w, cx| this.select_move(Move::By(PAGE), w, cx)))
         .on_action(cx.listener(|this, _: &Dismiss, w, cx| this.dismiss_top_overlay(w, cx)))
 }
 

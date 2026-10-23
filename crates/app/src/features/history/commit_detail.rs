@@ -6,10 +6,9 @@ use gpui::{AnyElement, Context, Entity, IntoElement, SharedString, div, prelude:
 use super::commit_file_list::CommitFileList;
 use super::commit_header::CommitHeader;
 use super::multi_select::MultiSelectPane;
-use crate::actions::LIST;
 use crate::features::diff::{DiffOptionsButton, DiffPane};
 use crate::repo::RepoModel;
-use crate::workspace::Workspace;
+use crate::workspace::{NavList, Workspace, nav_focus};
 
 impl Workspace {
     /// The diff renderer needs `&mut Workspace` (scroll state), so the detail
@@ -30,8 +29,7 @@ impl Workspace {
         let (diff, hl, n_files) = (r.commit_diff.clone(), r.commit_hl.clone(), r.commit_files.len());
         let diff_key = SharedString::from(format!("commit-diff-{}-{file_key}", commit.sha));
         let header = CommitHeader::new(commit, n_files, DiffOptionsButton::new(cx.entity()));
-        let file_list = div()
-            .key_context(LIST)
+        let file_list = nav_focus(div(), NavList::CommitFiles, cx.entity())
             .flex()
             .flex_col()
             .flex_none()

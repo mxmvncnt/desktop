@@ -3,9 +3,8 @@
 use gpui::{App, Entity, IntoElement, RenderOnce, Window, div, prelude::*, px, uniform_list};
 
 use super::stash_row::{STASH_ROW_HEIGHT, StashRow};
-use crate::actions::LIST;
 use crate::repo::RepoModel;
-use crate::workspace::Workspace;
+use crate::workspace::{NavList, Workspace, nav_focus};
 
 /// Rows visible before the panel's list scrolls.
 const MAX_ROWS: usize = 4;
@@ -37,6 +36,7 @@ impl RenderOnce for StashList {
         let n = self.visible.len();
         let st = &self.repo.read(cx).stashes;
         let (scroll, viewing, selected) = (st.list_scroll.clone(), st.viewing, st.selected.clone());
+        let nav_ws = self.ws.clone();
         let Self { repo, ws, visible, current_branch, all_branches } = self;
         let list = uniform_list("stashes", n, move |range, _w, cx| {
             let r = repo.read(cx);
@@ -52,8 +52,7 @@ impl RenderOnce for StashList {
         .track_scroll(&scroll)
         .px(px(6.0))
         .size_full();
-        div()
-            .key_context(LIST)
+        nav_focus(div(), NavList::Stashes, nav_ws)
             .h(px(n.min(MAX_ROWS) as f32 * STASH_ROW_HEIGHT + 4.0))
             .flex_none()
             .child(list)

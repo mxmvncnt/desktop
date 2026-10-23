@@ -4,9 +4,8 @@ use gd_ui::Theme;
 use gpui::{App, Entity, IntoElement, RenderOnce, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list};
 
 use super::commit_row::CommitRow;
-use crate::actions::LIST;
 use crate::repo::RepoModel;
-use crate::workspace::Workspace;
+use crate::workspace::{NavList, Workspace, nav_focus};
 
 /// Load the next page when the visible range gets this close to the end.
 const PAGE_AHEAD: usize = 30;
@@ -31,6 +30,7 @@ impl RenderOnce for CommitList {
             return empty(cx).into_any_element();
         }
         let (repo, ws) = (self.repo, self.ws);
+        let nav_ws = ws.clone();
         let list = uniform_list("history", n, move |range, _w, cx| {
             // Infinite scroll: page in more commits near the end.
             if range.end + PAGE_AHEAD >= n {
@@ -41,7 +41,7 @@ impl RenderOnce for CommitList {
         .track_scroll(&self.scroll)
         .px(px(6.0))
         .flex_1();
-        div().key_context(LIST).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list).into_any_element()
+        nav_focus(div(), NavList::Commits, nav_ws).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list).into_any_element()
     }
 }
 

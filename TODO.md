@@ -18,7 +18,6 @@
   - it should be possible to resize the commit message height, and to scroll it. Currently a long commit message cannot be read entirely.
 - select text in the diff view
 - when doing a squash + merge, there should be a field to enter a commit name in the menu
-- keyboard navigation with arrows: browse through commits, files in commit, stashes, staged files
 - option to preview pull request
 - bundle as flatpak
 - bundle for macos

@@ -61,6 +61,8 @@ pub struct Workspace {
     pub name_input: Entity<EditableTextState>,
     pub url_input: Entity<EditableTextState>,
 
+    /// List that ↑/↓ act on: the one last clicked (None = the tab's main list).
+    pub nav_list: Option<super::navigation::NavList>,
     pub changes_scroll: UniformListScrollHandle,
     pub history_scroll: UniformListScrollHandle,
     pub diff_scroll: UniformListScrollHandle,

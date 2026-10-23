@@ -22,6 +22,10 @@ actions!(
         StashChanges,
         SelectNext,
         SelectPrevious,
+        SelectFirst,
+        SelectLast,
+        SelectPageUp,
+        SelectPageDown,
         Dismiss,
         MenuNext,
         MenuPrevious,
@@ -32,11 +36,8 @@ actions!(
 
 /// Key context set on the workspace root.
 pub const WORKSPACE: &str = "Workspace";
-/// Key context set on keyboard-navigable lists.
 /// Key context added to the workspace root while a menu or dialog is open.
 pub const MENU: &str = "Menu";
-/// Key context set on keyboard-navigable lists.
-pub const LIST: &str = "List";
 
 pub fn bind(cx: &mut App) {
     use crate::platform::{QUIT_KEY, REFRESH_KEY, SECONDARY as M};
@@ -58,8 +59,15 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new(&format!("{M}-shift-s"), StashChanges, ws),
         KeyBinding::new("escape", Dismiss, ws),
         KeyBinding::new(QUIT_KEY, Quit, None),
-        KeyBinding::new("down", SelectNext, Some(LIST)),
-        KeyBinding::new("up", SelectPrevious, Some(LIST)),
+        // Focused text inputs bind these keys themselves (deeper context), so
+        // list navigation never steals them; the handlers also bail out when
+        // an input has focus (PageUp/PageDown are not bound by inputs).
+        KeyBinding::new("down", SelectNext, ws),
+        KeyBinding::new("up", SelectPrevious, ws),
+        KeyBinding::new("home", SelectFirst, ws),
+        KeyBinding::new("end", SelectLast, ws),
+        KeyBinding::new("pageup", SelectPageUp, ws),
+        KeyBinding::new("pagedown", SelectPageDown, ws),
         KeyBinding::new("down", MenuNext, Some(MENU)),
         KeyBinding::new("up", MenuPrevious, Some(MENU)),
         KeyBinding::new("enter", MenuConfirm, Some(MENU)),

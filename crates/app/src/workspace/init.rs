@@ -55,6 +55,7 @@ impl Workspace {
             new_branch_base: None,
             new_branch_base_open: false,
             url_input,
+            nav_list: None,
             changes_scroll: UniformListScrollHandle::new(),
             history_scroll: UniformListScrollHandle::new(),
             diff_scroll: UniformListScrollHandle::new(),

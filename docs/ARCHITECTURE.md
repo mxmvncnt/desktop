@@ -131,6 +131,12 @@ guessing APIs. To recreate them:
   `impl Workspace` only where `&mut Workspace` is needed. Rows in lists hold
   `Entity<RepoModel>` clones and call `update` in click handlers.
 
+### List keyboard navigation (`workspace/navigation.rs`)
+
+- ↑/↓/Home/End/PageUp/PageDown are bound in the `Workspace` context (`SelectNext/Previous/First/Last/PageUp/PageDown`); `MENU` bindings are defined later so overlays win. Focused text inputs bind ↑/↓/Home/End themselves and `select_move` returns when something other than the root has focus, so typing is unaffected.
+- Target = `Workspace.nav_list` (`NavList`: Changes, Commits, CommitFiles, Stashes, StashFiles), set by `nav_focus(div, list, ws)` (capture mouse-down on each list container; also refocuses the root). Falls back to the tab's main list. Selection goes through the normal `select_*` methods (background diff load + generation counters = latest wins) and `scroll_to_item`.
+- Snapshot views `nav-history`, `nav-stash`, `nav-changes` dispatch the real actions.
+
 ### Menus, dialogs, undo (`features/menus`)
 
 - `Workspace.menu` / `Workspace.dialog` hold the open state. While either is open the root gets key

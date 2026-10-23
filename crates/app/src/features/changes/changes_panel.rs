@@ -3,7 +3,7 @@
 
 use gd_ui::divider;
 use gpui::{
-    App, Context, Entity, IntoElement, InteractiveElement, ParentElement, RenderOnce, Styled, Window, div, px,
+    App, Context, Entity, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px,
 };
 
 use super::changes_header::ChangesHeader;
@@ -11,15 +11,15 @@ use super::changes_list::ChangesList;
 use super::commit_box::CommitBox;
 use super::state::{CommitButton, SelectionSummary};
 use super::undo_strip::UndoStrip;
-use crate::actions::LIST;
 use crate::features::stashes::StashPanel;
 use crate::repo::{LastCommit, RepoModel};
-use crate::workspace::Workspace;
+use crate::workspace::{NavList, Workspace, nav_focus};
 
 #[derive(IntoElement)]
 pub struct ChangesPanel {
     header: ChangesHeader,
     list: ChangesList,
+    ws: Entity<Workspace>,
     stashes: Option<StashPanel>,
     undo: Option<UndoStrip>,
     commit_box: CommitBox,
@@ -37,6 +37,7 @@ impl ChangesPanel {
         Self {
             header: ChangesHeader::new(selection, repo.clone(), ws_entity.clone()),
             list: ChangesList::new(selection.total, repo.clone(), ws_entity.clone(), ws.changes_scroll.clone()),
+            ws: ws_entity.clone(),
             stashes: StashPanel::new(repo, ws_entity.clone(), cx),
             undo: last.map(|c| UndoStrip::new(c, ws_entity.clone())),
             commit_box: CommitBox::new(button, ws.summary.clone(), ws.description.clone(), ws_entity),
@@ -53,7 +54,7 @@ impl RenderOnce for ChangesPanel {
             .min_h_0()
             .child(self.header)
             .child(divider(cx))
-            .child(div().key_context(LIST).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(self.list))
+            .child(nav_focus(div(), NavList::Changes, self.ws).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(self.list))
             .children(self.stashes)
             .children(self.undo)
             .child(self.commit_box)

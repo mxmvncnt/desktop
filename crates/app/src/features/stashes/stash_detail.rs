@@ -5,10 +5,9 @@ use gpui::{AnyElement, Context, Entity, IntoElement, SharedString, div, prelude:
 
 use super::stash_file_list::StashFileList;
 use super::stash_header::StashHeader;
-use crate::actions::LIST;
 use crate::repo::RepoModel;
 use crate::features::diff::DiffPane;
-use crate::workspace::Workspace;
+use crate::workspace::{NavList, Workspace, nav_focus};
 
 impl Workspace {
     /// The diff renderer needs `&mut Workspace` (scroll state), so the detail
@@ -24,8 +23,7 @@ impl Workspace {
         let (diff, hl, n_files) = (st.diff.clone(), st.hl.clone(), st.files.len());
         let diff_key = SharedString::from(format!("stash-diff-{}-{file_key}", stash.sha));
         let header = StashHeader::new(stash, n_files, here, repo.clone(), cx.entity());
-        let file_list = div()
-            .key_context(LIST)
+        let file_list = nav_focus(div(), NavList::StashFiles, cx.entity())
             .flex()
             .flex_col()
             .flex_none()

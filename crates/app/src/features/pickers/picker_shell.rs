@@ -1,7 +1,7 @@
 //! Frame shared by the repository and branch pickers: title, filter input,
 //! list (or "No matches"), footer. Owns the keyboard routing: the focused
 //! filter input turns up/down into NavUp/NavDown, so those are captured here
-//! too (the LIST-context bindings never reach a focused input).
+//! too (the workspace-level list bindings never reach a focused input).
 
 use gd_ui::{Theme, divider};
 use gpui::{

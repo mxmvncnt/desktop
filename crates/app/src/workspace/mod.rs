@@ -20,4 +20,5 @@ mod repo_commands;
 mod repos;
 mod state;
 
+pub use navigation::{NavList, nav_focus};
 pub use state::{Popover, Workspace};
