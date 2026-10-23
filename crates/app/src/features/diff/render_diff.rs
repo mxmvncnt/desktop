@@ -19,7 +19,6 @@ use super::state::DiffSelectUi;
 use super::text_flow::{MARKER_W, TextFlow};
 use super::text_select::TextSelect;
 use super::unified_list::UnifiedList;
-use crate::shared::overscroll::ScrollProbe;
 use crate::workspace::Workspace;
 
 impl Workspace {
@@ -57,7 +56,6 @@ impl Workspace {
         let truncated = diff.truncated;
         let mono = theme.font_mono.clone();
         let scroll = self.diff_scroll.clone();
-        let probe = wrap_list.clone().map_or_else(|| ScrollProbe::from(&scroll), ScrollProbe::from);
         let tsel = TextSelect { ws: cx.entity(), sel: self.diff_view.text_sel, color: theme.selection };
         let list = match split {
             Some(split) => {
@@ -71,7 +69,7 @@ impl Workspace {
                     .into_any_element()
             }
         };
-        DiffFrame { key, list, probe, truncated, flow, note: note.map(IntoElement::into_any_element), ws: cx.entity() }.into_any_element()
+        DiffFrame { key, list, truncated, flow, note: note.map(IntoElement::into_any_element), ws: cx.entity() }.into_any_element()
     }
 
     /// New file/commit selected: start at the top-left. A reload of the same

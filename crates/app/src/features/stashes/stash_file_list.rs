@@ -2,7 +2,6 @@
 
 use gpui::{App, Entity, IntoElement, RenderOnce, Window, prelude::*, px, uniform_list};
 
-use crate::shared::overscroll::{Overscroll, ScrollProbe};
 use crate::repo::RepoModel;
 use crate::shared::file_change_row::FileChangeRow;
 
@@ -22,8 +21,7 @@ impl RenderOnce for StashFileList {
         let st = &self.repo.read(cx).stashes;
         let (n, scroll) = (st.files.len(), st.files_scroll.clone());
         let repo = self.repo;
-        let probe = ScrollProbe::from(&scroll);
-        let list = uniform_list("stash-files", n, move |range, _w, cx| {
+        uniform_list("stash-files", n, move |range, _w, cx| {
             let st = &repo.read(cx).stashes;
             range
                 .filter_map(|ix| {
@@ -36,7 +34,6 @@ impl RenderOnce for StashFileList {
         })
         .track_scroll(&scroll)
         .px(px(6.0))
-        .flex_1();
-        Overscroll::new("stash-files-overscroll", probe, list)
+        .flex_1()
     }
 }

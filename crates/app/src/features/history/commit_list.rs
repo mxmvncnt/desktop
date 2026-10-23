@@ -4,7 +4,6 @@ use gd_ui::Theme;
 use gpui::{App, Entity, IntoElement, RenderOnce, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list};
 
 use super::commit_row::CommitRow;
-use crate::shared::overscroll::{Overscroll, ScrollProbe};
 use crate::repo::RepoModel;
 use crate::workspace::{NavList, Workspace, nav_focus};
 
@@ -32,7 +31,6 @@ impl RenderOnce for CommitList {
         }
         let (repo, ws) = (self.repo, self.ws);
         let nav_ws = ws.clone();
-        let probe = ScrollProbe::from(&self.scroll);
         let list = uniform_list("history", n, move |range, _w, cx| {
             // Infinite scroll: page in more commits near the end.
             if range.end + PAGE_AHEAD >= n {
@@ -43,7 +41,7 @@ impl RenderOnce for CommitList {
         .track_scroll(&self.scroll)
         .px(px(6.0))
         .flex_1();
-        nav_focus(div(), NavList::Commits, nav_ws).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(Overscroll::new("history-overscroll", probe, list)).into_any_element()
+        nav_focus(div(), NavList::Commits, nav_ws).flex().flex_col().flex_1().min_h_0().py(px(4.0)).child(list).into_any_element()
     }
 }
 

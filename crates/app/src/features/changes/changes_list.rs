@@ -8,7 +8,6 @@ use gpui::{
 
 use super::change_row::change_row;
 use crate::repo::RepoModel;
-use crate::shared::overscroll::{Overscroll, ScrollProbe};
 use crate::workspace::Workspace;
 
 #[derive(IntoElement)]
@@ -40,15 +39,14 @@ impl RenderOnce for ChangesList {
                 .into_any_element();
         }
         let (repo, ws) = (self.repo, self.ws);
-        let probe = ScrollProbe::from(&self.scroll);
-        let list = uniform_list("changes", self.count, move |range, _window, cx| {
+        uniform_list("changes", self.count, move |range, _window, cx| {
             let r = repo.read(cx);
             let rows: Vec<_> = range.filter_map(|ix| Some((ix, r.changes().get(ix)?.clone()))).collect();
             rows.into_iter().map(|(ix, change)| change_row(ix, change, &repo, &ws, cx)).collect()
         })
         .track_scroll(&self.scroll)
         .px(px(6.0))
-        .flex_1();
-        Overscroll::new("changes-overscroll", probe, list).into_any_element()
+        .flex_1()
+        .into_any_element()
     }
 }

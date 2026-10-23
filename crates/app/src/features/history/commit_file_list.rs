@@ -2,7 +2,6 @@
 
 use gpui::{App, Entity, IntoElement, RenderOnce, UniformListScrollHandle, Window, prelude::*, px, uniform_list};
 
-use crate::shared::overscroll::{Overscroll, ScrollProbe};
 use crate::repo::RepoModel;
 use crate::shared::file_change_row::FileChangeRow;
 
@@ -22,8 +21,7 @@ impl RenderOnce for CommitFileList {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let n = self.repo.read(cx).commit_files.len();
         let repo = self.repo;
-        let probe = ScrollProbe::from(&self.scroll);
-        let list = uniform_list("commit-files", n, move |range, _w, cx| {
+        uniform_list("commit-files", n, move |range, _w, cx| {
             let r = repo.read(cx);
             range
                 .filter_map(|ix| {
@@ -36,7 +34,6 @@ impl RenderOnce for CommitFileList {
         })
         .track_scroll(&self.scroll)
         .px(px(6.0))
-        .flex_1();
-        Overscroll::new("commit-files-overscroll", probe, list)
+        .flex_1()
     }
 }
