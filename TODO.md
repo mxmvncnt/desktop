@@ -3,23 +3,23 @@
 - settings page
   - manage identities (git account/providers)
   - theme:
-    - multiple color themes
+    - multiple color themes (inspired from Nord, Tokio, Vscode, etc. add a few)
 - overscroll bounce
 - make the code cleaner for humans
   - debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
   - add documentations for humans
 - sidebar
   - make it resizeable
-  - in the commit history view, show author profile picture
-  - in the commit history view, show co-authors
+  - in the commit history view, show co-authors directly in the commit
   - default commit name on single file changes: {Create,Delete,Update} <file_name>
     - have nothing in the actual input box, but allow creating the commit with that name anyways.
     - Display this pre-made default name as the commit name hint
 - commit view
-  - it should be possible to resize the commit message height, and to scroll it
+  - it should be possible to resize the commit message height, and to scroll it. Currently a long commit message cannot be read entirely.
 - select text in the diff view
+- when doing a squash + merge, there should be a field to enter a commit name in the menu
 - keyboard navigation with arrows: browse through commits, files in commit, stashes, staged files
-- option to create a branch from a certain branch (ex: create branch x from staging)
+- option to create a branch from a certain branch (ex: create branch x from staging) while keeping the option for creating the branch from the current one
 - option to preview pull request
 - bundle as flatpak
 - bundle for macos
