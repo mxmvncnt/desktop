@@ -492,7 +492,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
 
 /// History views: `history-menu`, `history-menu-head`, `history-multiselect`,
 /// `history-squash`, `history-reset`, `history-cherry`, `history-tag`,
-/// `history-checkout`, `amend-mode`.
+/// `history-checkout`, `history-msg-tall`, `amend-mode`.
 fn history_phase2(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx: &mut gpui::Context<Workspace>) {
     use crate::features::history::{ClickKind, HistoryAction as HAction};
     let Some(repo) = ws.repo.clone() else { return };
@@ -504,6 +504,10 @@ fn history_phase2(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx:
         })
     };
     match view {
+        "history-msg-tall" => {
+            ws.commit_msg.height = Some(330.0);
+            cx.notify();
+        }
         "history-menu" => ws.open_commit_menu(2, at, window, cx),
         "history-menu-head" => ws.open_commit_menu(0, at, window, cx),
         "history-menu-pushed" => ws.open_commit_menu(6, at, window, cx),

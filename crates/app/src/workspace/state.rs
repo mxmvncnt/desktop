@@ -74,6 +74,8 @@ pub struct Workspace {
     pub diff_view: DiffView,
     pub diff_select: DiffSelectUi,
     pub commit_files_scroll: UniformListScrollHandle,
+    /// Height of the selected commit's message area (history header).
+    pub commit_msg: crate::features::history::MessageResize,
     pub popover_scroll: UniformListScrollHandle,
 
     pub(super) focus: FocusHandle,

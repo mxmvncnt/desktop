@@ -8,7 +8,6 @@
   - add documentations for humans
 - sidebar
 - commit view
-  - it should be possible to resize the commit message height, and to scroll it. Currently a long commit message cannot be read entirely.
 - bundle as flatpak
 - bundle for macos
 - bugs/wonky behaviour:

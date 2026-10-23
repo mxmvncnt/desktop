@@ -28,7 +28,7 @@ impl Workspace {
             .unwrap_or_default();
         let (diff, hl, n_files) = (r.commit_diff.clone(), r.commit_hl.clone(), r.commit_files.len());
         let diff_key = SharedString::from(format!("commit-diff-{}-{file_key}", commit.sha));
-        let header = CommitHeader::new(commit, n_files, DiffOptionsButton::new(cx.entity()));
+        let header = CommitHeader::new(commit, n_files, DiffOptionsButton::new(cx.entity()), self.commit_msg.height, cx.entity());
         let file_list = nav_focus(div(), NavList::CommitFiles, cx.entity())
             .flex()
             .flex_col()
