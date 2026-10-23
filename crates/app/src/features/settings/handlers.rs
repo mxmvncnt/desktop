@@ -10,11 +10,17 @@ use crate::workspace::Workspace;
 impl Workspace {
     pub fn toggle_settings(&mut self, cx: &mut Context<Self>) {
         self.settings_open = !self.settings_open;
+        if self.settings_open && self.settings_page == SettingsPage::Accounts {
+            self.load_identity(cx);
+        }
         cx.notify();
     }
 
     pub(super) fn set_settings_page(&mut self, page: SettingsPage, cx: &mut Context<Self>) {
         self.settings_page = page;
+        if page == SettingsPage::Accounts {
+            self.load_identity(cx);
+        }
         cx.notify();
     }
 

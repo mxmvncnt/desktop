@@ -102,6 +102,9 @@ impl Git {
         }
         if self.network {
             cmd.env("GIT_TERMINAL_PROMPT", "0");
+            for (k, v) in crate::credentials::env() {
+                cmd.env(k, v);
+            }
         }
         cmd.stdin(if self.stdin.is_some() {
             Stdio::piped()

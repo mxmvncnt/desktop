@@ -1,6 +1,7 @@
 use gpui::{Entity, FocusHandle, Pixels, Point, SharedString, Subscription, Task, UniformListScrollHandle};
 use gpui_elements::editable_text::EditableTextState;
 
+use crate::features::accounts::AccountsUi;
 use crate::features::branches::BranchUi;
 use crate::features::diff::{DiffSelectUi, DiffView};
 use crate::features::history::HistoryUi;
@@ -25,6 +26,8 @@ pub struct Workspace {
     /// Settings modal (features/settings/).
     pub settings_open: bool,
     pub settings_page: SettingsPage,
+    /// Git identity + provider accounts (features/accounts).
+    pub accounts_ui: AccountsUi,
     pub repo: Option<Entity<RepoModel>>,
     pub popover: Option<Popover>,
     /// Bumped on every popover open so its entrance animation replays.

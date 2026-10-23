@@ -9,6 +9,18 @@
 - Idle is still zero renders (`GD_DEBUG_FRAMES=1`). RSS is ~67 MB (release, small repo).
 - Still untested by hand: everything interactive in the new menus and dialogs.
 
+## Accounts settings page (feat/identities)
+
+- [x] Settings -> Accounts (`features/accounts/`): global `user.name/email` (git config via `gd-git/identity.rs`, background),
+      per-repo override for the open repo with "in effect" line, provider accounts (GitHub, Enterprise, GitLab, Bitbucket, Generic)
+      add/edit/remove. Metadata in `<config>/accounts`, tokens in `<config>/tokens` (0600). No keyring crate: its D-Bus tree is
+      heavy and fails headless; tokens are plain text protected by file mode only. Token input is not masked (gpui-ce
+      `text_input` has no masking) and tokens are not validated online (no HTTP client dependency).
+- [x] Credentials wired: `gd_git::set_credentials` registers tokens; every `.network()` git command gets per-host
+      `credential.https://<host>.helper` via `GIT_CONFIG_COUNT/KEY/VALUE` env (secret only in the child env). HTTPS only; SSH untouched.
+- Verify: `cargo run -p gd-git --example identity_smoke -- /tmp/desktop-rs/identity` (uses scratch `GIT_CONFIG_GLOBAL`);
+  snapshot views `settings-accounts[-light|-form|-edit|-norepo]`.
+
 ## Settings modal + light/dark/system theme (2026-10-21)
 
 - [x] Settings modal (`features/settings/`): two panes, a category sidebar (Appearance, Diff) and the selected page

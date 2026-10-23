@@ -9,11 +9,13 @@
 //! - Machine-readable formats only (`status --porcelain=v2 -z`, NUL-separated
 //!   `log` formats) so parsing is cheap and locale-independent.
 
+mod credentials;
 mod diff;
 pub mod engine;
 mod exec;
 mod expand;
 mod history_ops;
+mod identity;
 mod log;
 mod merge;
 mod partial;
@@ -22,6 +24,14 @@ mod progress;
 mod refs;
 mod stash;
 mod status;
+
+pub use credentials::{HostCredential, set_credentials};
+pub use identity::{EffectiveIdentity, Identity, IdentitySource, global_identity, set_global_identity};
+
+#[doc(hidden)]
+pub fn credential_env_for_tests() -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    credentials::env()
+}
 
 pub use diff::{Side, Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;

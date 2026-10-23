@@ -5,15 +5,17 @@ pub enum SettingsPage {
     #[default]
     Appearance,
     Diff,
+    Accounts,
 }
 
 impl SettingsPage {
-    pub const ALL: [SettingsPage; 2] = [Self::Appearance, Self::Diff];
+    pub const ALL: [SettingsPage; 3] = [Self::Appearance, Self::Diff, Self::Accounts];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Appearance => "Appearance",
             Self::Diff => "Diff",
+            Self::Accounts => "Accounts",
         }
     }
 
@@ -21,6 +23,7 @@ impl SettingsPage {
         match self {
             Self::Appearance => Icon::Eye,
             Self::Diff => Icon::Tuning,
+            Self::Accounts => Icon::Globe,
         }
     }
 }

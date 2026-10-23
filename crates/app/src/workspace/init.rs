@@ -7,6 +7,7 @@ use gpui::{App, AppContext, Context, Entity, Focusable, Subscription, UniformLis
 use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged};
 
 use super::state::Workspace;
+use crate::features::accounts::AccountsUi;
 use crate::features::branches::BranchUi;
 use crate::features::changes::follow_caret;
 use crate::features::history::HistoryUi;
@@ -37,6 +38,7 @@ impl Workspace {
             sidebar_width_dirty: false,
             settings_open: false,
             settings_page: Default::default(),
+            accounts_ui: AccountsUi::new(cx),
             repo: None,
             popover: None,
             popover_gen: 0,

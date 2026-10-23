@@ -15,7 +15,7 @@
 //! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `pr-preview`, `pr-preview-menu`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
-//! `rename-dialog`, `expanded`/`expanded-split` (hunk expansion), `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
+//! `settings-accounts`/`-light`/`-form`/`-edit` (Accounts settings, sample data), `rename-dialog`, `expanded`/`expanded-split` (hunk expansion), `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
 //! plain `changes` then shows the banner), `icons` (icon-rendering sanity check, repo arg ignored).
 
 use std::path::PathBuf;
@@ -62,7 +62,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
         watch_check(&mut cx, repo.expect("watch <repo>"));
         return;
     }
-    let repo = if view == "welcome" { None } else { repo };
+    let repo = if view == "welcome" || view.ends_with("-norepo") { None } else { repo };
     let window = cx
         .open_window(size(px(1280.0), px(820.0)), |window, cx| {
             cx.new(|cx| Workspace::new(repo, window, cx))
@@ -149,6 +149,10 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         if view == "settings-diff" {
                             ws.settings_page = crate::features::settings::SettingsPage::Diff;
                         }
+                    }
+                    // Accounts settings with sample data, set directly (nothing is read or written).
+                    "settings-accounts" | "settings-accounts-norepo" | "settings-accounts-light" | "settings-accounts-form" | "settings-accounts-edit" => {
+                        accounts_sample(ws, view, window, cx);
                     }
                     "repos" => ws.toggle_popover(Popover::Repositories, window, cx),
                     "branches" => ws.toggle_popover(Popover::Branches, window, cx),
@@ -634,4 +638,58 @@ fn watch_check(cx: &mut HeadlessAppContext, repo: PathBuf) {
     settle(cx, 2500);
     assert_eq!(c4, count(cx), "refresh feedback loop after changes");
     println!("watch check OK (total refreshes {})", count(cx));
+}
+
+fn accounts_sample(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx: &mut gpui::Context<Workspace>) {
+    use crate::features::accounts::{Account, AccountForm, Provider, StatusLine};
+    use crate::features::settings::{SettingsPage, ThemeMode};
+    ws.settings.theme = if view.ends_with("light") { ThemeMode::Light } else { ThemeMode::Dark };
+    ws.apply_theme(window, cx);
+    if view.ends_with("-norepo") {
+        ws.repo = None;
+    }
+    ws.settings_open = true;
+    ws.settings_page = SettingsPage::Accounts;
+    let acct = |id: &str, provider, name: &str, host: &str, user: &str, token: &str| Account {
+        id: id.into(),
+        provider,
+        name: name.into(),
+        host: host.into(),
+        username: user.into(),
+        token: token.into(),
+    };
+    let ui = &mut ws.accounts_ui;
+    ui.accounts = vec![
+        acct("1", Provider::GitHub, "Personal", "github.com", "octocat", "ghp_x"),
+        acct("2", Provider::GitHubEnterprise, "Work", "github.corp.example.com", "mvincent", "ghp_y"),
+        acct("3", Provider::GitLab, "GitLab", "gitlab.com", "", ""),
+    ];
+    let set = |input: &gpui::Entity<gpui_elements::editable_text::EditableTextState>, t: &str, cx: &mut gpui::Context<Workspace>| {
+        input.update(cx, |s, cx| s.emplace(t, cx))
+    };
+    let inp = ui.inputs.clone();
+    set(&inp.global_name, "Maxime Vincent", cx);
+    set(&inp.global_email, "maxime@example.com", cx);
+    set(&inp.local_name, "Max (work)", cx);
+    set(&inp.local_email, "max@corp.example.com", cx);
+    let ui = &mut ws.accounts_ui;
+    let global = gd_git::Identity { name: "Maxime Vincent".into(), email: "maxime@example.com".into() };
+    let local = gd_git::Identity { name: "Max (work)".into(), email: "max@corp.example.com".into() };
+    ui.identity.global = global;
+    ui.identity.effective = Some(gd_git::EffectiveIdentity { identity: local.clone(), source: gd_git::IdentitySource::Repository });
+    ui.identity.local = local;
+    ui.identity.message = Some(StatusLine::ok("Saved to your global git config"));
+    if view.ends_with("form") || view.ends_with("edit") {
+        let editing = view.ends_with("edit");
+        set(&inp.display_name, if editing { "Work" } else { "" }, cx);
+        set(&inp.host, if editing { "github.corp.example.com" } else { "github.com" }, cx);
+        set(&inp.username, if editing { "mvincent" } else { "" }, cx);
+        ws.accounts_ui.form = Some(AccountForm {
+            editing: editing.then(|| "2".to_string()),
+            provider: if editing { Provider::GitHubEnterprise } else { Provider::GitHub },
+            has_token: editing,
+            error: None,
+        });
+    }
+    cx.notify();
 }

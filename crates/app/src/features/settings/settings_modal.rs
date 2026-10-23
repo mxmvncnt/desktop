@@ -7,6 +7,7 @@ use gpui::{
     Styled, Window, deferred, div, px,
 };
 
+use crate::features::accounts::AccountsPage;
 use super::appearance_page::AppearancePage;
 use super::diff_page::{DiffOptionValues, DiffPage};
 use super::settings_nav::SettingsNav;
@@ -19,6 +20,7 @@ pub struct SettingsModal {
     theme: ThemeMode,
     color_theme: String,
     diff: DiffOptionValues,
+    accounts: Option<AccountsPage>,
     ws: Entity<Workspace>,
 }
 
@@ -35,18 +37,23 @@ impl SettingsModal {
                 wrap: s.diff_wrap,
                 hide_whitespace: s.diff_ignore_whitespace,
             },
+            accounts: (ws.settings_page == SettingsPage::Accounts).then(|| {
+                let repo_name = ws.repo.as_ref().map(|r| r.read(cx).repo.name());
+                AccountsPage::new(&ws.accounts_ui, repo_name, cx.entity())
+            }),
             ws: cx.entity(),
         })
     }
 
-    fn body(&self) -> AnyElement {
+    fn body(self) -> AnyElement {
         match self.page {
             SettingsPage::Appearance => AppearancePage::new(self.theme, self.color_theme.clone(), self.ws.clone()).into_any_element(),
             SettingsPage::Diff => DiffPage::new(self.diff, self.ws.clone()).into_any_element(),
+            SettingsPage::Accounts => self.accounts.map_or_else(|| div().into_any_element(), IntoElement::into_any_element),
         }
     }
 
-    fn title_bar(&self) -> impl IntoElement {
+    fn title_bar(&self) -> impl IntoElement + use<> {
         let ws = self.ws.clone();
         div()
             .flex()
@@ -64,23 +71,25 @@ impl SettingsModal {
             )
     }
 
-    fn card(&self, cx: &mut App) -> gpui::Stateful<gpui::Div> {
+    fn card(self, cx: &mut App) -> gpui::Stateful<gpui::Div> {
+        let (nav, title) = (SettingsNav::new(self.page, self.ws.clone()), self.title_bar());
+        let body = self.body();
         overlay_card(cx)
             .id("settings-card")
             .occlude()
-            .w(px(700.0))
-            .h(px(440.0))
+            .w(px(740.0))
+            .h(px(560.0))
             .flex()
-            .child(SettingsNav::new(self.page, self.ws.clone()))
+            .child(nav)
             .child(
                 div()
                     .flex_1()
                     .min_w_0()
                     .flex()
                     .flex_col()
-                    .child(self.title_bar())
+                    .child(title)
                     .child(divider(cx))
-                    .child(div().flex_1().min_h_0().p(px(24.0)).child(self.body())),
+                    .child(div().flex_1().min_h_0().p(px(24.0)).child(body)),
             )
     }
 }

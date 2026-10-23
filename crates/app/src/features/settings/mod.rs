@@ -9,6 +9,6 @@ mod settings_modal;
 mod settings_nav;
 mod state;
 
-pub use model::{Settings, ThemeMode};
+pub use model::{Settings, ThemeMode, config_dir};
 pub use settings_modal::SettingsModal;
 pub use state::SettingsPage;
