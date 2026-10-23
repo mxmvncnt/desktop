@@ -27,7 +27,7 @@ pub use diff::{Side, Diff, DiffHunk, DiffLine, DiffLineKind, DiffOptions};
 pub use exec::GitError;
 pub use expand::{EXPANSION_STEP, Expansion, expand, expandable, gap_above, gap_below};
 pub use history_ops::{ResetMode, github_web_url};
-pub use log::{Commit, CommitFile};
+pub use log::{CoAuthor, Commit, CommitFile, parse_co_authors};
 pub use merge::{MergePreview, default_squash_summary};
 pub use partial::{PartialFile, selectable, staged_text};
 pub use pr_preview::{Comparison, Host, compare_url, host_of};

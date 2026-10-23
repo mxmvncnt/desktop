@@ -4,6 +4,7 @@ use gd_git::Commit;
 use gd_ui::{Icon, Theme, icon};
 use gpui::{AnyElement, App, FontWeight, IntoElement, RenderOnce, Window, div, prelude::*, px};
 
+use crate::shared::commit_authors::{authors_text, body_without_trailers};
 use crate::shared::relative_time::relative_time;
 use crate::shared::plural::plural;
 
@@ -24,7 +25,7 @@ impl CommitHeader {
 impl RenderOnce for CommitHeader {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
-        let body = self.commit.body.clone();
+        let body = body_without_trailers(&self.commit.body);
         let meta = self.meta_line(&theme);
         div()
             .flex()
@@ -75,7 +76,7 @@ impl CommitHeader {
             .gap(px(14.0))
             .text_size(px(12.0))
             .text_color(theme.text_faint)
-            .child(c.author_name.clone())
+            .child(div().min_w_0().truncate().child(authors_text(c)))
             .child(
                 div()
                     .flex()

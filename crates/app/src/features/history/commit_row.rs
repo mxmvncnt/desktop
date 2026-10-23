@@ -6,6 +6,7 @@ use gpui::{App, Entity, IntoElement, MouseButton, RenderOnce, Window, div, prelu
 
 use super::state::ClickKind;
 use crate::repo::RepoModel;
+use crate::shared::commit_authors::authors_text;
 use crate::shared::relative_time::relative_time;
 use crate::workspace::Workspace;
 
@@ -61,7 +62,7 @@ impl RenderOnce for CommitRow {
                     .truncate()
                     .text_size(px(11.5))
                     .text_color(theme.text_faint)
-                    .child(format!("{} • {}", self.commit.author_name, relative_time(self.commit.time))),
+                    .child(format!("{} • {}", authors_text(&self.commit), relative_time(self.commit.time))),
             )
             .on_mouse_down(MouseButton::Right, move |e, w, cx| {
                 let pos = e.position;

@@ -84,6 +84,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
   - Committing keeps the selection (no empty frame): the status refresh moves it to the file now at the same row and the old diff stays until the new one loads.
 - ✅ Virtualized diff with gutters, hunk headers, add/del washes, truncation notice.
 - ✅ History: infinite-scroll commit list, commit header, file list, diff.
+  Co-authors: `gd_git::parse_co_authors` fills `Commit::co_authors` while loading the log (off-thread); rows and header show "A and B" (`shared/commit_authors.rs`), trailers hidden from the header body.
 - ✅ Repository picker: filter, ↑/↓/Enter, remove (hover ×), add existing (folder dialog), clone.
 - ✅ Branch picker: filter, local + remote (deduped), ↑/↓/Enter checkout, new branch (sanitized name).
 - ✅ No-changes view (push/pull/open-folder suggestions), welcome screen.

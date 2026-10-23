@@ -7,7 +7,6 @@
   - debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
   - add documentations for humans
 - sidebar
-  - in the commit history view, show co-authors directly in the commit
 - commit view
   - it should be possible to resize the commit message height, and to scroll it. Currently a long commit message cannot be read entirely.
 - bundle as flatpak
