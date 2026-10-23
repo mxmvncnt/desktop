@@ -178,3 +178,5 @@ echo changed >> file1.txt; sed -i 's/hello/goodbye/' src/mod2/main.rs; echo new 
   - Move `select_change` and the other `RepoModel` selection methods into `features/changes/ops.rs` / `features/history`
     by widening the diff loader's visibility.
   - `RepoModel::new` still lists every field; group them into sub-structs (`DiffState`, `HistoryLog`, `RefreshState`).
+
+- ✅ Resizable sidebar: 6px drag handle on its right edge (`features/changes/sidebar_handle.rs`, `resize.rs`), clamped 220..520, double-click resets to 300, persisted as `sidebar_width` in the `display` file. Snapshot view `sidebar-wide`.

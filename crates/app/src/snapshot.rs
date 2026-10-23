@@ -12,7 +12,7 @@
 //! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
 //! `header-menu`, `discard-dialog`, `split`, `split-history`, `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
-//! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
+//! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
 //! `rename-dialog`, `expanded`/`expanded-split` (hunk expansion), `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
@@ -143,6 +143,10 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             ws.dialog = Some(crate::features::menus::ConfirmDialog::DiscardFile(c));
                             cx.notify();
                         }
+                    }
+                    "sidebar-wide" => {
+                        ws.settings.sidebar_width = Some(420.0);
+                        cx.notify();
                     }
                     "stash-list" => {}
                     "nav-history" => {

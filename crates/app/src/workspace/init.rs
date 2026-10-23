@@ -32,6 +32,7 @@ impl Workspace {
 
         let mut this = Self {
             settings: Settings::load(),
+            sidebar_width_dirty: false,
             settings_open: false,
             settings_page: Default::default(),
             repo: None,

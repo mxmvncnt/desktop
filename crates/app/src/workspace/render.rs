@@ -3,14 +3,14 @@
 
 use gd_ui::Theme;
 use gpui::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Render, Styled, Window,
+    AnyElement, Context, DragMoveEvent, MouseButton, InteractiveElement, IntoElement, ParentElement, Render, Styled, Window,
     div, px,
 };
 
 use super::{actions, state::Workspace};
 use crate::actions::WORKSPACE;
 use crate::features::branches::{BranchDialogView, BranchMenuView};
-use crate::features::changes::Sidebar;
+use crate::features::changes::{Sidebar, SidebarResize};
 use crate::features::diff::DiffOptionsMenu;
 use crate::features::history::{CommitMenuView, HistoryDialogView};
 use crate::features::menus::{ContextMenuView, DiscardDialogView};
@@ -39,6 +39,10 @@ impl Render for Workspace {
         let root = div()
             .id("workspace")
             .on_mouse_move(|_, _, _| crate::frame_debug::on_input())
+            .on_drag_move(cx.listener(|this, e: &DragMoveEvent<SidebarResize>, _, cx| {
+                this.drag_sidebar_to(e.event.position.x.as_f32(), cx)
+            }))
+            .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _, _| this.finish_sidebar_drag()))
             .key_context(if self.overlay_open() { "Workspace Menu" } else { WORKSPACE })
             .track_focus(&self.focus);
         let root = actions::bind(root, cx)

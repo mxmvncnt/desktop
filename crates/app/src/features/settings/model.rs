@@ -12,7 +12,7 @@
 //! unknown keys ignored), so the `repositories` format is untouched and files
 //! written by older builds keep loading: `diff_split=true|false`,
 //! `diff_ignore_whitespace=true|false`, `diff_wrap=true|false`,
-//! `theme=system|light|dark`.
+//! `theme=system|light|dark`, `sidebar_width=<px>`.
 
 use std::path::PathBuf;
 
@@ -82,6 +82,8 @@ pub struct Settings {
     /// Wrap long diff lines instead of scrolling horizontally.
     pub diff_wrap: bool,
     pub theme: ThemeMode,
+    /// Sidebar width in px; `None` = default (`gd_ui::theme::SIDEBAR_WIDTH`).
+    pub sidebar_width: Option<f32>,
 }
 
 impl Settings {
@@ -107,6 +109,7 @@ impl Settings {
                 "diff_split" => self.diff_split = flag,
                 "diff_ignore_whitespace" => self.diff_ignore_whitespace = flag,
                 "diff_wrap" => self.diff_wrap = flag,
+                "sidebar_width" => self.sidebar_width = v.trim().parse().ok(),
                 _ => {}
             }
         }
@@ -128,8 +131,12 @@ impl Settings {
 
     fn display_text(&self) -> String {
         format!(
-            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n",
-            self.diff_split, self.diff_ignore_whitespace, self.diff_wrap, self.theme
+            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n{}",
+            self.diff_split,
+            self.diff_ignore_whitespace,
+            self.diff_wrap,
+            self.theme,
+            self.sidebar_width.map(|w| format!("sidebar_width={w}\n")).unwrap_or_default()
         )
     }
 
@@ -176,5 +183,9 @@ mod tests {
         let mut u = Settings::default();
         u.apply_display("theme=bogus");
         assert_eq!(u.theme, ThemeMode::System);
+        assert_eq!(u.sidebar_width, None);
+        u.apply_display("sidebar_width=345\n");
+        assert_eq!(u.sidebar_width, Some(345.0));
+        assert!(u.display_text().contains("sidebar_width=345"));
     }
 }

@@ -9,7 +9,6 @@
   - debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster
   - add documentations for humans
 - sidebar
-  - make it resizeable
   - in the commit history view, show co-authors directly in the commit
   - default commit name on single file changes: {Create,Delete,Update} <file_name>
     - have nothing in the actual input box, but allow creating the commit with that name anyways.

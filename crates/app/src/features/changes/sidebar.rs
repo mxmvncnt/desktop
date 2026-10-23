@@ -1,11 +1,12 @@
 //! Left sidebar: Changes / History tabs and the selected tab's body.
 
-use gd_ui::{Theme, divider, theme::SIDEBAR_WIDTH};
+use gd_ui::{Theme, divider};
 use gpui::{
     App, Context, Entity, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px,
 };
 
 use super::changes_panel::ChangesPanel;
+use super::sidebar_handle::SidebarHandle;
 use super::sidebar_tabs::SidebarTabs;
 use crate::features::history::CommitList;
 use crate::repo::{RepoModel, Tab};
@@ -21,6 +22,8 @@ pub struct Sidebar {
     tabs: SidebarTabs,
     body: SidebarBody,
     corner_radius: f32,
+    width: f32,
+    handle: SidebarHandle,
 }
 
 impl Sidebar {
@@ -31,7 +34,10 @@ impl Sidebar {
             Tab::Changes => SidebarBody::Changes(ChangesPanel::new(ws, repo, cx)),
             Tab::History => SidebarBody::History(CommitList::new(repo.clone(), cx.entity(), ws.history_scroll.clone())),
         };
-        Self { tabs: SidebarTabs::new(tab, count, repo.clone()), body, corner_radius: ws.corner_radius }
+        Self { tabs: SidebarTabs::new(tab, count, repo.clone()), body, corner_radius: ws.corner_radius,
+            width: ws.sidebar_width(),
+            handle: SidebarHandle::new(cx.entity()),
+        }
     }
 }
 
@@ -42,7 +48,8 @@ impl RenderOnce for Sidebar {
             .flex()
             .flex_col()
             .flex_none()
-            .w(px(SIDEBAR_WIDTH))
+            .relative()
+            .w(px(self.width))
             .h_full()
             .bg(theme.surface)
             .rounded_bl(px(self.corner_radius))
@@ -50,6 +57,7 @@ impl RenderOnce for Sidebar {
             .border_color(theme.border)
             .child(div().p(px(8.0)).child(self.tabs))
             .child(divider(cx))
+            .child(self.handle)
             .child(match self.body {
                 SidebarBody::Changes(p) => p.into_any_element(),
                 SidebarBody::History(l) => l.into_any_element(),

@@ -20,6 +20,8 @@ pub enum Popover {
 
 pub struct Workspace {
     pub settings: Settings,
+    /// Sidebar width changed by a drag and not yet saved.
+    pub(crate) sidebar_width_dirty: bool,
     /// Settings modal (features/settings/).
     pub settings_open: bool,
     pub settings_page: SettingsPage,
