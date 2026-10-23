@@ -261,7 +261,7 @@ impl Repository {
     }
 }
 
-fn parse_name_status(out: &str) -> Vec<FileChange> {
+pub(crate) fn parse_name_status(out: &str) -> Vec<FileChange> {
     let mut fields = out.split('\0').filter(|s| !s.is_empty());
     let mut files = Vec::new();
     while let Some(code) = fields.next() {

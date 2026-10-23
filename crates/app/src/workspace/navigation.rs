@@ -19,6 +19,7 @@ pub enum NavList {
     CommitFiles,
     Stashes,
     StashFiles,
+    PrFiles,
 }
 
 #[derive(Clone, Copy)]
@@ -94,6 +95,13 @@ impl Workspace {
                     r.stashes.list_scroll.scroll_to_item(pos, ScrollStrategy::Nearest);
                 }
             }
+            NavList::PrFiles => {
+                let n = r.pr.comparison.as_ref().map_or(0, |c| c.files.len());
+                if let Some(ix) = target(r.pr.selected_file, n, mv) {
+                    r.select_pr_file(ix, cx);
+                    r.pr.files_scroll.scroll_to_item(ix, ScrollStrategy::Nearest);
+                }
+            }
             NavList::StashFiles => {
                 if let Some(ix) = target(r.stashes.selected_file, r.stashes.files.len(), mv) {
                     r.select_stash_file(ix, cx);
@@ -105,6 +113,9 @@ impl Workspace {
 
     /// The clicked list if it is still on screen, else the tab's main list.
     fn effective_nav_list(&self, r: &RepoModel) -> NavList {
+        if r.pr.open {
+            return NavList::PrFiles;
+        }
         match (r.tab, self.nav_list) {
             (Tab::Changes, Some(NavList::Stashes)) if r.stashes.list.is_empty() => NavList::Changes,
             (Tab::Changes, Some(l @ (NavList::Changes | NavList::Stashes))) => l,

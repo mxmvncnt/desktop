@@ -89,6 +89,11 @@ impl Repository {
     /// from the current branch's remote (or the default remote). `None` when
     /// there is no remote or it is not a GitHub host.
     pub fn github_web_url(&self) -> Option<String> {
+        github_web_url(&self.tracking_remote_url()?)
+    }
+
+    /// Fetch URL of the current branch's remote (else `origin`, else the first remote).
+    pub fn tracking_remote_url(&self) -> Option<String> {
         let remotes = self.remotes().ok()?;
         let upstream_remote = self
             .git()
@@ -96,12 +101,11 @@ impl Repository {
             .run()
             .ok()
             .and_then(|u| u.trim().split_once('/').map(|(r, _)| r.to_string()));
-        let url = upstream_remote
+        upstream_remote
             .and_then(|n| remotes.iter().find(|(r, _)| *r == n))
             .or_else(|| remotes.iter().find(|(n, _)| n == "origin"))
             .or(remotes.first())
-            .map(|(_, u)| u.clone())?;
-        github_web_url(&url)
+            .map(|(_, u)| u.clone())
     }
 
     // ---- operation state --------------------------------------------------
@@ -363,10 +367,10 @@ impl Repository {
     }
 }
 
-/// Convert a git remote URL (ssh scp-style, `ssh://`, `https://`, `git://`)
-/// into the repository's GitHub web URL. Hosts must look like GitHub
-/// (`github.com`, or a GitHub Enterprise host containing "github").
-pub fn github_web_url(remote: &str) -> Option<String> {
+/// Split a git remote URL (ssh scp-style, `ssh://`, `https://`, `git://`)
+/// into a lowercase host and the repository path (no `.git`, no slashes
+/// around). `None` when the path is not `owner/repo`-shaped.
+pub(crate) fn split_remote(remote: &str) -> Option<(String, String)> {
     let remote = remote.trim();
     let (host, path) = if let Some((_, rest)) = remote.split_once("://") {
         let (authority, path) = rest.split_once('/')?;
@@ -377,14 +381,17 @@ pub fn github_web_url(remote: &str) -> Option<String> {
         let (authority, path) = remote.split_once(':')?;
         (authority.rsplit('@').next()?.to_string(), path.to_string())
     };
-    let host = host.to_ascii_lowercase();
-    if !host.contains("github") {
-        return None;
-    }
     let path = path.trim_matches('/');
     let path = path.strip_suffix(".git").unwrap_or(path);
     if path.split('/').count() < 2 || path.is_empty() {
         return None;
     }
-    Some(format!("https://{host}/{path}"))
+    Some((host.to_ascii_lowercase(), path.to_string()))
+}
+
+/// Convert a git remote URL into the repository's GitHub web URL. Hosts must
+/// look like GitHub (`github.com`, or a GitHub Enterprise host containing "github").
+pub fn github_web_url(remote: &str) -> Option<String> {
+    let (host, path) = split_remote(remote)?;
+    host.contains("github").then(|| format!("https://{host}/{path}"))
 }

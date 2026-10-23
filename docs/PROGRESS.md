@@ -187,3 +187,6 @@ echo changed >> file1.txt; sed -i 's/hello/goodbye/' src/mod2/main.rs; echo new 
   - `RepoModel::new` still lists every field; group them into sub-structs (`DiffState`, `HistoryLog`, `RefreshState`).
 
 - ✅ Resizable sidebar: 6px drag handle on its right edge (`features/changes/sidebar_handle.rs`, `resize.rs`), clamped 220..520, double-click resets to 300, persisted as `sidebar_width` in the `display` file. Snapshot view `sidebar-wide`.
+
+## Pull request preview
+- ✅ Branch > Preview Pull Request (`ctrl-alt-p`, also a card in the no-changes pane): base selector (default `origin/HEAD`), `N commits from head into base`, merge-base file list + read-only diff, "Create pull request" opens the GitHub/GitLab/Bitbucket compare URL; hints for unpublished branch / unknown host. Code: `features/pr_preview/`, `gd-git/src/pr_preview.rs`. Snapshot views: `pr-preview`, `pr-preview-menu`.

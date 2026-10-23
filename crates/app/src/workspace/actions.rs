@@ -36,6 +36,7 @@ fn bind_commands(root: Stateful<Div>, cx: &mut Context<Workspace>) -> Stateful<D
         .on_action(cx.listener(|this, _: &Commit, w, cx| this.commit(w, cx)))
         .on_action(cx.listener(|this, _: &CopyDiffText, _, cx| this.copy_diff_text(cx)))
         .on_action(cx.listener(|this, _: &SelectAllDiffText, _, cx| this.select_all_diff_text(cx)))
+        .on_action(cx.listener(|this, _: &PreviewPullRequest, _, cx| this.open_pr_preview(cx)))
         .on_action(cx.listener(|this, _: &StashChanges, w, cx| this.open_stash_create(false, w, cx)))
 }
 
@@ -93,6 +94,7 @@ impl Workspace {
             self.close_menu(cx)
         } else if self.popover.is_some() {
             self.close_popover(w, cx)
+        } else if self.close_pr_preview_key(cx) {
         }
     }
 }

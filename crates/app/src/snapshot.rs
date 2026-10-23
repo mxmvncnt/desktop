@@ -12,7 +12,7 @@
 //! Views: `changes` (default), `theme:<id>:<dark|light>[:settings]`, `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
 //! `header-menu`, `discard-dialog`, `split`, `split-history`, `select[-split][-wrap|-hscroll]` (preset text selection), `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
-//! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
+//! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `pr-preview`, `pr-preview-menu`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
 //! `rename-dialog`, `expanded`/`expanded-split` (hunk expansion), `partial[@N]`/`partial-split[@N]` (line selection: file N, some rows deselected; hover with `GD_SNAPSHOT_MOUSE=x,y`), `history-menu`/`-menu-head`/`-menu-pushed`/`-multiselect`/`-multimenu`/`-squash`/`-reset`/`-cherry`/`-tag`/`-checkout`, `amend-mode` (need a repo with a remote, see PROGRESS.md), `conflict-menu` (use a conflicted repo made with `merge_smoke -- <dir> --keep-conflict`;
@@ -173,6 +173,14 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         cx.notify();
                     }
                     "stash-list" => {}
+                    "pr-preview" | "pr-preview-menu" | "pr-preview-unpublished" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                r.open_pr_preview(cx);
+                                r.pr.base_menu = view == "pr-preview-menu";
+                            });
+                        }
+                    }
                     "nav-history" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| r.set_tab(Tab::History, cx));

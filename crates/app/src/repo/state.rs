@@ -134,6 +134,8 @@ pub struct RepoModel {
 
     /// Stash list, selection, and panel state (see features/stashes).
     pub stashes: crate::features::stashes::StashState,
+    /// Pull-request preview (see `features/pr_preview`).
+    pub pr: crate::features::pr_preview::PrPreviewState,
     /// Merge / rebase / conflict state (see `features/merge/`).
     pub merge: crate::features::merge::MergeState,
 }
@@ -191,6 +193,7 @@ impl RepoModel {
             error: None,
             notice: None,
             stashes: Default::default(),
+            pr: Default::default(),
             merge: Default::default(),
         }
     }

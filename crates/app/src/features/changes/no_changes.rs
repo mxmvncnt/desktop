@@ -54,6 +54,14 @@ impl NoChanges {
                 )
             }))
             .child(SuggestionCard::new(
+                "preview-pr",
+                Icon::PullRequest,
+                "Preview the pull request",
+                "Review this branch's changes against the base branch before opening a pull request.",
+                "Preview",
+                |_, w, cx| w.dispatch_action(Box::new(crate::actions::PreviewPullRequest), cx),
+            ))
+            .child(SuggestionCard::new(
                 "open-folder",
                 Icon::Folder,
                 "View the files of your repository",

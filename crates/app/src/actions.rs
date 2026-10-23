@@ -20,6 +20,7 @@ actions!(
         OpenSettings,
         Commit,
         StashChanges,
+        PreviewPullRequest,
         SelectNext,
         SelectPrevious,
         SelectFirst,
@@ -61,6 +62,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new(&format!("{M}-shift-s"), StashChanges, ws),
         KeyBinding::new(&format!("{M}-c"), CopyDiffText, ws),
         KeyBinding::new(&format!("{M}-a"), SelectAllDiffText, ws),
+        KeyBinding::new(&format!("{M}-alt-p"), PreviewPullRequest, ws),
         KeyBinding::new("escape", Dismiss, ws),
         KeyBinding::new(QUIT_KEY, Quit, None),
         // Focused text inputs bind these keys themselves (deeper context), so
@@ -143,6 +145,7 @@ fn set_menus(cx: &mut App) {
         Menu::new("Branch").items([
             MenuItem::action("New Branch…", NewBranch),
             MenuItem::action("Merge into Current Branch…", MergeIntoCurrent),
+            MenuItem::action("Preview Pull Request", PreviewPullRequest),
             MenuItem::separator(),
             MenuItem::action("Commit", Commit),
         ]),

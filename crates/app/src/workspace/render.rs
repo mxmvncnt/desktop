@@ -69,13 +69,17 @@ impl Workspace {
         let Some(repo) = self.repo.clone() else {
             return WelcomeScreen::new(cx.entity()).into_any_element();
         };
-        let tab = repo.read(cx).tab;
+        let (tab, pr_open) = {
+            let r = repo.read(cx);
+            (r.tab, r.pr.open)
+        };
         div()
             .flex()
             .flex_1()
             .min_h_0()
             .child(Sidebar::new(self, &repo, cx))
             .child(match tab {
+                _ if pr_open => self.render_pr_preview(&repo, cx).into_any_element(),
                 Tab::Changes => self.render_changes_main(&repo, cx).into_any_element(),
                 Tab::History => self.render_history_main(&repo, cx).into_any_element(),
             })

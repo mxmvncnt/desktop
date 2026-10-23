@@ -10,6 +10,8 @@ const HISTORY_PAGE: usize = 200;
 impl RepoModel {
     pub fn set_tab(&mut self, tab: Tab, cx: &mut Context<Self>) {
         self.tab = tab;
+        self.pr.open = false;
+        self.pr.base_menu = false;
         if tab == Tab::History && self.commits.is_empty() {
             self.reload_history(cx);
         }

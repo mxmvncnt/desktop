@@ -1,4 +1,5 @@
 pub mod stashes;
+pub mod pr_preview;
 pub mod history;
 pub mod merge;
 pub mod branches;

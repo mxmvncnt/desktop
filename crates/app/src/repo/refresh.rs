@@ -104,6 +104,9 @@ impl RepoModel {
         if full {
             self.reload_push_state(cx);
             self.reload_stashes(cx);
+            if self.pr.open {
+                self.load_pr_comparison(cx);
+            }
         }
         self.apply_progress(data.paused, cx);
         if full && (!self.commits.is_empty() || self.tab == Tab::History) {

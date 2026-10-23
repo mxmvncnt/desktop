@@ -81,6 +81,9 @@ impl RepoModel {
         if let Some(ix) = self.selected_commit_file {
             self.select_commit_file(ix, cx);
         }
+        if self.pr.open {
+            self.load_pr_comparison(cx);
+        }
         cx.notify();
     }
 }
