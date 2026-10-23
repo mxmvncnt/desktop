@@ -135,10 +135,8 @@ impl RepoModel {
 
     fn apply_status(&mut self, status: WorkingStatus, cx: &mut Context<Self>) {
         // Keep the selection on the same path across refreshes.
-        let selected_path = self
-            .selected_change
-            .and_then(|ix| self.changes().get(ix))
-            .map(|c| c.path.clone());
+        let old_ix = self.selected_change;
+        let selected_path = old_ix.and_then(|ix| self.changes().get(ix)).map(|c| c.path.clone());
         let paths: HashSet<&str> = status.files.iter().map(|f| f.path.as_str()).collect();
         self.excluded.retain(|p| paths.contains(p.as_str()));
         self.partial.retain(|p, _| paths.contains(p.as_str()));
@@ -146,7 +144,12 @@ impl RepoModel {
         self.status = Some(status);
         self.selected_change = selected_path
             .and_then(|p| self.changes().iter().position(|c| c.path == p))
-            .or(if self.changes().is_empty() { None } else { Some(0) });
+            // The selected file is gone (committed): the file now at its row,
+            // i.e. the next one, or the last.
+            .or(match self.changes().len() {
+                0 => None,
+                n => Some(old_ix.unwrap_or(0).min(n - 1)),
+            });
         if changed || self.change_diff.is_none() {
             self.load_change_diff(cx);
         }

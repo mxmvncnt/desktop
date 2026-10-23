@@ -79,7 +79,9 @@ impl RepoModel {
                     "Committed {n} file{}",
                     if n == 1 { "" } else { "s" }
                 ));
-                this.selected_change = None;
+                // Keep the selection: the status refresh moves it to the next
+                // file and the old diff stays up until the new one is loaded,
+                // so there is no empty frame in between.
                 // Row indices refer to diffs that no longer exist.
                 this.partial.clear();
             },

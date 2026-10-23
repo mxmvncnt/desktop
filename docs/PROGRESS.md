@@ -81,6 +81,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ Commit box: summary, description, `Commit to <branch>` (Ctrl+Enter), enabled only when valid.
   - Exactly one file selected: empty summary shows `Create/Update/Delete x` / `Rename a to b` as placeholder and the commit uses it (`RepoModel::default_summary`).
   - Commit box inputs follow the caret while typing (`features/changes/follow_caret.rs`: gpui-ce only scrolls on caret moves, so after each edit we re-"move" the caret once the new layout exists). Description grows 88-180px then scrolls; summary scrolls horizontally. Headless snapshots have no `on_next_frame`, so `commit-long` replays the move.
+  - Committing keeps the selection (no empty frame): the status refresh moves it to the file now at the same row and the old diff stays until the new one loads.
 - ✅ Virtualized diff with gutters, hunk headers, add/del washes, truncation notice.
 - ✅ History: infinite-scroll commit list, commit header, file list, diff.
 - ✅ Repository picker: filter, ↑/↓/Enter, remove (hover ×), add existing (folder dialog), clone.
