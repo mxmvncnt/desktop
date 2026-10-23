@@ -504,6 +504,8 @@ fn history_phase2(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx:
         })
     };
     match view {
+        // Amend HEAD with the (included) working changes while HEAD is selected.
+        "history-amend" => repo.update(cx, |r, cx| r.amend("Amended summary".into(), "Amended body".into(), cx)),
         "history-msg-tall" => {
             ws.commit_msg.height = Some(330.0);
             cx.notify();

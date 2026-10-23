@@ -85,6 +85,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ Virtualized diff with gutters, hunk headers, add/del washes, truncation notice.
 - ✅ History: infinite-scroll commit list, commit header, file list, diff.
   Co-authors: `gd_git::parse_co_authors` fills `Commit::co_authors` while loading the log (off-thread); rows and header show "A and B" (`shared/commit_authors.rs`), trailers hidden from the header body.
+  History rewrites keep the selection index but change the sha: `apply_reloaded_log` reloads files/diff when the sha at the selected slot changed.
   Commit message area is scrollable and drag-resizable (handle under it, double-click resets; `features/history/message_resize.rs`, not persisted). Snapshot view `history-msg-tall`.
 - ✅ Repository picker: filter, ↑/↓/Enter, remove (hover ×), add existing (folder dialog), clone.
 - ✅ Branch picker: filter, local + remote (deduped), ↑/↓/Enter checkout, new branch (sanitized name).

@@ -43,10 +43,13 @@ impl RepoModel {
         let selected_sha = self.selected_commit.and_then(|ix| self.commits.get(ix)).map(|c| c.sha.clone());
         self.history_exhausted = commits.len() < count;
         self.commits = commits;
-        let ix = selected_sha
+        let ix = selected_sha.clone()
             .and_then(|s| self.commits.iter().position(|c| c.sha == s))
             .or(if self.commits.is_empty() { None } else { Some(0) });
-        if ix != self.selected_commit || self.commit_files.is_empty() {
+        // History rewrites (amend, reword, squash, reorder, undo) can leave the
+        // selection at the same index but on a different (new) sha: reload it.
+        let sha_changed = ix.and_then(|i| self.commits.get(i)).map(|c| &c.sha) != selected_sha.as_ref();
+        if ix != self.selected_commit || self.commit_files.is_empty() || sha_changed {
             self.selected_commit = None;
             if let Some(ix) = ix {
                 self.select_commit(ix, cx);
