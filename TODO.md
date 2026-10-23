@@ -20,6 +20,7 @@
 - select text in the diff view
 - keyboard navigation with arrows: browse through commits, files in commit, stashes, staged files
 - option to create a branch from a certain branch (ex: create branch x from staging)
+- option to preview pull request
 - bundle as flatpak
 - bundle for macos
 - bugs/wonky behaviour:
@@ -27,3 +28,5 @@
   - when clicking on sub-menus (like in the submenu for creating a branch), we can see the menu closing and the new one appearing, causing a quick flash
   - When the merge into modal is open, the rest of the app is still clickable
   - When amending a commit, and looking at the ammended commit, we need to click on another commit and back on the amended commit to see the changes reflected
+  - when typing a long commit message, the box should be scrollable and by default should always show the end of the text
+  - sometimes when viewing the staged diff, it does not show all changes, they only show up when vieweing the actual commit's changes.

@@ -116,14 +116,14 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     // Theme/settings page, set directly (no settings file is written).
                     "settings" | "settings-light" | "settings-diff" | "changes-light" => {
                         ws.settings.theme = if view.ends_with("light") {
-                            crate::settings::ThemeMode::Light
+                            crate::features::settings::ThemeMode::Light
                         } else {
-                            crate::settings::ThemeMode::Dark
+                            crate::features::settings::ThemeMode::Dark
                         };
                         ws.apply_theme(window, cx);
                         ws.settings_open = view.starts_with("settings");
                         if view == "settings-diff" {
-                            ws.settings_page = crate::views::settings::SettingsPage::Diff;
+                            ws.settings_page = crate::features::settings::SettingsPage::Diff;
                         }
                     }
                     "repos" => ws.toggle_popover(Popover::Repositories, window, cx),
@@ -134,7 +134,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     "header-menu" => ws.open_header_menu(gpui::point(px(60.0), px(100.0)), window, cx),
                     "discard-dialog" => {
                         if let Some(c) = ws.repo.as_ref().and_then(|r| r.read(cx).changes().get(1).cloned()) {
-                            ws.dialog = Some(crate::views::menus::ConfirmDialog::DiscardFile(c));
+                            ws.dialog = Some(crate::features::menus::ConfirmDialog::DiscardFile(c));
                             cx.notify();
                         }
                     }
@@ -177,7 +177,7 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     }
                     "stash-drop-dialog" => {
                         if let Some(s) = ws.repo.as_ref().and_then(|r| r.read(cx).stashes.list.first().cloned()) {
-                            ws.stash_ui.dialog = Some(crate::views::stashes::StashDialog::Drop(s));
+                            ws.stash_ui.dialog = Some(crate::features::stashes::StashDialog::Drop(s));
                             cx.notify();
                         }
                     }
@@ -186,12 +186,12 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                             ws.open_switch_dialog(b, cx);
                         }
                     }
-                    // ---- merge / conflicts (see views/merge.rs) ----
+                    // ---- merge / conflicts (see features/merge, features/branches) ----
                     "merge-dialog" | "squash-dialog" | "rebase-dialog" => {
                         let mode = match view {
-                            "squash-dialog" => crate::merge_ops::MergeMode::Squash,
-                            "rebase-dialog" => crate::merge_ops::MergeMode::Rebase,
-                            _ => crate::merge_ops::MergeMode::Merge,
+                            "squash-dialog" => crate::features::merge::MergeMode::Squash,
+                            "rebase-dialog" => crate::features::merge::MergeMode::Rebase,
+                            _ => crate::features::merge::MergeMode::Merge,
                         };
                         ws.open_merge_dialog(mode, None, window, cx);
                     }
@@ -287,8 +287,8 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                 if let Some(r) = &ws.repo {
                     r.update(cx, |r, cx| {
                         let last = r.change_diff.as_ref().map_or(0, |d| d.hunks.len().saturating_sub(1));
-                        r.expand_diff(false, gd_git::Expansion::Down(0), cx);
-                        r.expand_diff(false, gd_git::Expansion::All(last), cx);
+                        r.expand_diff(crate::features::diff::ExpandTarget::Changes, gd_git::Expansion::Down(0), cx);
+                        r.expand_diff(crate::features::diff::ExpandTarget::Changes, gd_git::Expansion::All(last), cx);
                     });
                 }
             });
@@ -349,13 +349,13 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
 /// `history-squash`, `history-reset`, `history-cherry`, `history-tag`,
 /// `history-checkout`, `amend-mode`.
 fn history_phase2(ws: &mut Workspace, view: &str, window: &mut gpui::Window, cx: &mut gpui::Context<Workspace>) {
-    use crate::views::history_menu::HAction;
+    use crate::features::history::{ClickKind, HistoryAction as HAction};
     let Some(repo) = ws.repo.clone() else { return };
     let at = gpui::point(px(150.0), px(190.0));
     let multi = |cx: &mut gpui::Context<Workspace>| {
         repo.update(cx, |r, cx| {
-            r.click_commit(1, false, false, cx);
-            r.click_commit(3, false, true, cx);
+            r.click_commit(1, ClickKind::Plain, cx);
+            r.click_commit(3, ClickKind::Range, cx);
         })
     };
     match view {

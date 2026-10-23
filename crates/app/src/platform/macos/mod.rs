@@ -4,10 +4,8 @@
 mod chrome;
 pub use chrome::*;
 
-use std::path::PathBuf;
-
-use gpui::{WindowOptions, point, px};
 use gd_ui::theme::TOOLBAR_HEIGHT;
+use gpui::{WindowOptions, point, px};
 
 /// Cmd is the "secondary" modifier.
 pub const SECONDARY: &str = "cmd";
@@ -16,11 +14,6 @@ pub const SECONDARY_LABEL: &str = "Cmd";
 /// GitHub Desktop's Refresh is Cmd+R on macOS.
 pub const REFRESH_KEY: &str = "cmd-r";
 pub const QUIT_KEY: &str = "cmd-q";
-
-/// `~/Library/Application Support`.
-pub fn config_base_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"))
-}
 
 pub fn configure_window(options: &mut WindowOptions) {
     let titlebar = options.titlebar.get_or_insert_with(Default::default);

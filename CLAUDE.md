@@ -10,3 +10,4 @@ Start here:
 2. `docs/PROGRESS.md`: current state and next steps.
 3. `docs/ARCHITECTURE.md`: code map, threading, GPUI-CE gotchas.
 4. `docs/DESIGN.md`: zeron visual language.
+5. `docs/CONVENTIONS.md`: file/folder layout and code style. Follow it.

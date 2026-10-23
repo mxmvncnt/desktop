@@ -1,18 +1,14 @@
 //! desktop-rs — Rust + GPUI-CE app (POC). See docs/.
 
 mod actions;
-mod diff_highlight;
+mod features;
 mod frame_debug;
-mod history_ops;
-mod line_selection;
-mod merge_ops;
 mod platform;
 mod repo;
-mod settings;
+mod shared;
 #[cfg(feature = "snapshot")]
 mod snapshot;
-mod stashes;
-mod views;
+
 mod watcher;
 mod workspace;
 

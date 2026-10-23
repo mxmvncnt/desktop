@@ -1,0 +1,12 @@
+pub mod stashes;
+pub mod history;
+pub mod merge;
+pub mod branches;
+pub mod settings;
+pub mod pickers;
+pub mod changes;
+pub mod menus;
+pub mod welcome;
+pub mod diff;
+pub mod toolbar;
+pub mod notices;

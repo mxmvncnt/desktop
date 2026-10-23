@@ -1,9 +1,7 @@
-//! Linux (Wayland + X11): client-side decorations, XDG config dir.
+//! Linux (Wayland + X11): client-side decorations.
 
 mod chrome;
 pub use chrome::*;
-
-use std::path::PathBuf;
 
 use gpui::WindowOptions;
 
@@ -13,13 +11,6 @@ pub const SECONDARY: &str = "ctrl";
 pub const SECONDARY_LABEL: &str = "Ctrl";
 pub const REFRESH_KEY: &str = "f5";
 pub const QUIT_KEY: &str = "ctrl-q";
-
-/// `$XDG_CONFIG_HOME`, else `~/.config`.
-pub fn config_base_dir() -> Option<PathBuf> {
-    std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-}
 
 pub fn configure_window(options: &mut WindowOptions) {
     // Draw our own frame (see chrome.rs). GNOME never provides server

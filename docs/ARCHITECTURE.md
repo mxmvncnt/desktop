@@ -37,7 +37,7 @@ guessing APIs. To recreate them:
 - `examples/smoke.rs` exercises the write paths against a scratch repo:
   `cargo run -p gd-git --example smoke -- /tmp/desktop-rs/smoke`.
 
-## Stashes (`gd-git/src/stash.rs`, `app/src/stashes.rs`, `app/src/views/stashes.rs`)
+## Stashes (`gd-git/src/stash.rs`, `app/src/features/stashes/`)
 
 - Listing: `git stash list -z --format=%H%x1f%h%x1f%ct%x1f%cd%x1f%gs` with `--date=format-local`. `%gs` is
   `WIP on <branch>: <sha> <subject>` (no user message) or `On <branch>: <msg>`; `parse_subject` extracts branch/message
@@ -49,7 +49,7 @@ guessing APIs. To recreate them:
   `--literal-pathspecs` breaks `-u` cleanup when no pathspec is given, so it is only passed with paths.
 - `exec.rs` now falls back to stdout for the error text when stderr is empty (`stash apply` prints CONFLICT lines on stdout).
 - Rename = `stash store -m <new subject> <sha>` then drop the old entry (moves to top).
-- State: `RepoModel::stashes: StashState` (list, filter, collapsed, selection, files/diff/highlight, generation counter);
+- State: `RepoModel::stashes: StashState` (`features/stashes/state.rs`, ops in `ops.rs`; list, filter, collapsed, selection, files/diff/highlight, generation counter);
   loaded in the background from every full refresh. `RepoEvent::SwitchBranchWithChanges` makes `RepoModel::checkout`
   hand dirty-tree checkouts to the Workspace, which owns `Workspace::stash_ui` (dialog + message input). Use
   `RepoModel::checkout_now` to skip the dialog. `gd_ui::Dialog::content` embeds inputs/option rows.
@@ -67,7 +67,7 @@ guessing APIs. To recreate them:
 - Word emphasis: in each replace block the i-th deleted row pairs with the i-th added row.
   Lines are tokenized into word/space/punct tokens and diffed again, and changed byte ranges go to
   `DiffLine::emphasis`. It's skipped above 1000 chars or when more than 60% of both lines changed. It's
-  rendered as a background wash by `diff_highlight::line_text` (merged with the syntax runs).
+  rendered as a background wash by `features/diff/highlight.rs` `line_text` (merged with the syntax runs).
 - `Diff::source` keeps the exact old/new texts (for partial staging). It's `None` when either side
   isn't valid UTF-8, so staging never writes back lossily decoded bytes. Binary = NUL in the first 8000
   bytes, like git. `too_large` above 8 MB per side.
@@ -75,7 +75,7 @@ guessing APIs. To recreate them:
   On this repo's last 150 commits, 468/472 files had identical +/- counts. The rest differ where git's
   Myers heuristics are non-minimal (e.g. yarn.lock, where ours is smaller).
 
-## Partial staging (`gd-git/src/partial.rs`, `app/src/line_selection.rs`, `views/diff.rs`)
+## Partial staging (`gd-git/src/partial.rs`, `app/src/features/diff/line_selection.rs`, `number_cell.rs`, `row_select.rs`)
 
 - No `git apply`: `staged_text(diff, include)` replays the diff over `DiffSource::old` (raw lines via
   `split_inclusive`, so CRLF and a missing final newline survive) keeping only included adds/deletes.
@@ -86,9 +86,9 @@ guessing APIs. To recreate them:
   `excluded` (whole file off). `set_rows_included` normalizes: all rows off → `excluded`, none off → entry removed, so
   `partial` only holds mixed files. A reloaded diff keeps the selection only if `lines` are identical
   (`reconcile_selection`); `-w` diffs are ignored there. `partial` is cleared after a successful commit/amend.
-- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`. `views/diff.rs` exports `number_cell` (one cell
+- UI: `render_diff(.., select: Option<Entity<RepoModel>>, ..)`. `features/diff/number_cell.rs` has `number_cell` (one cell
   holding 1 or 2 numbers; plain, or clickable/drag-extending with the blue+check included style) and
-  `RowSelect::handle_cell` (one cell of a change block's handle), shared by the unified list and the split list's
+  `RowSelect::handle_cell` in `row_select.rs` (one cell of a change block's handle), shared by the unified list and the split list's
   middle gutter. Handles work on change blocks (`RepoModel::change_block`: the add/delete run around a row), not git
   hunks. Pointer state (`hovered_handle: (block start, cell)`, `drag` anchor) is `Workspace.diff_select`, reset when
   the diff key changes. The cell id in `hovered_handle` makes leave/enter order between two cells of one block
@@ -100,7 +100,7 @@ guessing APIs. To recreate them:
   included/partial blocks `accent_strong` (hover `accent`).
 - Gotcha: `on_mouse_up_all` takes 5 args (event, phase, hitbox, window, cx).
 
-## Hunk expansion (`gd-git/src/expand.rs`, `views/diff.rs` `Expander`)
+## Hunk expansion (`gd-git/src/expand.rs`, `features/diff/expander.rs`, `expand_button.rs`)
 
 - `DiffHunk` carries 0-based `old_start/old_len/new_start/new_len`. `expand(diff, Up(h)|Down(h)|All(h))` is pure: it
   splits the flat rows into hunks, pulls context rows from `source.new` into the gap (20 = `EXPANSION_STEP`), merges
@@ -110,15 +110,15 @@ guessing APIs. To recreate them:
   `change_diff_key` (path + options) lets `load_change_diff` keep the expanded diff when a reload returns the same
   source texts. Line selection is keyed by `LineKey = (is_add, line number)` instead of row index, so it survives
   row shifts; `reconcile_selection` drops it only when the source texts change.
-- `render_diff(.., pane: DiffPane, ..)`: `Changes` (select + expand), `History` (expand), `ReadOnly` (stashes).
+- `render_diff(.., pane: DiffPane, ..)` (`render_diff.rs`): `Changes` (select + expand), `History` (expand), `ReadOnly` (stashes).
   Header rows render `Expander::gutter` instead of number cells; an extra trailing list row (index == rows) holds
   the last Expand Down. Buttons use `group` + `group_hover_style` so the svg icon recolors on hover.
 
 ## Threading / state (`crates/app`)
 
-- `Workspace` (`workspace.rs`) is the root view. It owns settings, popover state,
+- `Workspace` (`workspace/`: `state.rs` struct, `init.rs`, `render.rs` root template, `actions.rs` key routing + Esc order, `repos.rs` open/add/clone, `repo_commands.rs`, `navigation.rs`) is the root view. It owns settings, popover state,
   text-input entities, scroll handles, and an `Option<Entity<RepoModel>>`.
-- `RepoModel` (`repo.rs`) owns all repository state: status, selection, diff,
+- `RepoModel` (`repo/`: `state.rs`, `refresh.rs` (RefreshScope, watcher, pending_refresh), `background_fetch.rs`, `change_diff.rs`/`commit_diff.rs` (generation counters), `diff_highlight.rs`, `expand.rs`, `history_log.rs`, `run.rs`) owns all repository state: status, selection, diff,
   history pages, commit details, branches, and in-flight ops.
   Every git call goes through `cx.background_spawn`, and results are applied with `this.update`.
 - **Stale results are dropped** with generation counters (`change_diff_gen`,
@@ -127,10 +127,11 @@ guessing APIs. To recreate them:
   sets `error`, then refreshes status and branches.
 - Refresh triggers: file watcher, window activation (skipped if the watcher
   refreshed <1s ago), after every op, F5. See §File watcher.
-- Views live in `views/*.rs` as `impl Workspace` blocks. Rows in lists hold
+- UI lives in `features/<feature>/` (see CONVENTIONS.md): `RenderOnce` components, with
+  `impl Workspace` only where `&mut Workspace` is needed. Rows in lists hold
   `Entity<RepoModel>` clones and call `update` in click handlers.
 
-### Menus, dialogs, undo (`views/menus.rs`)
+### Menus, dialogs, undo (`features/menus`)
 
 - `Workspace.menu` / `Workspace.dialog` hold the open state. While either is open the root gets key
   context `"Workspace Menu"` and focus, so `MenuNext/MenuPrevious/MenuConfirm` (↑/↓/Enter) and
@@ -178,7 +179,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - **Gotcha:** inotify reports `Access(Open)` for reads, and our own `git status`
   opens every file and `.git/index`. Only Create/Modify/Remove/Any events count,
   otherwise refresh retriggers itself forever. `GIT_OPTIONAL_LOCKS=0` keeps status from writing the index.
-- `RepoModel::request_refresh(full, cx)` is the only refresh path: if one is in
+- `RepoModel::request_refresh(scope, cx)` (`RefreshScope::{Status, Full}`) is the only refresh path: if one is in
   flight it records `pending_refresh` and exactly one follow-up runs afterwards
   (`full` is OR-ed). Status-only refreshes (worktree edits) skip branches/history.
   `refresh_count` + a debug log line per refresh make loops visible.
@@ -189,12 +190,14 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Headless test (`--snapshot ... watch`): the watcher debounces in wall-clock
   time, so use real sleeps and poll `run_until_parked`.
 
-## History operations (`gd_git::history_ops`, `app/src/history_ops.rs`, `views/history_menu.rs`)
+## History (`gd_git::history_ops`, `app/src/features/history/`)
 
-- State: `RepoModel.history_ops` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
+- Layout: `state.rs` (`HistoryState` on `RepoModel.history`, `HistoryUi`, `HistoryDialog`, `HistoryAction`), `ops.rs` + `selection.rs` (`impl RepoModel`), `handlers.rs`/`menu_actions.rs`/`confirm.rs`/`amend.rs` (`impl Workspace`), `commit_detail.rs` (`impl Workspace`, composes `CommitHeader`/`CommitFileList`/diff), and one `RenderOnce` per file (`CommitList`, `CommitRow`, `CommitMenuView` + `commit_menu_rows`, `HistoryDialogView`, `MultiSelectPane`, ...). Commit file rows are the shared `shared/file_change_row.rs`.
+
+- State: `RepoModel.history` (unpushed set, tags by sha, GitHub web URL, in-progress op, busy label,
   multi-selection as shas) reloaded in the background by `reload_push_state` on every full refresh.
   UI state: `Workspace.history_ui` (menu, dialogs, amend, dialog text inputs). Own menu/dialog types so the
-  Changes menu code is untouched; `workspace.rs` routes Esc/Enter/arrows to it first.
+  Changes menu code is untouched; `workspace/actions.rs` routes Esc/Enter/arrows to it first.
 - Every op goes through `RepoModel::hist_run`, a thin wrapper over the merge branch's `run_op` (one at a time, then `refresh`). Menu items are
   disabled while an op, remote op, commit, or stopped merge/rebase/cherry-pick/revert is active.
 - Unpushed: `rev-list @{upstream}..HEAD`, or `HEAD --not --remotes` without upstream; empty with no remotes.
@@ -215,12 +218,12 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 
 - `gd-git`: `progress.rs` (`Repository::in_progress() -> Option<InProgress>`: Merge/Squash/Rebase/CherryPick/Revert, read from MERGE_HEAD, `rebase-merge/`, `rebase-apply/`, CHERRY_PICK_HEAD, REVERT_HEAD, SQUASH_MSG+unmerged; `continue_operation`, `abort_operation`, `prepared_message`) and `merge.rs` (`merge`, `merge_squash`, `rebase`, `merge_preview`, `commit_merge`, `resolve_with`, `mark_resolved`, branch rename/delete-remote/create-from). Operations return `OpOutcome::{Done, UpToDate, Conflicts}`; a pause is not an error. `Git::no_editor()` sets GIT_EDITOR=true for `--continue`.
 - The watcher already covers `rebase-*` (git dir top level) and MERGE_HEAD etc.
-- App: `RepoModel.merge: MergeState` (`merge_ops.rs`), loaded in every refresh in the background. `RepoModel::run_op` is the busy-flag write helper. A newly paused merge-like op emits `RepoEvent::PreparedMessage` (fills the commit box if empty). While merge-like ops are paused, `commit` uses `commit_merge` (no index reset).
-- Views: `views/in_progress_banner.rs` (banner + conflict hint above the diff), `views/merge.rs` (`Workspace.merge_ui`: merge dialog, branch/conflict context menus, rename/delete/create dialogs). Conflicted file rows route to the conflict menu in `open_file_menu`.
+- App: `RepoModel.merge: MergeState` (`features/merge/state.rs`, ops in `features/merge/ops.rs`), loaded in every refresh in the background. `RepoModel::run_op` is the busy-flag write helper. A newly paused merge-like op emits `RepoEvent::PreparedMessage` (fills the commit box if empty). While merge-like ops are paused, `commit` uses `commit_merge` (no index reset).
+- Views: `features/merge/` (`MergeUi` = `Workspace.merge_ui`: `merge_dialog` + `merge_candidate_list` + `merge_preview`, `in_progress_banner`, `conflict_hint` above the diff, `conflict_menu`/`conflict_menu_rows`, `handlers`/`conflict_handlers`) and `features/branches/` (`BranchUi` = `Workspace.branch_ui`: `branch_menu`/`branch_menu_rows`, `branch_dialog` for rename/delete/create-from, `ops`, `handlers`). Esc/Enter/arrows are routed in workspace/actions.rs and menus to both. Conflicted file rows route to the conflict menu in `open_file_menu`.
 - **Hooking another op (revert, cherry-pick, squash) in:** run the git command inside `RepoModel::run_op`, map a pause with `Repository::outcome_of`, and use `notice_for_outcome`. Banner, conflict list and Continue/Abort work automatically.
 - Gotchas: absolute overlays must themselves be `.absolute().inset_0()` (GPUI lays absolute children out against their direct parent); a focused text input turns ↑/↓/Esc into `NavUp/NavDown/Escape` actions, so dialogs use `capture_action` for those; `gen` is a reserved word in edition 2024.
 
-## Syntax highlighting (`crates/syntax`, `app/src/diff_highlight.rs`)
+## Syntax highlighting (`crates/syntax`, `app/src/features/diff/highlight.rs`)
 
 - `gd-syntax` is ported from zeron's `zeron-syntax`, trimmed to Rust, JS/JSX/TS/TSX, Python,
   Go, JSON, Bash, TOML, Markdown, HTML (+JS/CSS injection), CSS, YAML, C, C++.
@@ -248,7 +251,7 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 - Scroll reset: `Workspace::diff_key` stores the last diff identity; a change resets the list's
   `base_handle` offset and `DiffView::hscroll` to 0.
 
-## Diff options and split view (`views/diff_options.rs`, `views/diff_split.rs`)
+## Diff options and split view (`features/diff/`: `diff_options_menu.rs`, `split_diff.rs`, `split_row.rs`)
 
 - Options are app-wide and persisted in `Settings` (`diff_split`, `diff_ignore_whitespace`, `diff_wrap`), stored in a
   separate `display` file (`key=value`) so old `repositories` files load unchanged.
@@ -262,8 +265,8 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   headers span both columns (`left == right`), delete/add runs are paired row by row and padded.
   Rendering is a single list (id `diff-split`); each row is `[old text | middle gutter | new text]`.
   Syntax spans reuse `DiffHighlight::row(ix)` unchanged.
-- Long lines (`views/diff.rs`, `TextFlow`): both modes share `unified_row`/`split_list` row renderers and
-  `rows_list`, which picks the list type.
+- Long lines (`text_flow.rs`, `TextFlow`): both modes share the `UnifiedRows`/`SplitRows` row renderers and
+  `rows_list` (`rows_list.rs`), which picks the list type.
   - Scroll (default): a vertical-only `uniform_list`. Horizontal scroll is done by hand: each text cell
     (`text_cell`) clips and shifts its text by `DiffView::hscroll`. Gutters stay fixed and both split
     columns always move together. `diff_body`'s `on_scroll_wheel` takes the x delta (shift+wheel already
@@ -307,7 +310,8 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
 
 OS-specific code lives in `platform/linux/` and `platform/macos/`; `platform/mod.rs`
 re-exports the one for the target. Both expose the same surface: `Chrome`,
-`caption_buttons`, `titlebar_drag`, `frame`, `config_base_dir`, `configure_window`,
+`caption_buttons`, `titlebar_drag`, `frame`, `configure_window`,
+The config dir comes from the `dirs` crate (`dirs::config_dir()`) in `features/settings/model.rs`.
 and the shortcut constants `SECONDARY` (ctrl/cmd), `SECONDARY_LABEL`, `REFRESH_KEY`,
 `QUIT_KEY`. Keep OS `cfg`s out of the rest of the app; add to both modules instead.
 Wayland/X11 gpui features are enabled only for Linux targets in `crates/app/Cargo.toml`.
