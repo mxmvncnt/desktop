@@ -40,10 +40,10 @@ impl MergeMode {
         }
     }
 
-    fn run(self, r: &Repository, branch: &str) -> gd_git::Result<OpOutcome> {
+    fn run(self, r: &Repository, branch: &str, summary: &str) -> gd_git::Result<OpOutcome> {
         match self {
             MergeMode::Merge => r.merge(branch),
-            MergeMode::Squash => r.merge_squash(branch),
+            MergeMode::Squash => r.merge_squash(branch, Some(summary)),
             MergeMode::Rebase => r.rebase(branch),
         }
     }
@@ -102,11 +102,11 @@ impl RepoModel {
         self.selected_commit = None;
     }
 
-    pub fn start_merge(&mut self, mode: MergeMode, branch: String, cx: &mut Context<Self>) {
+    pub fn start_merge(&mut self, mode: MergeMode, branch: String, summary: String, cx: &mut Context<Self>) {
         let (done, up_to_date) = mode.notices(&self.branch_name(), &branch);
         self.run_op(
             mode.busy_label(),
-            move |r| mode.run(r, &branch),
+            move |r| mode.run(r, &branch, &summary),
             move |this, outcome, _| {
                 this.notice_for_outcome(outcome, done, up_to_date);
                 this.reset_history_selection();

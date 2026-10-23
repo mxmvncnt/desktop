@@ -78,6 +78,10 @@ pub struct MergeUi {
     pub menu: Option<ConflictMenu>,
     pub(super) menu_gen: usize,
     pub filter: Entity<EditableTextState>,
+    /// Commit summary of the squash commit (Squash tab only).
+    pub summary: Entity<EditableTextState>,
+    /// Branch the summary default was last generated for.
+    pub(super) summary_for: Option<String>,
     pub(super) scroll: UniformListScrollHandle,
     pub(super) preview_task: Option<Task<()>>,
     _subs: Vec<Subscription>,
@@ -86,6 +90,7 @@ pub struct MergeUi {
 impl MergeUi {
     pub fn new(cx: &mut Context<Workspace>) -> Self {
         let filter = cx.new(|cx| EditableTextState::new(StringStorage::default(), cx));
+        let summary = cx.new(|cx| EditableTextState::new(StringStorage::default(), cx));
         let subs = vec![cx.subscribe(&filter, |this: &mut Workspace, _, _: &TextChanged, cx| {
             if this.merge_ui.dialog.is_some() {
                 this.merge_select(0, cx);
@@ -96,6 +101,8 @@ impl MergeUi {
             menu: None,
             menu_gen: 0,
             filter,
+            summary,
+            summary_for: None,
             scroll: UniformListScrollHandle::new(),
             preview_task: None,
             _subs: subs,

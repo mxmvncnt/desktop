@@ -5,7 +5,7 @@
 use gd_git::{Branch, MergePreview};
 use gd_ui::{Dialog, Tabs, Theme};
 use gpui::{
-    App, Context, Entity, InteractiveElement, IntoElement, ParentElement, RenderOnce, Styled,
+    App, Context, Entity, InteractiveElement, IntoElement, ParentElement, RenderOnce, Styled, prelude::*,
     UniformListScrollHandle, Window, div, px,
 };
 use gpui_elements::editable_text::{
@@ -31,6 +31,7 @@ pub struct MergeDialogView {
     current: String,
     candidates: Vec<Branch>,
     filter: Entity<EditableTextState>,
+    summary: Entity<EditableTextState>,
     scroll: UniformListScrollHandle,
     ws: Entity<Workspace>,
 }
@@ -48,6 +49,7 @@ impl MergeDialogView {
             current: ws.repo.as_ref()?.read(cx).branch_name(),
             candidates: ws.merge_candidates(cx),
             filter: ws.merge_ui.filter.clone(),
+            summary: ws.merge_ui.summary.clone(),
             scroll: ws.merge_ui.scroll.clone(),
             ws: cx.entity(),
         })
@@ -102,6 +104,18 @@ impl MergeDialogView {
                     .child(list),
             )
             .child(div().min_h(px(36.0)).child(status))
+            .when(self.mode == MergeMode::Squash, |d| d.child(self.summary_field(cx)))
+    }
+
+    /// Commit summary of the squash commit.
+    fn summary_field(&self, cx: &App) -> impl IntoElement + use<> {
+        let theme = Theme::of(cx);
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(4.0))
+            .child(div().text_size(px(12.0)).text_color(theme.text_muted).child("Squash commit summary"))
+            .child(text_field("merge-summary", &self.summary, "Commit summary", cx))
     }
 
     fn tabs(&self) -> Tabs {

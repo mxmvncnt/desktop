@@ -48,6 +48,7 @@ impl Workspace {
         self.merge_ui.menu = None;
         self.close_branch_overlays();
         self.merge_ui.filter.update(cx, |s, cx| s.emplace("", cx));
+        self.merge_ui.summary_for = None;
         self.merge_ui.dialog = Some(MergeDialog::new(mode));
         let ix = preselect
             .and_then(|name| self.merge_candidates(cx).iter().position(|b| b.name == name))
@@ -63,6 +64,7 @@ impl Workspace {
         let cands = self.merge_candidates(cx);
         let ix = ix.min(cands.len().saturating_sub(1));
         let branch = cands.get(ix).map(|b| b.name.clone());
+        self.reset_squash_summary(branch.as_deref(), cx);
         let Some(d) = &mut self.merge_ui.dialog else { return };
         d.ix = ix;
         d.revision += 1;
@@ -77,6 +79,19 @@ impl Workspace {
             let res = cx.background_spawn(async move { git.merge_preview(&branch) }).await;
             this.update(cx, |this, cx| this.preview_loaded(generation, res, cx)).ok();
         }));
+    }
+
+    /// Prefill the squash summary when the highlighted branch changes.
+    fn reset_squash_summary(&mut self, branch: Option<&str>, cx: &mut Context<Self>) {
+        if self.merge_ui.summary_for.as_deref() == branch {
+            return;
+        }
+        self.merge_ui.summary_for = branch.map(str::to_string);
+        let text = match (branch, &self.repo) {
+            (Some(b), Some(r)) => gd_git::default_squash_summary(b, &r.read(cx).branch_name()),
+            _ => String::new(),
+        };
+        self.merge_ui.summary.update(cx, |s, cx| s.emplace(&text, cx));
     }
 
     fn preview_loaded(&mut self, generation: u64, res: gd_git::Result<MergePreview>, cx: &mut Context<Self>) {
@@ -129,7 +144,8 @@ impl Workspace {
         let Some(d) = self.merge_ui.dialog.take() else { return };
         let (Some(p), Some(repo)) = (d.preview, self.repo.clone()) else { return };
         self.focus(window, cx);
-        repo.update(cx, |r, cx| r.start_merge(d.mode, p.branch, cx));
+        let summary = self.merge_ui.summary.read(cx).as_str().to_string();
+        repo.update(cx, |r, cx| r.start_merge(d.mode, p.branch, summary, cx));
         cx.notify();
     }
 

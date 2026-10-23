@@ -13,7 +13,6 @@
     - Display this pre-made default name as the commit name hint
 - commit view
   - it should be possible to resize the commit message height, and to scroll it. Currently a long commit message cannot be read entirely.
-- when doing a squash + merge, there should be a field to enter a commit name in the menu
 - option to preview pull request
 - bundle as flatpak
 - bundle for macos

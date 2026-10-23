@@ -18,6 +18,11 @@ pub struct MergePreview {
     pub conflicts: Option<Vec<String>>,
 }
 
+/// Default subject of a squash-merge commit.
+pub fn default_squash_summary(branch: &str, current: &str) -> String {
+    format!("Squash merge {branch} into {current}")
+}
+
 impl Repository {
     fn count(&self, range: &str) -> Result<u32> {
         let out = self.git().args(["rev-list", "--count", range, "--"]).run()?;
@@ -68,9 +73,11 @@ impl Repository {
         self.outcome_of(res.map(|_| ()))
     }
 
-    /// `git merge --squash` followed by one commit with a generated message.
+    /// `git merge --squash` followed by one commit. `summary` is the commit
+    /// subject (blank or `None`: "Squash merge <branch> into <current>"); the
+    /// body lists the squashed commit subjects.
     /// Conflicts leave the index unmerged (reported as `InProgress::Squash`).
-    pub fn merge_squash(&self, branch: &str) -> Result<OpOutcome> {
+    pub fn merge_squash(&self, branch: &str, summary: Option<&str>) -> Result<OpOutcome> {
         if self.commits_ahead(branch)? == 0 {
             return Ok(OpOutcome::UpToDate);
         }
@@ -87,11 +94,11 @@ impl Repository {
             .args(["log", "--reverse", "--format=* %s", &format!("HEAD..{branch}")])
             .run()
             .unwrap_or_default();
-        let message = format!(
-            "Squash merge {branch} into {}\n\n{}",
-            self.current_branch_name(),
-            subjects.trim()
-        );
+        let subject = match summary.map(str::trim) {
+            Some(s) if !s.is_empty() => s.to_string(),
+            _ => default_squash_summary(branch, &self.current_branch_name()),
+        };
+        let message = format!("{subject}\n\n{}", subjects.trim());
         self.git().args(["commit", "-q", "-F", "-"]).stdin(message).run()?;
         Ok(OpOutcome::Done)
     }

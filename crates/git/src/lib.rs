@@ -27,7 +27,7 @@ pub use exec::GitError;
 pub use expand::{EXPANSION_STEP, Expansion, expand, expandable, gap_above, gap_below};
 pub use history_ops::{ResetMode, github_web_url};
 pub use log::{Commit, CommitFile};
-pub use merge::MergePreview;
+pub use merge::{MergePreview, default_squash_summary};
 pub use partial::{PartialFile, selectable, staged_text};
 pub use progress::{InProgress, OpOutcome};
 pub use refs::{Branch, BranchKind};

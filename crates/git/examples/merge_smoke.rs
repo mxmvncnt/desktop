@@ -64,11 +64,19 @@ fn main() {
     write_commit(&dir, "sq2.txt", "2\n", "sq two");
     sh(&dir, &["checkout", "-q", "main"]);
     let before = repo.log(0, 100).unwrap().len();
-    assert_eq!(repo.merge_squash("sq").unwrap(), OpOutcome::Done);
+    assert_eq!(repo.merge_squash("sq", None).unwrap(), OpOutcome::Done);
     let log = repo.log(0, 100).unwrap();
     assert_eq!(log.len(), before + 1, "squash must add exactly one commit");
     assert_eq!(log[0].summary, "Squash merge sq into main");
     println!("squash OK: {:?} / {:?}", log[0].summary, log[0].body);
+
+    // 3b. Squash merge with a custom summary.
+    sh(&dir, &["checkout", "-q", "-b", "sq3"]);
+    write_commit(&dir, "sq3.txt", "3\n", "sq three");
+    sh(&dir, &["checkout", "-q", "main"]);
+    assert_eq!(repo.merge_squash("sq3", Some("  My squash  ")).unwrap(), OpOutcome::Done);
+    assert_eq!(repo.log(0, 1).unwrap()[0].summary, "My squash");
+    println!("squash custom summary OK");
 
     // 4. Rebase current branch onto main.
     sh(&dir, &["checkout", "-q", "-b", "topic", "ff"]);
@@ -132,7 +140,7 @@ fn main() {
     println!("merge --abort OK");
 
     // 7. Conflicting squash, resolve with mark_resolved, continue.
-    assert_eq!(repo.merge_squash("c2").unwrap(), OpOutcome::Conflicts);
+    assert_eq!(repo.merge_squash("c2", None).unwrap(), OpOutcome::Conflicts);
     let ip = repo.in_progress().unwrap();
     assert_eq!(ip, InProgress::Squash);
     std::fs::write(dir.join("app.txt"), "one\nresolved\nthree\n").unwrap();
