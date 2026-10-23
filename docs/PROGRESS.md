@@ -79,6 +79,7 @@ Branch: `rust-rewrite`. Each entry: ✅ done · 🟡 partial · ⬜ todo.
 - ✅ Desktop layout: toolbar (repo ▾, branch ▾, contextual Publish/Pull/Push/Fetch), sidebar tabs, main diff.
 - ✅ Changes list: checkboxes, select-all (mixed state), status glyphs, ↑/↓.
 - ✅ Commit box: summary, description, `Commit to <branch>` (Ctrl+Enter), enabled only when valid.
+  - Exactly one file selected: empty summary shows `Create/Update/Delete x` / `Rename a to b` as placeholder and the commit uses it (`RepoModel::default_summary`).
 - ✅ Virtualized diff with gutters, hunk headers, add/del washes, truncation notice.
 - ✅ History: infinite-scroll commit list, commit header, file list, diff.
 - ✅ Repository picker: filter, ↑/↓/Enter, remove (hover ×), add existing (folder dialog), clone.

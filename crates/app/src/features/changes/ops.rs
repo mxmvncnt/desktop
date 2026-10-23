@@ -1,7 +1,7 @@
 //! RepoModel operations of the Changes tab: what is included in the next
 //! commit, committing, ignoring, discarding and undoing the last commit.
 
-use gd_git::FileChange;
+use gd_git::{FileChange, FileStatus};
 use gpui::Context;
 
 use crate::repo::{LastCommit, RepoEvent, RepoModel};
@@ -13,6 +13,23 @@ impl RepoModel {
             .filter(|c| !self.excluded.contains(&c.path) && !self.partial.contains_key(&c.path))
             .map(|c| c.path.clone())
             .collect()
+    }
+
+    /// Name used when the summary is left empty and exactly one file is
+    /// selected: "Create x" / "Update x" / "Delete x" / "Rename a to b".
+    pub fn default_summary(&self) -> Option<String> {
+        let mut selected = self.changes().iter().filter(|c| !self.excluded.contains(&c.path));
+        let c = selected.next()?;
+        if selected.next().is_some() {
+            return None;
+        }
+        let name = |p: &str| p.rsplit('/').next().unwrap_or(p).to_string();
+        Some(match (c.status, &c.old_path) {
+            (FileStatus::New | FileStatus::Untracked, _) => format!("Create {}", name(&c.path)),
+            (FileStatus::Deleted, _) => format!("Delete {}", name(&c.path)),
+            (FileStatus::Renamed, Some(old)) => format!("Rename {} to {}", name(old), name(&c.path)),
+            _ => format!("Update {}", name(&c.path)),
+        })
     }
 
     /// File checkbox: a partially selected file becomes fully included.

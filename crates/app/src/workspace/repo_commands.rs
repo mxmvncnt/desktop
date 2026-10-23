@@ -17,10 +17,17 @@ impl Workspace {
             return;
         }
         let Some(repo) = self.repo.clone() else { return };
-        let summary = self.summary.read(cx).as_str().to_string();
+        let mut summary = self.summary.read(cx).as_str().to_string();
         let description = self.description.read(cx).as_str().to_string();
-        if summary.trim().is_empty() || !repo.read(cx).has_included() {
+        if !repo.read(cx).has_included() {
             return;
+        }
+        if summary.trim().is_empty() {
+            let merging = repo.read(cx).merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes());
+            match repo.read(cx).default_summary().filter(|_| !merging) {
+                Some(d) => summary = d,
+                None => return,
+            }
         }
         repo.update(cx, |r, cx| r.commit(summary, description, cx));
         self.summary.update(cx, |s, cx| s.emplace("", cx));

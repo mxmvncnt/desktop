@@ -8,9 +8,6 @@
   - add documentations for humans
 - sidebar
   - in the commit history view, show co-authors directly in the commit
-  - default commit name on single file changes: {Create,Delete,Update} <file_name>
-    - have nothing in the actual input box, but allow creating the commit with that name anyways.
-    - Display this pre-made default name as the commit name hint
 - commit view
   - it should be possible to resize the commit message height, and to scroll it. Currently a long commit message cannot be read entirely.
 - bundle as flatpak

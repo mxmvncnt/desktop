@@ -36,13 +36,17 @@ pub struct CommitButton {
     pub amending: bool,
     /// The commit being amended was already pushed (force push needed).
     pub head_pushed: bool,
+    /// Shown as the summary placeholder and used when the summary is empty.
+    pub default_summary: Option<String>,
 }
 
 impl CommitButton {
-    pub fn of(r: &RepoModel, included: usize, amending: bool, summary_ok: bool) -> Self {
+    pub fn of(r: &RepoModel, included: usize, amending: bool, summary_typed: bool) -> Self {
+        let merging = r.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes());
+        let default_summary = if amending || merging { None } else { r.default_summary() };
+        let summary_ok = summary_typed || default_summary.is_some();
         let committing = r.committing;
         let conflicts = r.conflict_count();
-        let merging = r.merge.in_progress.as_ref().is_some_and(|p| p.commit_finishes());
         // Amending may change only the message, so no files are needed.
         let enabled = (included > 0 || amending) && summary_ok && !committing && conflicts == 0 && r.merge.busy.is_none();
         let label: SharedString = if amending {
@@ -57,6 +61,6 @@ impl CommitButton {
             format!("Commit to {}", r.branch_name()).into()
         };
         let head_pushed = r.history.push_state_loaded && r.commits.first().is_some_and(|c| !r.is_unpushed(&c.sha));
-        Self { label, enabled, amending, head_pushed }
+        Self { label, enabled, amending, head_pushed, default_summary }
     }
 }

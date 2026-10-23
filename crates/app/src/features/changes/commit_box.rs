@@ -70,7 +70,7 @@ impl RenderOnce for CommitBox {
             .border_t_1()
             .border_color(theme.border)
             .children(amend_notice)
-            .child(text_field("summary", &self.summary, "Summary (required)", cx))
+            .child(text_field("summary", &self.summary, self.button.default_summary.as_deref().unwrap_or("Summary (required)"), cx))
             .child(self.description_input(&theme))
             .child(commit)
     }
