@@ -12,6 +12,7 @@
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::ops::Range;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -98,26 +99,35 @@ pub fn runs_for(
 }
 
 /// The text element for one diff row: syntax colors (`spans`, may be empty)
-/// plus a background wash over the word-level `emphasis` ranges. Plain rows
-/// (no spans, no emphasis) stay a cheap single-run text.
+/// plus a background wash over the word-level `emphasis` ranges and the
+/// selected byte range. Plain rows (no spans, emphasis or selection) stay a
+/// cheap single-run text. Also returns the text layout for hit-testing.
 pub fn line_text(
     text: &str,
     spans: &[Span],
     emphasis: &[(usize, usize)],
+    selected: Option<(Range<usize>, Hsla)>,
     fg: Hsla,
     emph_bg: Hsla,
     font: &Font,
     palette: &SyntaxPalette,
-) -> gpui::AnyElement {
+) -> (gpui::AnyElement, gpui::TextLayout) {
     use gpui::{IntoElement, ParentElement, Styled};
-    if spans.is_empty() && emphasis.is_empty() {
-        return gpui::div().text_color(fg).child(text.to_string()).into_any_element();
+    if text.is_empty() || (spans.is_empty() && emphasis.is_empty() && selected.is_none()) {
+        let styled = gpui::StyledText::new(text.to_string());
+        let layout = styled.layout().clone();
+        return (gpui::div().text_color(fg).child(styled).into_any_element(), layout);
     }
     let mut runs = runs_for(text, spans, fg, font, palette);
     if !emphasis.is_empty() {
         runs = overlay_background(text, runs, emphasis, emph_bg);
     }
-    gpui::StyledText::new(text.to_string()).with_runs(runs).into_any_element()
+    if let Some((r, bg)) = selected {
+        runs = overlay_background(text, runs, &[(r.start, r.end)], bg);
+    }
+    let styled = gpui::StyledText::new(text.to_string()).with_runs(runs);
+    let layout = styled.layout().clone();
+    (styled.into_any_element(), layout)
 }
 
 /// Split `runs` at emphasis edges and set `background_color` inside them.

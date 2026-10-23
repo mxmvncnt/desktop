@@ -12,6 +12,8 @@ use super::highlight::{DiffHighlight, line_text};
 use super::number_cell::number_cell;
 use super::row_select::{BlockRow, RowSelect};
 use super::text_flow::{TextFlow, marker_cell, row_box, text_cell};
+use super::text_select::{TextSelect, TextTarget};
+use super::text_selection::TextSide;
 use crate::repo::RepoModel;
 
 /// What every unified row needs besides its index.
@@ -22,6 +24,7 @@ pub struct UnifiedRows<'a> {
     pub exp: Option<&'a Expander>,
     pub num_w: Pixels,
     pub flow: TextFlow,
+    pub tsel: &'a TextSelect,
     pub theme: &'a Theme,
 }
 
@@ -65,21 +68,26 @@ impl UnifiedRows<'_> {
             .bg(look.bg)
             .when(hunk && ix > 0, |d| d.border_t_1().border_color(self.theme.border))
             .when(hunk, |d| d.text_color(self.theme.text_faint).italic());
-        let text = self.text(ix, look.fg);
+        let (text, layout) = self.text(ix, look.fg);
         match header_hunk(self.diff, ix) {
             // Hunk headers carry the expand buttons in their gutter.
             Some(h) => self.header_row(row, h, text, look.marker_color),
-            None => self.line_row(row, ix, text, &look),
+            None if hunk => self.line_row(row, ix, text, &look, None),
+            None => {
+                let target = TextTarget { line: ix, side: TextSide::Unified, layout };
+                self.line_row(self.tsel.bind_drag(row, vec![target.clone()]), ix, text, &look, Some(target))
+            }
         }
     }
 
-    fn text(&self, ix: usize, fg: Hsla) -> AnyElement {
+    fn text(&self, ix: usize, fg: Hsla) -> (AnyElement, gpui::TextLayout) {
         let theme = self.theme;
         let line = &self.diff.lines[ix];
         let font = gpui::font(theme.font_mono.clone());
         let emph_bg = if line.kind == DiffLineKind::Add { theme.diff_add_emph } else { theme.diff_del_emph };
         let spans = self.hl.map(|h| h.row(ix)).unwrap_or(&[]);
-        line_text(&line.text, spans, &line.emphasis, fg, emph_bg, &font, &theme.syntax)
+        let selected = self.tsel.cols(ix, TextSide::Unified, line.text.len()).filter(|_| line.kind != DiffLineKind::Hunk);
+        line_text(&line.text, spans, &line.emphasis, selected.map(|r| (r, self.tsel.color)), fg, emph_bg, &font, &theme.syntax)
     }
 
     fn header_row(&self, row: Div, h: usize, text: AnyElement, marker_color: Hsla) -> AnyElement {
@@ -89,7 +97,7 @@ impl UnifiedRows<'_> {
             .into_any_element()
     }
 
-    fn line_row(&self, row: Div, ix: usize, text: AnyElement, look: &LineLook) -> AnyElement {
+    fn line_row(&self, row: Div, ix: usize, text: AnyElement, look: &LineLook, target: Option<TextTarget>) -> AnyElement {
         let (diff, theme) = (self.diff, self.theme);
         let line = &diff.lines[ix];
         row
@@ -109,7 +117,10 @@ impl UnifiedRows<'_> {
                 theme,
             )))
             .child(marker_cell(look.marker, look.marker_color))
-            .child(text_cell(text, self.flow))
+            .child(match target {
+                Some(t) => self.tsel.bind_text(text_cell(text, self.flow), t),
+                None => text_cell(text, self.flow),
+            })
             .into_any_element()
     }
 }

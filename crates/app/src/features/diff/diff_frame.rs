@@ -40,7 +40,10 @@ impl RenderOnce for DiffFrame {
                         .min_h_0()
                         // A gutter drag ends wherever the button is released.
                         .on_mouse_up_all(move |_, _, _, _, cx| {
-                            ws.update(cx, |w, _| w.diff_select.drag = None);
+                            ws.update(cx, |w, _| {
+                                w.diff_select.drag = None;
+                                w.diff_text_drag_end();
+                            });
                         })
                         // Shift+wheel arrives as a horizontal delta on every platform.
                         .when(!wrap, |d| {

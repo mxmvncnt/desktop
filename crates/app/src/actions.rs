@@ -31,6 +31,8 @@ actions!(
         MenuPrevious,
         MenuConfirm,
         Quit,
+        CopyDiffText,
+        SelectAllDiffText,
     ]
 );
 
@@ -57,6 +59,8 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new(REFRESH_KEY, Refresh, ws),
         KeyBinding::new(&format!("{M}-enter"), Commit, ws),
         KeyBinding::new(&format!("{M}-shift-s"), StashChanges, ws),
+        KeyBinding::new(&format!("{M}-c"), CopyDiffText, ws),
+        KeyBinding::new(&format!("{M}-a"), SelectAllDiffText, ws),
         KeyBinding::new("escape", Dismiss, ws),
         KeyBinding::new(QUIT_KEY, Quit, None),
         // Focused text inputs bind these keys themselves (deeper context), so

@@ -38,6 +38,7 @@ impl Workspace {
         // Row indices mean something else in the other mode.
         self.diff_scroll.0.borrow().base_handle.set_offset(point(px(0.0), px(0.0)));
         self.diff_view.hscroll = px(0.0);
+        self.diff_view.text_sel = None;
         cx.notify();
     }
 

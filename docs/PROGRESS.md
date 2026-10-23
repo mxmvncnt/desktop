@@ -21,6 +21,12 @@
 - Not done: identities/providers, ~~multiple color themes~~ (done: see ARCHITECTURE UI kit, Color themes). Snapshot views: `settings`,
   `settings-light`, `settings-diff`, `changes-light`.
 
+## Diff text selection
+
+- [x] Mouse text selection in the diff (unified/split, wrapped/scrolled): drag, shift-click, double-click word,
+      triple-click line; Ctrl/Cmd+C copies code only, Ctrl/Cmd+A selects all (split: one side). Snapshot views
+      `select[-split][-wrap|-hscroll]`. Not done: autoscroll while dragging past the list edge.
+
 ## Diff long lines (2026-10-21)
 
 - ✅ Horizontal scrolling in unified and split views (wheel x / shift+wheel). Gutters stay fixed. In split

@@ -12,6 +12,8 @@ use super::number_cell::number_cell;
 use super::row_select::{BlockRow, RowSelect};
 use super::split_diff::{NONE, SplitDiff, SplitRow};
 use super::text_flow::{TextFlow, marker_cell, row_box, text_cell};
+use super::text_select::{TextSelect, TextTarget};
+use super::text_selection::TextSide;
 use crate::repo::RepoModel;
 
 /// What every split row needs besides its index.
@@ -24,6 +26,7 @@ pub struct SplitRows<'a> {
     /// Width of the expand-button gutter of header/trailing rows.
     pub exp_w: Pixels,
     pub flow: TextFlow,
+    pub tsel: &'a TextSelect,
     pub theme: &'a Theme,
 }
 
@@ -37,10 +40,14 @@ impl SplitRows<'_> {
         if row.left == row.right && diff.lines[row.left as usize].kind == DiffLineKind::Hunk {
             return self.header_row(ix, row);
         }
-        row_box(self.flow)
-            .child(self.side(row.left))
+        let (left, left_target) = self.side(row.left, TextSide::Left);
+        let (right, right_target) = self.side(row.right, TextSide::Right);
+        let targets = left_target.into_iter().chain(right_target).collect();
+        self.tsel
+            .bind_drag(row_box(self.flow), targets)
+            .child(left)
             .child(self.gutter(ix, row))
-            .child(self.side(row.right))
+            .child(right)
             .into_any_element()
     }
 
@@ -85,12 +92,12 @@ impl SplitRows<'_> {
             .child(number_cell(sel, diff, right, &[new_no], ("new-no", ix), self.num_w, theme))
     }
 
-    /// One text side: change marker + line text.
-    fn side(&self, ix: u32) -> Div {
+    /// One text side: change marker + line text, and its hit-test target.
+    fn side(&self, ix: u32, side: TextSide) -> (Div, Option<TextTarget>) {
         let theme = self.theme;
         let cell = div().flex().flex_1().min_w_0().overflow_hidden();
         if ix == NONE {
-            return cell.bg(ink(0.025));
+            return (cell.bg(ink(0.025)), None);
         }
         let line = &self.split.diff.lines[ix as usize];
         let (bg, fg, marker, marker_color) = match line.kind {
@@ -102,7 +109,10 @@ impl SplitRows<'_> {
         let font = gpui::font(theme.font_mono.clone());
         let emph_bg = if line.kind == DiffLineKind::Add { theme.diff_add_emph } else { theme.diff_del_emph };
         let spans = self.hl.map(|h| h.row(ix as usize)).unwrap_or(&[]);
-        let text: AnyElement = line_text(&line.text, spans, &line.emphasis, fg, emph_bg, &font, &theme.syntax);
-        cell.bg(bg).child(marker_cell(marker, marker_color)).child(text_cell(text, self.flow))
+        let selected = self.tsel.cols(ix as usize, side, line.text.len()).map(|r| (r, self.tsel.color));
+        let (text, layout) = line_text(&line.text, spans, &line.emphasis, selected, fg, emph_bg, &font, &theme.syntax);
+        let target = TextTarget { line: ix as usize, side, layout };
+        let text = self.tsel.bind_text(text_cell(text, self.flow), target.clone());
+        (cell.bg(bg).child(marker_cell(marker, marker_color)).child(text), Some(target))
     }
 }

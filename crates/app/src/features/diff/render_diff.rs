@@ -17,6 +17,7 @@ use super::split_list::SplitList;
 use super::whitespace_note::WhitespaceNote;
 use super::state::DiffSelectUi;
 use super::text_flow::{MARKER_W, TextFlow};
+use super::text_select::TextSelect;
 use super::unified_list::UnifiedList;
 use crate::workspace::Workspace;
 
@@ -55,15 +56,16 @@ impl Workspace {
         let truncated = diff.truncated;
         let mono = theme.font_mono.clone();
         let scroll = self.diff_scroll.clone();
+        let tsel = TextSelect { ws: cx.entity(), sel: self.diff_view.text_sel, color: theme.selection };
         let list = match split {
             Some(split) => {
                 self.set_split_extent(&diff, split.gutter_digits, select.is_some());
-                SplitList { split, hl: highlight, select, exp, trailing: trailing == 1, scroll, wrap: wrap_list, flow, mono }
+                SplitList { split, hl: highlight, select, exp, trailing: trailing == 1, scroll, wrap: wrap_list, flow, tsel, mono }
                     .into_any_element()
             }
             None => {
                 let num_w = self.set_unified_extent(&diff, select.is_some());
-                UnifiedList { diff, hl: highlight, select, exp, rows: n, num_w, scroll, wrap: wrap_list, flow, mono }
+                UnifiedList { diff, hl: highlight, select, exp, rows: n, num_w, scroll, wrap: wrap_list, flow, tsel, mono }
                     .into_any_element()
             }
         };
@@ -79,6 +81,7 @@ impl Workspace {
             self.diff_scroll.0.borrow().base_handle.set_offset(point(px(0.0), px(0.0)));
             self.diff_view.hscroll = px(0.0);
             self.diff_select = DiffSelectUi::default();
+            self.diff_view.text_sel = None;
         }
         new_key
     }

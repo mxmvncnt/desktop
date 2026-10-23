@@ -7,6 +7,7 @@ use gd_git::Diff;
 use gpui::{ListAlignment, ListState, Pixels, Point, px};
 
 use super::split_diff::SplitDiff;
+use super::text_selection::{TextSel, TextSide};
 
 /// Workspace-side state for the diff viewer (one field on `Workspace`).
 pub struct DiffView {
@@ -23,6 +24,9 @@ pub struct DiffView {
     /// mode) it was last reset for.
     wrap_list: ListState,
     pub(super) wrap_for: Option<(Arc<Diff>, bool)>,
+    /// Text selection (see `text_selection.rs`) and whether it is being dragged.
+    pub text_sel: Option<TextSel>,
+    pub text_drag: bool,
 }
 
 impl Default for DiffView {
@@ -35,6 +39,8 @@ impl Default for DiffView {
             extent: None,
             wrap_list: ListState::new(0, ListAlignment::Top, px(400.0)),
             wrap_for: None,
+            text_sel: None,
+            text_drag: false,
         }
     }
 }
@@ -48,6 +54,20 @@ pub struct HExtent {
 }
 
 impl DiffView {
+    /// The diff last rendered.
+    pub fn shown_diff(&self) -> Option<Arc<Diff>> {
+        self.extent.as_ref().map(|e| e.diff.clone())
+    }
+
+    pub(super) fn line_text(&self, line: usize) -> Option<&str> {
+        self.extent.as_ref()?.diff.lines.get(line).map(|l| l.text.as_str())
+    }
+
+    /// The side of the text drag in progress.
+    pub(super) fn dragging_side(&self) -> Option<TextSide> {
+        self.text_sel.filter(|_| self.text_drag).map(|s| s.side)
+    }
+
     pub fn set_extent(&mut self, diff: &Arc<Diff>, fixed: Pixels, columns: f32) {
         self.extent = Some(HExtent { diff: diff.clone(), fixed, columns });
     }

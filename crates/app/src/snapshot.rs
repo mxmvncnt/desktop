@@ -11,7 +11,7 @@
 //! ```
 //! Views: `changes` (default), `theme:<id>:<dark|light>[:settings]`, `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
-//! `header-menu`, `discard-dialog`, `split`, `split-history`, `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
+//! `header-menu`, `discard-dialog`, `split`, `split-history`, `select[-split][-wrap|-hscroll]` (preset text selection), `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
 //! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
@@ -124,6 +124,15 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         ws.settings.diff_split = view.starts_with("split");
                         ws.settings.diff_wrap = view.ends_with("wrap");
                         if view.ends_with("hscroll") {
+                            ws.diff_view.hscroll = px(160.0);
+                        }
+                        cx.notify();
+                    }
+                    // Text selection mode (the selection itself is set in phase 2 below).
+                    v if v.starts_with("select") => {
+                        ws.settings.diff_split = v.contains("split");
+                        ws.settings.diff_wrap = v.contains("wrap");
+                        if v.contains("hscroll") {
                             ws.diff_view.hscroll = px(160.0);
                         }
                         cx.notify();
@@ -305,6 +314,27 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         }
                     });
                 }
+                cx.notify();
+            });
+        })
+        .ok();
+    }
+    // `select[-split][-wrap|-hscroll]`: a preset text selection across several lines.
+    if view.starts_with("select") {
+        cx.run_until_parked();
+        cx.update_window(window.into(), |_, window, cx| {
+            let ws = window.root::<Workspace>().flatten().expect("workspace root");
+            ws.update(cx, |ws, cx| {
+                use crate::features::diff::{TextPos, TextSel, TextSide};
+                let Some(diff) = ws.diff_view.shown_diff() else { return };
+                let side = if view.contains("split") { TextSide::Right } else { TextSide::Unified };
+                let lines: Vec<usize> = (0..diff.lines.len())
+                    .filter(|&i| diff.lines[i].kind != gd_git::DiffLineKind::Hunk && !diff.lines[i].text.is_empty())
+                    .filter(|&i| side != TextSide::Right || diff.lines[i].kind != gd_git::DiffLineKind::Delete)
+                    .collect();
+                let (Some(&a), Some(&b)) = (lines.get(3), lines.get(9)) else { return };
+                let head = TextPos { line: b, col: diff.lines[b].text.len().min(14) };
+                ws.diff_view.text_sel = Some(TextSel { anchor: TextPos { line: a, col: 6 }, head, side });
                 cx.notify();
             });
         })

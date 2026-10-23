@@ -383,3 +383,18 @@ Wayland/X11 gpui features are enabled only for Linux targets in `crates/app/Carg
 `Cargo.toml` pins `rev = 9a82fba4…` (2026-10-18). To bump it, change the rev
 in all four entries, run `cargo update -p gpui-ce`, rebuild, and re-check the
 gotchas above.
+
+## Diff text selection (`features/diff/text_selection.rs`, `text_select.rs`, `text_handlers.rs`)
+
+- Model `TextSel { anchor, head, side }` in (index into `Diff::lines`, byte offset) coordinates, stored in
+  `DiffView::text_sel`, so it is independent of virtualization. Split view selects within one `TextSide`; lines of a
+  side stay monotonic in `diff.lines` order. Cleared on file change and split toggle.
+- Hit-testing: `line_text` returns the row's `StyledText` `TextLayout`; the row closures capture it and call
+  `index_for_position` (window coordinates, so h-scroll and wrapping just work). Mouse down is bound on the text cell
+  only (gutters keep line staging); `on_mouse_move` on the whole row extends the drag (`text_drag`, cleared in
+  `DiffFrame` mouse-up-all).
+- Highlight = background on the selected `TextRun` range (`Theme::selection`), no extra paint elements.
+- Ctrl/Cmd+C / +A are `CopyDiffText` / `SelectAllDiffText` on the `Workspace` context; a text press focuses the
+  workspace so inputs (which bind their own copy/select-all deeper) do not intercept.
+- Shared `CARGO_TARGET_DIR` across worktrees can mix `gd-ui` artifacts of different branches (spurious E0061); use a
+  per-worktree target if you see impossible errors.

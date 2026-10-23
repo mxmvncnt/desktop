@@ -23,6 +23,9 @@ mod split_list;
 mod split_row;
 mod state;
 mod text_flow;
+mod text_handlers;
+mod text_select;
+mod text_selection;
 mod unified_list;
 mod unified_row;
 mod whitespace_note;
@@ -35,3 +38,5 @@ pub use diff_pane::DiffPane;
 pub use highlight::{DiffHighlight, HighlightCache, highlight_diff};
 pub use line_selection::LineSelection;
 pub use state::{DiffSelectUi, DiffView};
+#[cfg(feature = "snapshot")]
+pub use text_selection::{TextPos, TextSel, TextSide};
