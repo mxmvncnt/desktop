@@ -33,6 +33,10 @@ pub struct Workspace {
     /// instead of reopening.
     pub(crate) popover_dismissed: Option<(Popover, Point<Pixels>)>,
     pub popover_selected: usize,
+    /// New-branch popover: chosen start point (`None` = current branch) and
+    /// whether the base list is expanded.
+    pub new_branch_base: Option<String>,
+    pub new_branch_base_open: bool,
     /// Open right-click menu / confirm dialog (rendered only while `Some`).
     pub menu: Option<OpenMenu>,
     pub menu_gen: usize,

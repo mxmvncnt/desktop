@@ -34,6 +34,8 @@ impl Workspace {
         }
         self.popover = Some(p);
         self.popover_gen += 1;
+        self.new_branch_base = None;
+        self.new_branch_base_open = false;
         self.reset_popover_selection(cx);
         for input in [&self.filter, &self.name_input, &self.url_input] {
             input.update(cx, |s, cx| s.emplace("", cx));

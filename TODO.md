@@ -19,7 +19,6 @@
 - select text in the diff view
 - when doing a squash + merge, there should be a field to enter a commit name in the menu
 - keyboard navigation with arrows: browse through commits, files in commit, stashes, staged files
-- option to create a branch from a certain branch (ex: create branch x from staging) while keeping the option for creating the branch from the current one
 - option to preview pull request
 - bundle as flatpak
 - bundle for macos

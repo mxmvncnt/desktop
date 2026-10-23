@@ -166,7 +166,7 @@ impl Repository {
 
     /// Create `name` at `base` (any branch or commit-ish) and switch to it.
     pub fn create_branch_from(&self, name: &str, base: &str) -> Result<()> {
-        self.git().args(["checkout", "-q", "-b", name, base]).run()?;
+        self.git().args(["checkout", "-q", "-b", name, base, "--no-track"]).run()?;
         Ok(())
     }
 }

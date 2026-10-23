@@ -9,7 +9,7 @@
 //! GD_CONFIG_DIR=/tmp/desktop-rs/config cargo run --features snapshot -- \
 //!     --snapshot /tmp/desktop-rs/shot.png /tmp/desktop-rs/testrepo history
 //! ```
-//! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`,
+//! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
 //! `header-menu`, `discard-dialog`, `split`, `split-history`, `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
 //! `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
@@ -129,6 +129,12 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                     "repos" => ws.toggle_popover(Popover::Repositories, window, cx),
                     "branches" => ws.toggle_popover(Popover::Branches, window, cx),
                     "new-branch" => ws.toggle_popover(Popover::NewBranch, window, cx),
+                    "new-branch-base" => {
+                        ws.toggle_popover(Popover::NewBranch, window, cx);
+                        ws.new_branch_base = Some("staging".into());
+                        ws.new_branch_base_open = true;
+                        ws.name_input.update(cx, |s, cx| s.emplace("feature x", cx));
+                    }
                     "clone" => ws.toggle_popover(Popover::Clone, window, cx),
                     "context-menu" => ws.open_file_menu(1, gpui::point(px(120.0), px(150.0)), window, cx),
                     "header-menu" => ws.open_header_menu(gpui::point(px(60.0), px(100.0)), window, cx),

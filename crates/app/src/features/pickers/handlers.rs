@@ -5,6 +5,7 @@ use gpui::{Context, Window};
 
 use super::branch_picker::BranchPicker;
 use super::clone_form::CloneForm;
+use super::new_branch_base::NewBranchBase;
 use super::new_branch_form::NewBranchForm;
 use super::repo_picker::{RepoEntry, RepoPicker};
 use crate::shared::branch_name::sanitize_branch_name;
@@ -45,12 +46,31 @@ impl Workspace {
     }
 
     pub fn new_branch_form(&self, cx: &mut Context<Self>) -> NewBranchForm {
+        let repo = self.repo.as_ref().map(|r| r.read(cx));
         NewBranchForm::new(
             sanitize_branch_name(self.name_input.read(cx).as_str()),
-            self.repo.as_ref().map(|r| r.read(cx).branch_name()).unwrap_or_default(),
+            NewBranchBase {
+                current: repo.map(|r| r.branch_name()).unwrap_or_default(),
+                chosen: self.new_branch_base.clone(),
+                open: self.new_branch_base_open,
+                branches: repo.map(|r| r.branches.clone()).unwrap_or_default(),
+                ws: cx.entity(),
+            },
             self.name_input.clone(),
             cx.entity(),
         )
+    }
+
+    pub(super) fn toggle_new_branch_base(&mut self, cx: &mut Context<Self>) {
+        self.new_branch_base_open = !self.new_branch_base_open;
+        cx.notify();
+    }
+
+    /// Pick the start point; `None` goes back to the current branch.
+    pub(super) fn set_new_branch_base(&mut self, base: Option<String>, cx: &mut Context<Self>) {
+        self.new_branch_base = base;
+        self.new_branch_base_open = false;
+        cx.notify();
     }
 
     pub fn clone_form(&self, cx: &mut Context<Self>) -> CloneForm {
@@ -107,7 +127,10 @@ impl Workspace {
             return;
         }
         if let Some(repo) = &self.repo {
-            repo.update(cx, |r, cx| r.create_branch(name, cx));
+            match self.new_branch_base.take() {
+                Some(base) => repo.update(cx, |r, cx| r.create_branch_from(name, base, cx)),
+                None => repo.update(cx, |r, cx| r.create_branch(name, cx)),
+            }
         }
         self.close_popover(w, cx);
     }

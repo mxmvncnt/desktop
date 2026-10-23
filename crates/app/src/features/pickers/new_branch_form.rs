@@ -6,6 +6,7 @@ use gpui::{
 };
 use gpui_elements::editable_text::{EditableTextState, actions::Enter};
 
+use super::new_branch_base::NewBranchBase;
 use crate::shared::text_field::text_field;
 use crate::workspace::Workspace;
 
@@ -13,21 +14,21 @@ use crate::workspace::Workspace;
 pub struct NewBranchForm {
     /// Sanitized text of the name input.
     name: String,
-    base: String,
+    base: NewBranchBase,
     input: Entity<EditableTextState>,
     ws: Entity<Workspace>,
 }
 
 impl NewBranchForm {
-    pub fn new(name: String, base: String, input: Entity<EditableTextState>, ws: Entity<Workspace>) -> Self {
+    pub fn new(name: String, base: NewBranchBase, input: Entity<EditableTextState>, ws: Entity<Workspace>) -> Self {
         Self { name, base, input, ws }
     }
 
     fn hint(&self) -> SharedString {
         if self.name.is_empty() {
-            SharedString::from(format!("Based on {}", self.base))
+            SharedString::from("New branches start from the base above")
         } else {
-            format!("Creates {} from {} and switches to it", self.name, self.base).into()
+            format!("Creates {} from {} and switches to it", self.name, self.base.effective()).into()
         }
     }
 }
@@ -35,6 +36,7 @@ impl NewBranchForm {
 impl RenderOnce for NewBranchForm {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
+        let hint = self.hint();
         let (enter_ws, click_ws) = (self.ws.clone(), self.ws.clone());
         div()
             .flex()
@@ -53,7 +55,8 @@ impl RenderOnce for NewBranchForm {
                     .child("Create a branch"),
             )
             .child(text_field("branch-name", &self.input, "Branch name", cx))
-            .child(div().text_size(px(12.0)).text_color(theme.text_faint).child(self.hint()))
+            .child(self.base)
+            .child(div().text_size(px(12.0)).text_color(theme.text_faint).child(hint))
             .child(
                 Button::new("create-branch")
                     .primary()

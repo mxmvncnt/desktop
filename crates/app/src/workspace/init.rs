@@ -52,6 +52,8 @@ impl Workspace {
             description,
             filter,
             name_input,
+            new_branch_base: None,
+            new_branch_base_open: false,
             url_input,
             changes_scroll: UniformListScrollHandle::new(),
             history_scroll: UniformListScrollHandle::new(),

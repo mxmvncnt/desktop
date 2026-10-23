@@ -7,6 +7,8 @@ mod branch_picker;
 mod clone_form;
 mod filter;
 mod handlers;
+mod new_branch_base;
+mod new_branch_base_list;
 mod new_branch_form;
 mod picker_shell;
 mod repo_picker;
