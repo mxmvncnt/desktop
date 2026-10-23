@@ -10,6 +10,7 @@ mod changes_pane;
 mod changes_panel;
 mod commit_box;
 mod file_header;
+mod follow_caret;
 mod no_changes;
 mod ops;
 mod sidebar;
@@ -19,5 +20,6 @@ mod sidebar_tabs;
 mod state;
 mod undo_strip;
 
+pub use follow_caret::follow_caret;
 pub use sidebar::Sidebar;
 pub use sidebar_handle::SidebarResize;

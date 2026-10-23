@@ -11,7 +11,7 @@
 //! ```
 //! Views: `changes` (default), `theme:<id>:<dark|light>[:settings]`, `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
-//! `header-menu`, `discard-dialog`, `split`, `split-history`, `select[-split][-wrap|-hscroll]` (preset text selection), `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
+//! `header-menu`, `commit-single`, `commit-long`, `discard-dialog`, `split`, `split-history`, `select[-split][-wrap|-hscroll]` (preset text selection), `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
 //! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `pr-preview`, `pr-preview-menu`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
 //! `switch-branch-dialog`,
 //! `merge-dialog`, `squash-dialog`, `rebase-dialog`, `branch-menu`, `branch-menu-current`, `delete-dialog`,
@@ -269,6 +269,23 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
                         }
                     }
                     "conflict-menu" => ws.open_file_menu(0, gpui::point(px(120.0), px(150.0)), window, cx),
+                    // Only the first file selected: default summary shown as placeholder.
+                    "commit-single" => {
+                        if let Some(r) = &ws.repo {
+                            r.update(cx, |r, cx| {
+                                r.set_all_included(false, cx);
+                                let p = r.changes()[0].path.clone();
+                                r.toggle_included(&p, cx);
+                            });
+                        }
+                    }
+                    // Long description typed into the commit box.
+                    "commit-long" => {
+                        let text = (1..=30).map(|i| format!("Line {i} of a long description")).collect::<Vec<_>>().join("\n");
+                        ws.description.update(cx, |s, cx| s.emplace(&text, cx));
+                        let sum = "A very long summary that certainly does not fit into the sidebar width at all";
+                        ws.summary.update(cx, |s, cx| s.emplace(sum, cx));
+                    }
                     "undo-strip" => {
                         if let Some(r) = &ws.repo {
                             r.update(cx, |r, cx| {
@@ -449,7 +466,20 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
     cx.run_until_parked();
     // GPUI animations/transitions run on wall-clock time (not the test
     // dispatcher clock): wait for them for real, then redraw.
-    for _ in 0..3 {
+    for i in 0..3 {
+        if view == "commit-long" && i == 1 {
+            // The headless window has no frame callbacks (`on_next_frame`), so
+            // replay what `follow_caret` does once the new layout exists.
+            cx.update_window(window.into(), |_, window, cx| {
+                let ws = window.root::<Workspace>().flatten().expect("workspace root");
+                ws.update(cx, |ws, cx| {
+                    for input in [ws.summary.clone(), ws.description.clone()] {
+                        input.update(cx, |s, cx| s.move_to(s.as_str().len(), cx));
+                    }
+                });
+            })
+            .ok();
+        }
         std::thread::sleep(Duration::from_millis(300));
         cx.update_window(window.into(), |_, window, _| window.refresh()).ok();
         cx.run_until_parked();

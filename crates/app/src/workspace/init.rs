@@ -8,6 +8,7 @@ use gpui_elements::editable_text::{EditableTextState, StringStorage, TextChanged
 
 use super::state::Workspace;
 use crate::features::branches::BranchUi;
+use crate::features::changes::follow_caret;
 use crate::features::history::HistoryUi;
 use crate::features::merge::MergeUi;
 use crate::features::settings::{Settings, ThemeMode};
@@ -29,6 +30,7 @@ impl Workspace {
         let url_input = text_state(cx);
         let mut subs = input_subscriptions([&summary, &filter, &name_input, &url_input], cx);
         subs.extend(window_subscriptions(window, cx));
+        subs.extend([&summary, &description].map(|i| follow_caret(i, window, cx)));
 
         let mut this = Self {
             settings: Settings::load(),

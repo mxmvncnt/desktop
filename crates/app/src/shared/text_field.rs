@@ -1,7 +1,7 @@
 //! Shared styling for single-line inputs.
 
 use gd_ui::Theme;
-use gpui::{App, Entity, IntoElement, Styled, px};
+use gpui::{App, Entity, IntoElement, StatefulInteractiveElement, Styled, px};
 use gpui_elements::editable_text::EditableTextState;
 
 pub fn text_field(
@@ -29,5 +29,5 @@ pub fn text_field(
         .text_size(px(13.0))
         .text_color(theme.text)
         .whitespace_nowrap()
-        .overflow_hidden()
+        .overflow_x_scroll()
 }
