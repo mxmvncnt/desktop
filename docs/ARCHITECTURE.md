@@ -299,6 +299,11 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   `cx.set_global(Theme::for_mode(light))`. `ink()`/`hairline()` are free functions (no `cx`), so they read a
   global flag set by `for_mode` (white washes on dark, black on light). Never hardcode `white()`/`black()`;
   use theme tokens or `ink()`, and check new UI with both `changes` and `changes-light` snapshots.
+- Color themes (`themes.rs`): data-driven `COLOR_THEMES` (zeron default, Nord, Tokyo Night, VS Code, Catppuccin,
+  Solarized). Each family has a dark and a light `Palette` (hex values incl. syntax colors); `Theme::from_palette`
+  derives washes/diff colors. The System/Light/Dark mode picks the variant, so every family needs both. Add a theme =
+  add two consts + one table entry. Persisted as `color_theme=<id>` in `display`; `Workspace::apply_theme` calls
+  `Theme::for_family`. Snapshot view `theme:<id>:<dark|light>[:settings]`.
 - `motion.rs`: the zeron motion catalog (`fade_in` 500ms expo-out with 4px rise,
   `fade_quick`, `menu_in`, `dialog_in`, plus an exact `CubicBezier`).
   Overlay hand-off: overlays call `motion::handoff(id, cx)` (and `Workspace::render` calls

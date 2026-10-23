@@ -9,7 +9,7 @@
 //! GD_CONFIG_DIR=/tmp/desktop-rs/config cargo run --features snapshot -- \
 //!     --snapshot /tmp/desktop-rs/shot.png /tmp/desktop-rs/testrepo history
 //! ```
-//! Views: `changes` (default), `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
+//! Views: `changes` (default), `theme:<id>:<dark|light>[:settings]`, `changes@N` (N-th file selected), `history`, `repos`, `branches`, `new-branch`, `new-branch-base`,
 //! `clone`, `welcome`, `watch` (headless file-watcher check, no PNG), `context-menu`,
 //! `header-menu`, `discard-dialog`, `split`, `split-history`, `split-ws`, `hide-ws`, `diff-options-menu`, `undo-strip`,
 //! `sidebar-wide`, `stash-list`, `stash-detail`, `stash-detail-untracked`, `stash-all`, `stash-menu`, `stash-dialog`, `stash-drop-dialog`,
@@ -77,6 +77,21 @@ pub fn run(out: PathBuf, repo: Option<PathBuf>, view: &str) {
             .expect("workspace root")
             .update(cx, |ws, cx| {
                 match view {
+                    // `theme:<id>:<dark|light>[:settings]`: a color theme, optionally with the settings modal.
+                    v if v.starts_with("theme:") => {
+                        let mut parts = v.split(':').skip(1);
+                        ws.settings.color_theme = parts.next().unwrap_or_default().to_string();
+                        ws.settings.theme = if parts.next() == Some("light") {
+                            crate::features::settings::ThemeMode::Light
+                        } else {
+                            crate::features::settings::ThemeMode::Dark
+                        };
+                        ws.settings_open = parts.next() == Some("settings");
+                        if let (false, Some(r)) = (ws.settings_open, &ws.repo) {
+                            r.update(cx, |r, cx| r.select_change(1, cx)); // second file: Rust, for syntax colors
+                        }
+                        ws.apply_theme(window, cx);
+                    }
                     v if v.starts_with("changes@") => {
                         // `changes@N`: select the N-th changed file.
                         let n = v[8..].parse().unwrap_or(0);

@@ -12,7 +12,7 @@
 //! unknown keys ignored), so the `repositories` format is untouched and files
 //! written by older builds keep loading: `diff_split=true|false`,
 //! `diff_ignore_whitespace=true|false`, `diff_wrap=true|false`,
-//! `theme=system|light|dark`, `sidebar_width=<px>`.
+//! `theme=system|light|dark`, `color_theme=<id>` (see `gd_ui::themes`), `sidebar_width=<px>`.
 
 use std::path::PathBuf;
 
@@ -84,6 +84,8 @@ pub struct Settings {
     pub theme: ThemeMode,
     /// Sidebar width in px; `None` = default (`gd_ui::theme::SIDEBAR_WIDTH`).
     pub sidebar_width: Option<f32>,
+    /// Color theme family id (`gd_ui::themes::COLOR_THEMES`).
+    pub color_theme: String,
 }
 
 impl Settings {
@@ -105,6 +107,9 @@ impl Settings {
         for (key, v) in text.lines().filter_map(|l| l.split_once('=')) {
             let flag = v.trim() == "true";
             match key.trim() {
+                "color_theme" => {
+                    self.color_theme = gd_ui::themes::find(v.trim()).map_or_else(String::new, |t| t.id.into())
+                }
                 "theme" => self.theme = v.trim().parse().unwrap_or_default(),
                 "diff_split" => self.diff_split = flag,
                 "diff_ignore_whitespace" => self.diff_ignore_whitespace = flag,
@@ -129,13 +134,19 @@ impl Settings {
         }
     }
 
+    /// Id of the active color theme (`zeron` when unset or unknown).
+    pub fn color_theme_id(&self) -> &str {
+        gd_ui::themes::find(&self.color_theme).map_or(gd_ui::themes::DEFAULT_THEME, |t| t.id)
+    }
+
     fn display_text(&self) -> String {
         format!(
-            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\n{}",
+            "diff_split={}\ndiff_ignore_whitespace={}\ndiff_wrap={}\ntheme={}\ncolor_theme={}\n{}",
             self.diff_split,
             self.diff_ignore_whitespace,
             self.diff_wrap,
             self.theme,
+            self.color_theme_id(),
             self.sidebar_width.map(|w| format!("sidebar_width={w}\n")).unwrap_or_default()
         )
     }
@@ -181,11 +192,14 @@ mod tests {
         t.apply_display(&s.display_text());
         assert_eq!((t.diff_split, t.theme), (true, ThemeMode::Dark));
         let mut u = Settings::default();
-        u.apply_display("theme=bogus");
+        u.apply_display("theme=bogus\ncolor_theme=nord");
         assert_eq!(u.theme, ThemeMode::System);
         assert_eq!(u.sidebar_width, None);
         u.apply_display("sidebar_width=345\n");
         assert_eq!(u.sidebar_width, Some(345.0));
         assert!(u.display_text().contains("sidebar_width=345"));
+        assert_eq!(u.color_theme_id(), "nord");
+        u.apply_display("color_theme=bogus");
+        assert_eq!(u.color_theme_id(), "zeron");
     }
 }

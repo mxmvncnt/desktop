@@ -23,8 +23,14 @@ impl Workspace {
         use gpui::WindowAppearance as A;
         let system_light = matches!(window.appearance(), A::Light | A::VibrantLight);
         let light = self.settings.theme.is_light(system_light);
-        cx.set_global(Theme::for_mode(light));
+        cx.set_global(Theme::for_family(self.settings.color_theme_id(), light));
         cx.notify();
+    }
+
+    pub(super) fn set_color_theme(&mut self, id: &str, window: &Window, cx: &mut Context<Self>) {
+        self.settings.color_theme = id.to_string();
+        self.settings.save();
+        self.apply_theme(window, cx);
     }
 
     pub(super) fn set_theme_mode(&mut self, mode: ThemeMode, window: &Window, cx: &mut Context<Self>) {

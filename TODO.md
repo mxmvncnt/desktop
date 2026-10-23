@@ -2,8 +2,6 @@
 
 - settings page
   - manage identities (git account/providers)
-  - theme:
-    - multiple color themes (inspired from Nord, Tokio, Vscode, etc. add a few)
 - overscroll bounce
 - make the code cleaner for humans
   - debug mode in the app that shows unique strings in the app to find the code associated with a feature or element faster

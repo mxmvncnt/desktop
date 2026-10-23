@@ -17,6 +17,7 @@ use crate::workspace::Workspace;
 pub struct SettingsModal {
     page: SettingsPage,
     theme: ThemeMode,
+    color_theme: String,
     diff: DiffOptionValues,
     ws: Entity<Workspace>,
 }
@@ -28,6 +29,7 @@ impl SettingsModal {
         ws.settings_open.then(|| Self {
             page: ws.settings_page,
             theme: s.theme,
+            color_theme: s.color_theme_id().to_string(),
             diff: DiffOptionValues {
                 split: s.diff_split,
                 wrap: s.diff_wrap,
@@ -39,7 +41,7 @@ impl SettingsModal {
 
     fn body(&self) -> AnyElement {
         match self.page {
-            SettingsPage::Appearance => AppearancePage::new(self.theme, self.ws.clone()).into_any_element(),
+            SettingsPage::Appearance => AppearancePage::new(self.theme, self.color_theme.clone(), self.ws.clone()).into_any_element(),
             SettingsPage::Diff => DiffPage::new(self.diff, self.ws.clone()).into_any_element(),
         }
     }

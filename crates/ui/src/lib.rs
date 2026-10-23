@@ -10,6 +10,7 @@ pub mod components;
 pub mod motion;
 pub mod overlay;
 pub mod theme;
+pub mod themes;
 pub mod tooltip;
 
 pub use assets::{Assets, Icon};

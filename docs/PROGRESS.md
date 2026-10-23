@@ -18,7 +18,7 @@
       To add a category: extend `SettingsPage` (label/icon) and add a page fn.
 - [x] Theme mode `System|Light|Dark` persisted as `theme=` in the `display` file. System follows
       `window.appearance()` and re-applies live via `observe_window_appearance`.
-- Not done: identities/providers, multiple color themes (see TODO.md). Snapshot views: `settings`,
+- Not done: identities/providers, ~~multiple color themes~~ (done: see ARCHITECTURE UI kit, Color themes). Snapshot views: `settings`,
   `settings-light`, `settings-diff`, `changes-light`.
 
 ## Diff long lines (2026-10-21)
