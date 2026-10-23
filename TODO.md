@@ -25,7 +25,6 @@
 - bundle for macos
 - bugs/wonky behaviour:
   - When creating a partial commit (single file with other files also updated), the main screen flashes before showing the diff of the next file in staging
-  - when clicking on sub-menus (like in the submenu for creating a branch), we can see the menu closing and the new one appearing, causing a quick flash
   - When the merge into modal is open, the rest of the app is still clickable
   - When amending a commit, and looking at the ammended commit, we need to click on another commit and back on the amended commit to see the changes reflected
   - when typing a long commit message, the box should be scrollable and by default should always show the end of the text

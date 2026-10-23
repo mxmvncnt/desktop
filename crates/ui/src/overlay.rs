@@ -102,6 +102,7 @@ impl ContextMenu {
 impl RenderOnce for ContextMenu {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
+        let instant = motion::handoff(&self.id, cx);
         // Keep the card inside the window (flip up / shift left near edges).
         // `position` is in window coordinates; under client-side decorations
         // the content sits inside a transparent shadow inset, so translate.
@@ -184,7 +185,7 @@ impl RenderOnce for ContextMenu {
                     .absolute()
                     .left(x)
                     .top(y)
-                    .child(motion::menu_in("context-menu-in", card)),
+                    .child(motion::menu_in("context-menu-in", card, instant)),
             ),
         )
     }
@@ -281,6 +282,7 @@ impl Dialog {
 impl RenderOnce for Dialog {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
+        let instant = motion::handoff(&self.id, cx);
         let cancel = self.on_cancel;
         let confirm = self.on_confirm;
 
@@ -346,7 +348,7 @@ impl RenderOnce for Dialog {
             div()
                 .absolute()
                 .inset_0()
-                .child(motion::fade_quick("dialog-scrim-in", backdrop))
+                .child(motion::scrim_in("dialog-scrim-in", backdrop, instant))
                 .child(
                     div()
                         .absolute()
@@ -354,7 +356,7 @@ impl RenderOnce for Dialog {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(motion::dialog_in("dialog-in", card)),
+                        .child(motion::dialog_in("dialog-in", card, instant)),
                 ),
         )
     }

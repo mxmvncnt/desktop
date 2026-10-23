@@ -10,9 +10,9 @@
 //! Animations are one-shot: nothing here schedules frames once settled, which
 //! matters for idle CPU (performance is a primary goal — see docs/PERFORMANCE.md).
 
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
-use gpui::{Animation, AnimationExt, ElementId, IntoElement, Styled, px};
+use gpui::{Animation, AnimationExt, AnyElement, App, ElementId, Global, IntoElement, Styled, px};
 
 pub const HOVER_MS: u64 = 120;
 pub const FADE_IN: Duration = Duration::from_millis(500);
@@ -86,26 +86,82 @@ pub fn fade_quick<E: IntoElement + Styled + 'static>(
     )
 }
 
+/// Which overlays were drawn last frame / this frame, to detect hand-offs.
+#[derive(Default)]
+struct OverlayTrack {
+    prev: HashSet<ElementId>,
+    cur: HashSet<ElementId>,
+    /// Overlays that appeared while another was open: no entrance animation.
+    instant: HashSet<ElementId>,
+}
+
+impl Global for OverlayTrack {}
+
+/// Call once per root render, before the overlays are built.
+pub fn begin_frame(cx: &mut App) {
+    let t = cx.default_global::<OverlayTrack>();
+    let cur = std::mem::take(&mut t.cur);
+    t.instant.retain(|id| cur.contains(id));
+    t.prev = cur;
+}
+
+/// Register overlay `id` for this frame. Returns true when it replaces another
+/// overlay that was open on the previous frame (menu -> dialog, popover ->
+/// popover): its entrance animation is skipped so there is no fade-through-
+/// nothing flash. Stays true for the overlay's whole life.
+pub fn handoff(id: &ElementId, cx: &mut App) -> bool {
+    let t = cx.default_global::<OverlayTrack>();
+    let fresh = !t.prev.contains(id) && !t.cur.contains(id);
+    if fresh && !t.prev.is_empty() {
+        t.instant.insert(id.clone());
+    }
+    t.cur.insert(id.clone());
+    t.instant.contains(id)
+}
+
 /// Popover/menu entrance: fade + drop from −2px over 140ms.
 pub fn menu_in<E: IntoElement + Styled + 'static>(
     id: impl Into<ElementId>,
     el: E,
-) -> impl IntoElement {
+    instant: bool,
+) -> AnyElement {
+    if instant {
+        return el.into_any_element();
+    }
     el.with_animation(
         id,
         Animation::new(MENU_IN).with_easing(CubicBezier::EXPO_OUT.easing()),
         |el, t| el.opacity(t).relative().top(px(-2.0 * (1.0 - t))),
     )
+    .into_any_element()
 }
 
 /// Dialog entrance: fade + rise 6px over 180ms.
 pub fn dialog_in<E: IntoElement + Styled + 'static>(
     id: impl Into<ElementId>,
     el: E,
-) -> impl IntoElement {
+    instant: bool,
+) -> AnyElement {
+    if instant {
+        return el.into_any_element();
+    }
     el.with_animation(
         id,
         Animation::new(DIALOG_IN).with_easing(CubicBezier::EXPO_OUT.easing()),
         |el, t| el.opacity(t).relative().top(px(6.0 * (1.0 - t))),
     )
+    .into_any_element()
+}
+
+/// Scrim fade-in, skipped on a hand-off (the previous overlay's scrim is
+/// already on screen).
+pub fn scrim_in<E: IntoElement + Styled + 'static>(
+    id: impl Into<ElementId>,
+    el: E,
+    instant: bool,
+) -> AnyElement {
+    if instant {
+        return el.into_any_element();
+    }
+    fade_quick(id, el).into_any_element()
 }

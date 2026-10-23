@@ -295,6 +295,9 @@ add syntax highlighting with a cache; add a file watcher so focus refresh isn't 
   use theme tokens or `ink()`, and check new UI with both `changes` and `changes-light` snapshots.
 - `motion.rs`: the zeron motion catalog (`fade_in` 500ms expo-out with 4px rise,
   `fade_quick`, `menu_in`, `dialog_in`, plus an exact `CubicBezier`).
+  Overlay hand-off: overlays call `motion::handoff(id, cx)` (and `Workspace::render` calls
+  `motion::begin_frame`); an overlay that first appears while another was drawn on the previous frame
+  (menu -> dialog, popover -> popover) skips its entrance and scrim fade, so nothing flashes. New overlays must do the same.
 - `components.rs`: `pressable` (row/ghost base with transitioned hover wash), `Button`
   (Primary, Secondary, Ghost, Danger), `Checkbox`, `Tabs` (segmented), `ToolbarButton`
   (Desktop's toolbar dropdowns), `badge`, `overlay_card`, `divider`/`vdivider`, `icon`.

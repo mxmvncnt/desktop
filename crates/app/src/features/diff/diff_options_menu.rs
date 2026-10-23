@@ -41,14 +41,13 @@ impl DiffOptionsMenu {
 impl RenderOnce for DiffOptionsMenu {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let origin = self.origin(window);
+        let key = SharedString::from(format!("diff-options-in-{}", self.generation));
+        let instant = motion::handoff(&key.clone().into(), cx);
         let ws = self.ws.clone();
         let card = self.card(cx);
         let backdrop = backdrop(ws);
         deferred(div().absolute().inset_0().child(backdrop).child(
-            div().absolute().left(origin.x).top(origin.y).child(motion::menu_in(
-                SharedString::from(format!("diff-options-in-{}", self.generation)),
-                card,
-            )),
+            div().absolute().left(origin.x).top(origin.y).child(motion::menu_in(key, card, instant)),
         ))
     }
 }

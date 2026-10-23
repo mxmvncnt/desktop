@@ -85,6 +85,7 @@ impl SettingsModal {
 
 impl RenderOnce for SettingsModal {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let instant = motion::handoff(&"settings-in".into(), cx);
         let ws = self.ws.clone();
         let backdrop = div()
             .id("settings-backdrop")
@@ -96,7 +97,7 @@ impl RenderOnce for SettingsModal {
             div()
                 .absolute()
                 .inset_0()
-                .child(motion::fade_quick("settings-scrim-in", backdrop))
+                .child(motion::scrim_in("settings-scrim-in", backdrop, instant))
                 .child(
                     div()
                         .absolute()
@@ -104,7 +105,7 @@ impl RenderOnce for SettingsModal {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(motion::dialog_in("settings-in", self.card(cx))),
+                        .child(motion::dialog_in("settings-in", self.card(cx), instant)),
                 ),
         )
     }

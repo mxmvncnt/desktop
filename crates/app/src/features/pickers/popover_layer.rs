@@ -40,6 +40,8 @@ impl RenderOnce for PopoverLayer {
             Popover::Branches | Popover::NewBranch => (296.0, 380.0),
         };
         let ws = self.ws;
+        let key = gpui::ElementId::from(("popover", self.generation));
+        let instant = motion::handoff(&key, cx);
         deferred(
             div()
                 .absolute()
@@ -65,11 +67,12 @@ impl RenderOnce for PopoverLayer {
                         .left(px(left))
                         .w(px(width))
                         .child(motion::menu_in(
-                            ("popover", self.generation),
+                            key,
                             gd_ui::overlay_card(cx)
                                 .id("popover-card")
                                 .occlude()
                                 .child(self.content),
+                            instant,
                         )),
                 ),
         )

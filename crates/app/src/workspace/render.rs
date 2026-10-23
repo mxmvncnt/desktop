@@ -28,6 +28,7 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::of(cx).clone();
         crate::frame_debug::on_render();
+        gd_ui::motion::begin_frame(cx);
         let chrome = Chrome::detect(window);
         self.corner_radius = chrome.radius();
         let body = self.body(cx);
