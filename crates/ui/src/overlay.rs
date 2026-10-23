@@ -172,7 +172,7 @@ impl RenderOnce for ContextMenu {
         }
 
         let dismiss = self.on_dismiss;
-        let mut backdrop = div().id("menu-backdrop").absolute().inset_0();
+        let mut backdrop = div().id("menu-backdrop").occlude().absolute().inset_0();
         if let Some(f) = dismiss {
             let g = f.clone();
             backdrop = backdrop
@@ -340,7 +340,7 @@ impl RenderOnce for Dialog {
                     .child(confirm_btn),
             );
 
-        let mut backdrop = div().id("dialog-backdrop").absolute().inset_0().bg(scrim(0.5));
+        let mut backdrop = div().id("dialog-backdrop").occlude().absolute().inset_0().bg(scrim(0.5));
         if let Some(f) = cancel {
             backdrop = backdrop.on_mouse_down(MouseButton::Left, move |_, w, cx| f(w, cx));
         }
