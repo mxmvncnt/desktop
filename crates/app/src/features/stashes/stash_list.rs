@@ -3,6 +3,7 @@
 use gpui::{App, Entity, IntoElement, RenderOnce, Window, div, prelude::*, px, uniform_list};
 
 use super::stash_row::{STASH_ROW_HEIGHT, StashRow};
+use crate::shared::overscroll::{Overscroll, ScrollProbe};
 use crate::repo::RepoModel;
 use crate::workspace::{NavList, Workspace, nav_focus};
 
@@ -38,6 +39,7 @@ impl RenderOnce for StashList {
         let (scroll, viewing, selected) = (st.list_scroll.clone(), st.viewing, st.selected.clone());
         let nav_ws = self.ws.clone();
         let Self { repo, ws, visible, current_branch, all_branches } = self;
+        let probe = ScrollProbe::from(&scroll);
         let list = uniform_list("stashes", n, move |range, _w, cx| {
             let r = repo.read(cx);
             range
@@ -55,6 +57,6 @@ impl RenderOnce for StashList {
         nav_focus(div(), NavList::Stashes, nav_ws)
             .h(px(n.min(MAX_ROWS) as f32 * STASH_ROW_HEIGHT + 4.0))
             .flex_none()
-            .child(list)
+            .child(Overscroll::new("stashes-overscroll", probe, list))
     }
 }

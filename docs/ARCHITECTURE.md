@@ -398,3 +398,12 @@ gotchas above.
   workspace so inputs (which bind their own copy/select-all deeper) do not intercept.
 - Shared `CARGO_TARGET_DIR` across worktrees can mix `gd-ui` artifacts of different branches (spurious E0061); use a
   per-worktree target if you see impossible errors.
+
+### Overscroll bounce
+
+- `shared/overscroll.rs`: `Overscroll::new(id, probe, list)` wraps a list (changes, history, stashes, commit files, diff). GPUI's
+  scroll containers never report swallowed wheel events, so a `ScrollProbe` (uniform handle or `ListState`) says whether the
+  list is at an edge; only precise (trackpad) vertical deltas pull the content (damped, max 64px). Line deltas never bounce.
+- Spring-back (expo-out, 380ms) starts on `TouchPhase::Ended` or after 90ms of wheel silence, and requests frames only while it
+  runs, so settled views render nothing extra. `App::reduce_motion` snaps back instantly.
+- `GD_OVERSCROLL_PREVIEW=<px>` pins a pull (for `--snapshot` checks).

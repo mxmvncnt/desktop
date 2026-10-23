@@ -8,12 +8,14 @@ use gpui::{
 };
 
 use super::text_flow::TextFlow;
+use crate::shared::overscroll::{Overscroll, ScrollProbe};
 use crate::workspace::Workspace;
 
 #[derive(IntoElement)]
 pub struct DiffFrame {
     pub key: SharedString,
     pub list: AnyElement,
+    pub probe: ScrollProbe,
     pub truncated: bool,
     pub flow: TextFlow,
     pub note: Option<AnyElement>,
@@ -54,7 +56,7 @@ impl RenderOnce for DiffFrame {
                                 }
                             })
                         })
-                        .child(self.list),
+                        .child(Overscroll::new("diff-overscroll", self.probe, self.list)),
                 )
                 .when(self.truncated, |d| d.child(truncated_warning(theme))),
         )

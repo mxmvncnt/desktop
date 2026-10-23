@@ -35,6 +35,7 @@
 
 ## Diff text selection
 
+- [x] Overscroll rubber-band bounce on sidebar lists and the diff (`shared/overscroll.rs`, see ARCHITECTURE).
 - [x] Mouse text selection in the diff (unified/split, wrapped/scrolled): drag, shift-click, double-click word,
       triple-click line; Ctrl/Cmd+C copies code only, Ctrl/Cmd+A selects all (split: one side). Snapshot views
       `select[-split][-wrap|-hscroll]`. Not done: autoscroll while dragging past the list edge.
