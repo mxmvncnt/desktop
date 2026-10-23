@@ -121,7 +121,7 @@ guessing APIs. To recreate them:
 - `RepoModel` (`repo/`: `state.rs`, `refresh.rs` (RefreshScope, watcher, pending_refresh), `background_fetch.rs`, `change_diff.rs`/`commit_diff.rs` (generation counters), `diff_highlight.rs`, `expand.rs`, `history_log.rs`, `run.rs`) owns all repository state: status, selection, diff,
   history pages, commit details, branches, and in-flight ops.
   Every git call goes through `cx.background_spawn`, and results are applied with `this.update`.
-- **Stale results are dropped** with generation counters (`change_diff_gen`,
+- **Stale results are dropped** with generation counters (`change_diff_gen`, A status refresh always reloads the selected diff (status list equality is not enough: re-editing a modified file leaves it identical); `apply_change_diff` drops results equal to what is shown.
   `commit_gen`). Clicking quickly through files never shows the wrong diff.
 - `RepoModel::run(op, on_ok)` is the generic write-op helper. It runs off-thread,
   sets `error`, then refreshes status and branches.

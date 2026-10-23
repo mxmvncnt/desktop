@@ -53,7 +53,7 @@ impl RepoModel {
             Ok(d) => {
                 let key = (path.clone(), opts);
                 let unchanged = self.change_diff_key.as_ref() == Some(&key)
-                    && self.change_diff.as_ref().is_some_and(|c| c.source.is_some() && c.source == d.source);
+                    && self.change_diff.as_ref().is_some_and(|c| **c == d);
                 if unchanged {
                     // Same file, same contents: keep the expansion and highlight.
                     return;

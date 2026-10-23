@@ -140,7 +140,6 @@ impl RepoModel {
         let paths: HashSet<&str> = status.files.iter().map(|f| f.path.as_str()).collect();
         self.excluded.retain(|p| paths.contains(p.as_str()));
         self.partial.retain(|p, _| paths.contains(p.as_str()));
-        let changed = self.status.as_ref().map(|s| &s.files) != Some(&status.files);
         self.status = Some(status);
         self.selected_change = selected_path
             .and_then(|p| self.changes().iter().position(|c| c.path == p))
@@ -150,8 +149,9 @@ impl RepoModel {
                 0 => None,
                 n => Some(old_ix.unwrap_or(0).min(n - 1)),
             });
-        if changed || self.change_diff.is_none() {
-            self.load_change_diff(cx);
-        }
+        // Always reload: re-editing an already-modified file leaves the status
+        // list identical but changes the diff. `apply_change_diff` drops
+        // results equal to what is shown, keeping expansion/highlight.
+        self.load_change_diff(cx);
     }
 }

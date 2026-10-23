@@ -8,5 +8,3 @@
   - add documentations for humans
 - bundle as flatpak
 - bundle for macos
-- bugs/wonky behaviour:
-  - sometimes when viewing the staged diff, it does not show all changes, they only show up when vieweing the actual commit's changes.

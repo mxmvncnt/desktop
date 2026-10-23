@@ -36,6 +36,21 @@ fn main() {
     let st = repo.status().unwrap();
     repo.discard(&st.files).unwrap();
     println!("after discard: {} changes", repo.status().unwrap().files.len());
+    // Working diff is against HEAD even with part already staged, and re-editing
+    // a modified file keeps the same status but must change the diff.
+    {
+        let git = |args: &[&str]| assert!(std::process::Command::new("git").current_dir(&dir).args(args).status().unwrap().success());
+        std::fs::write(dir.join("a.txt"), "A\nstaged\n").unwrap();
+        git(&["add", "a.txt"]);
+        let before = repo.status().unwrap();
+        std::fs::write(dir.join("a.txt"), "A\nstaged\nunstaged\n").unwrap();
+        let after = repo.status().unwrap();
+        assert_eq!(before.files, after.files, "status unchanged by re-edit");
+        let d = repo.working_diff(&after.files[0], Default::default()).unwrap();
+        assert_eq!(d.added, 3, "diff must include staged and unstaged changes vs HEAD");
+        git(&["reset", "-q"]);
+        repo.discard(&repo.status().unwrap().files).unwrap();
+    }
     // ignore: literal + extension patterns, idempotent, ends with newline.
     std::fs::write(dir.join("junk.log"), "x").unwrap();
     std::fs::write(dir.join("we[ird].tmp"), "x").unwrap();
